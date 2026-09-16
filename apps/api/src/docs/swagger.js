@@ -74,6 +74,12 @@ const definicion = {
   },
 };
 
-const opciones = { definition: definicion, apis: [path.join(__dirname, "../routes/*.routes.js")] };
+const opciones = {
+  definition: definicion,
+  // .replace(/\\/g, "/") es necesario en Windows: glob interpreta el
+  // backslash como caracter de escape, no como separador de carpetas,
+  // asi que sin esto swagger-jsdoc no encuentra ningun archivo de rutas.
+  apis: [path.join(__dirname, "../routes/*.routes.js").replace(/\\/g, "/")],
+};
 
 module.exports = swaggerJsdoc(opciones);
