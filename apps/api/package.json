@@ -19,22 +19,17 @@
   "jest": {
     "testEnvironment": "node",
     "roots": [
-      "<rootDir>/apps/api"
+      "<rootDir>/tests"
+    ],
+    "setupFiles": [
+      "<rootDir>/tests/setupEnv.js"
     ],
     "collectCoverageFrom": [
       "src/**/*.js",
       "!src/server.js",
       "!src/data/**"
     ],
-    "clearMocks": true,
-    "testMatch": [
-      "**/apps/api/tests/**/*.test.js"
-    ],
-    "moduleDirectories": [
-      "node_modules",
-      "../../packages"
-    ],
-    "rootDir": "../.."
+    "clearMocks": true
   },
   "dependencies": {
     "cors": "^2.8.6",

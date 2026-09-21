@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
-const dominioJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../../packages/contratos/dominio.json'), 'utf8'));
+const dominioJson = JSON.parse(
+  fs.readFileSync(path.join(__dirname, '../../../../packages/contratos/dominio.json'), 'utf8'),
+);
 
 /**
  * Congela un objeto y todo lo que contiene, para que ninguna parte
