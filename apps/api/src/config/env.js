@@ -4,7 +4,7 @@ const PUERTO_POR_DEFECTO = '3000';
 const PUERTO_MINIMO = 1;
 const PUERTO_MAXIMO = 65535;
 const LONGITUD_MINIMA_API_KEY = 32;
-const PREFIJO_API_KEY_DE_EJEMPLO = 'cambiar-por';
+const PREFIJO_API_KEY_DE_EJEMPLO = 'REEMPLAZAR_CON';
 
 /**
  * Cada función leer* toma UNA variable, la valida y devuelve su valor ya
@@ -36,19 +36,20 @@ const leerPuerto = (variables, errores) => {
   return puerto;
 };
 
-const leerApiKey = (variables, errores) => {
-  const apiKey = variables.API_KEY;
+const validarClaveApi = (nombreVariable, variables, errores) => {
+  const clave = variables[nombreVariable];
 
-  // Por seguridad, ningún mensaje de error incluye el valor de la llave
-  if (!apiKey) {
-    errores.push('API_KEY es obligatoria');
-  } else if (apiKey.length < LONGITUD_MINIMA_API_KEY) {
-    errores.push(`API_KEY debe tener al menos ${LONGITUD_MINIMA_API_KEY} caracteres`);
-  } else if (apiKey.startsWith(PREFIJO_API_KEY_DE_EJEMPLO)) {
-    errores.push('API_KEY conserva el valor de ejemplo de .env.example; genera una propia');
+  if (!clave) {
+    errores.push(`${nombreVariable} es obligatoria`);
+  } else if (clave.length < LONGITUD_MINIMA_API_KEY) {
+    errores.push(`${nombreVariable} debe tener al menos ${LONGITUD_MINIMA_API_KEY} caracteres`);
+  } else if (clave.startsWith(PREFIJO_API_KEY_DE_EJEMPLO)) {
+    errores.push(
+      `${nombreVariable} conserva el valor de ejemplo de .env.example; genera una propia`,
+    );
   }
 
-  return apiKey;
+  return clave;
 };
 
 const esUrlHttp = (texto) => {
@@ -93,7 +94,11 @@ const cargarConfiguracion = (variables = process.env) => {
   const configuracion = {
     entorno: leerEntorno(variables, errores),
     puerto: leerPuerto(variables, errores),
-    apiKey: leerApiKey(variables, errores),
+    apiKeys: {
+      postman: validarClaveApi('API_KEY_POSTMAN', variables, errores),
+      admin: validarClaveApi('API_KEY_ADMIN', variables, errores),
+      movil: validarClaveApi('API_KEY_MOVIL', variables, errores),
+    },
     origenPermitido: leerOrigenPermitido(variables, errores),
   };
 

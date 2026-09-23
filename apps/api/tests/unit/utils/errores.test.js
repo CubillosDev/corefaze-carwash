@@ -4,6 +4,7 @@ const {
   NoAutenticado,
   NoEncontrado,
   Conflicto,
+  AccesoDenegado,
 } = require('../../../src/utils/errores');
 
 describe('errores HTTP del dominio', () => {
@@ -12,11 +13,11 @@ describe('errores HTTP del dominio', () => {
     ['NoAutenticado', new NoAutenticado(), 401],
     ['NoEncontrado', new NoEncontrado(), 404],
     ['Conflicto', new Conflicto('Turno repetido'), 409],
+    ['AccesoDenegado', new AccesoDenegado(), 403],
   ])('%s usa el estado HTTP %i', (nombre, error, estado) => {
     expect(error.estado).toBe(estado);
     expect(error.name).toBe(nombre);
   });
-
   it('todos son instancias de ErrorHttp y de Error', () => {
     [new SolicitudInvalida(), new NoAutenticado(), new NoEncontrado(), new Conflicto('x')].forEach(
       (error) => {
@@ -42,6 +43,9 @@ describe('errores HTTP del dominio', () => {
       expect(new Conflicto('Turno repetido').aCuerpo()).toEqual({ mensaje: 'Turno repetido' });
       expect(new NoEncontrado('Orden no encontrada').aCuerpo()).toEqual({
         mensaje: 'Orden no encontrada',
+      });
+      expect(new AccesoDenegado('API Key deshabilitada').aCuerpo()).toEqual({
+        mensaje: 'API Key deshabilitada',
       });
     });
 

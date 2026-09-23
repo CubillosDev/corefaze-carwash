@@ -4,8 +4,10 @@ const { crearApp } = require('../../src/app');
 const LLAVE = 'k'.repeat(40);
 const ORIGEN = 'http://localhost:5173';
 
-const app = crearApp({ apiKey: LLAVE, origenPermitido: ORIGEN });
-
+const app = crearApp({
+  apiKeys: { postman: LLAVE, admin: 'a'.repeat(40), movil: 'm'.repeat(40) },
+  origenPermitido: ORIGEN,
+});
 describe('aplicación', () => {
   describe('GET /api/salud', () => {
     it('responde 200 sin necesidad de API Key', async () => {
@@ -21,7 +23,7 @@ describe('aplicación', () => {
       const respuesta = await request(app).get('/api/cualquier-cosa');
 
       expect(respuesta.status).toBe(401);
-      expect(respuesta.body).toEqual({ mensaje: 'API Key inválida o ausente' });
+      expect(respuesta.body).toEqual({ mensaje: 'API Key requerida' });
     });
 
     it('responde 401 con una llave incorrecta', async () => {
@@ -30,6 +32,7 @@ describe('aplicación', () => {
         .set('X-API-Key', 'incorrecta');
 
       expect(respuesta.status).toBe(401);
+      expect(respuesta.body).toEqual({ mensaje: 'API Key inválida' });
     });
 
     it('deja pasar con la llave correcta (y responde 404 porque la ruta no existe)', async () => {
@@ -37,6 +40,16 @@ describe('aplicación', () => {
 
       expect(respuesta.status).toBe(404);
       expect(respuesta.body).toEqual({ mensaje: 'Ruta no encontrada' });
+    });
+
+    it('identifica al cliente autenticado en /api/seguridad/cliente', async () => {
+      const respuesta = await request(app).get('/api/seguridad/cliente').set('X-API-Key', LLAVE);
+
+      expect(respuesta.status).toBe(200);
+      expect(respuesta.body).toEqual({
+        mensaje: 'Cliente autenticado',
+        cliente: { id: 1, nombre: 'Postman / Laboratorio' },
+      });
     });
   });
 

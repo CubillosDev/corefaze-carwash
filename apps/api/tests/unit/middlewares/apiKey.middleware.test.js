@@ -1,51 +1,64 @@
 const { crearMiddlewareApiKey } = require('../../../src/middlewares/apiKey.middleware');
-const { NoAutenticado } = require('../../../src/utils/errores');
+const { crearServicioApiKeys } = require('../../../src/services/apiKeys.service');
+const { generarHash } = require('../../../src/utils/crypto.util');
+const { NoAutenticado, AccesoDenegado } = require('../../../src/utils/errores');
 
-const LLAVE_VALIDA = 'k'.repeat(40);
-const exigirApiKey = crearMiddlewareApiKey(LLAVE_VALIDA);
+const CLAVE_ACTIVA = 'clave-activa-de-prueba-0123456789';
+const CLAVE_INACTIVA = 'clave-inactiva-de-prueba-0123456789';
 
-// Petición falsa que devuelve `valor` cuando se le pide el header X-API-Key
+const registros = [
+  { id: 1, cliente: 'Postman', hash: generarHash(CLAVE_ACTIVA), activa: true },
+  { id: 2, cliente: 'Móvil', hash: generarHash(CLAVE_INACTIVA), activa: false },
+];
+
+const middleware = crearMiddlewareApiKey(crearServicioApiKeys(registros));
+
 const crearPeticion = (valor) => ({
   get: jest.fn((nombreHeader) => (nombreHeader === 'X-API-Key' ? valor : undefined)),
 });
 
 const ejecutar = (valor) => {
+  const req = crearPeticion(valor);
   const next = jest.fn();
-  exigirApiKey(crearPeticion(valor), {}, next);
-  return next;
+  middleware(req, {}, next);
+  return { req, next };
 };
 
 describe('crearMiddlewareApiKey', () => {
-  it('deja pasar la petición con la llave correcta', () => {
-    expect(ejecutar(LLAVE_VALIDA)).toHaveBeenCalledWith();
-  });
-
-  it.each([
-    ['sin el header', undefined],
-    ['con el header vacío', ''],
-    ['con una llave incorrecta', 'x'.repeat(40)],
-    ['con una llave casi igual', `${'k'.repeat(39)}x`],
-    ['con una llave más corta', 'k'.repeat(5)],
-    ['con una llave más larga', 'k'.repeat(200)],
-    ['con distinta capitalización', LLAVE_VALIDA.toUpperCase()],
-  ])('responde 401 %s', (_descripcion, llave) => {
-    const next = ejecutar(llave);
-
+  it('responde 401 sin el header (API Key requerida)', () => {
+    const { next } = ejecutar(undefined);
     const [error] = next.mock.calls[0];
+
     expect(error).toBeInstanceOf(NoAutenticado);
-    expect(error.estado).toBe(401);
+    expect(error.message).toBe('API Key requerida');
   });
 
-  it('no incluye ninguna llave en el mensaje de error', () => {
-    const llaveIntentada = 'intento-de-llave-robada';
-    const [error] = ejecutar(llaveIntentada).mock.calls[0];
+  it('responde 401 con una llave que no existe (API Key inválida)', () => {
+    const { next } = ejecutar('llave-inventada');
+    const [error] = next.mock.calls[0];
 
-    expect(error.message).not.toContain(llaveIntentada);
-    expect(error.message).not.toContain(LLAVE_VALIDA);
+    expect(error).toBeInstanceOf(NoAutenticado);
+    expect(error.message).toBe('API Key inválida');
   });
 
-  it('exige una API Key esperada no vacía al crearse', () => {
-    expect(() => crearMiddlewareApiKey('')).toThrow(/no vacía/);
-    expect(() => crearMiddlewareApiKey(undefined)).toThrow(/no vacía/);
+  it('responde 403 con una llave válida pero desactivada', () => {
+    const { next } = ejecutar(CLAVE_INACTIVA);
+    const [error] = next.mock.calls[0];
+
+    expect(error).toBeInstanceOf(AccesoDenegado);
+    expect(error.estado).toBe(403);
+  });
+
+  it('deja pasar y expone req.clienteApi con una llave válida y activa', () => {
+    const { req, next } = ejecutar(CLAVE_ACTIVA);
+
+    expect(next).toHaveBeenCalledWith();
+    expect(req.clienteApi).toEqual({ id: 1, nombre: 'Postman' });
+  });
+
+  it('no expone el hash ni la llave original en req.clienteApi', () => {
+    const { req } = ejecutar(CLAVE_ACTIVA);
+
+    expect(JSON.stringify(req.clienteApi)).not.toContain(CLAVE_ACTIVA);
   });
 });

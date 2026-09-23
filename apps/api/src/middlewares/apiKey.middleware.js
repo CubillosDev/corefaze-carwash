@@ -1,38 +1,34 @@
-const crypto = require('node:crypto');
-const { NoAutenticado } = require('../utils/errores');
+const { NoAutenticado, AccesoDenegado } = require('../utils/errores');
 
 const NOMBRE_HEADER = 'X-API-Key';
 
-const calcularHuella = (texto) => crypto.createHash('sha256').update(texto).digest();
-
 /**
- * Compara en tiempo constante para no filtrar, por diferencias de milisegundos,
- * cuántos caracteres de la llave se acertaron. Se comparan las huellas SHA-256
- * porque timingSafeEqual exige buffers de igual longitud.
- */
-const llavesCoinciden = (recibida, esperada) =>
-  crypto.timingSafeEqual(calcularHuella(recibida), calcularHuella(esperada));
-
-/**
- * Crea el middleware que exige la API Key en el header X-API-Key.
- * Recibe la llave esperada como parámetro en lugar de leer env aquí: se prueba
- * con cualquier llave y luego será fácil aceptar una lista (web y móvil).
+ * Crea el middleware que identifica al cliente que llama a la API.
+ * Recibe el service (no las llaves) para no acoplarse a cómo se cargan:
+ * en pruebas se le pasa un service con registros falsos.
  *
- * @param {string} apiKeyEsperada
+ * @param {{ buscarClientePorApiKey: (apiKey: string) => object | null }} servicioApiKeys
  */
-const crearMiddlewareApiKey = (apiKeyEsperada) => {
-  if (!apiKeyEsperada) {
-    throw new Error('crearMiddlewareApiKey requiere una API Key no vacía');
+const crearMiddlewareApiKey = (servicioApiKeys) => (req, _res, next) => {
+  const apiKeyRecibida = req.get(NOMBRE_HEADER);
+
+  if (!apiKeyRecibida) {
+    return next(new NoAutenticado('API Key requerida'));
   }
 
-  return (req, _res, next) => {
-    const apiKeyRecibida = req.get(NOMBRE_HEADER);
+  const cliente = servicioApiKeys.buscarClientePorApiKey(apiKeyRecibida);
 
-    if (!apiKeyRecibida || !llavesCoinciden(apiKeyRecibida, apiKeyEsperada)) {
-      return next(new NoAutenticado());
-    }
-    return next();
-  };
+  if (!cliente) {
+    return next(new NoAutenticado('API Key inválida'));
+  }
+
+  if (!cliente.activa) {
+    return next(new AccesoDenegado('API Key deshabilitada'));
+  }
+
+  // Disponible para el resto de la petición: routes, controllers y auditoría
+  req.clienteApi = { id: cliente.id, nombre: cliente.cliente };
+  return next();
 };
 
 module.exports = { crearMiddlewareApiKey };

@@ -54,4 +54,18 @@ class Conflicto extends ErrorHttp {
   }
 }
 
-module.exports = { ErrorHttp, SolicitudInvalida, NoAutenticado, NoEncontrado, Conflicto };
+/** 403: la credencial es válida, pero está desactivada o no autorizada. */
+class AccesoDenegado extends ErrorHttp {
+  constructor(mensaje = 'Acceso denegado') {
+    super(403, mensaje);
+  }
+}
+
+module.exports = {
+  ErrorHttp,
+  SolicitudInvalida,
+  NoAutenticado,
+  NoEncontrado,
+  Conflicto,
+  AccesoDenegado,
+};

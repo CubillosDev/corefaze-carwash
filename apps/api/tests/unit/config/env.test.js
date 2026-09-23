@@ -3,7 +3,9 @@ const { cargarConfiguracion } = require('../../../src/config/env');
 const variablesValidas = Object.freeze({
   NODE_ENV: 'development',
   PORT: '3000',
-  API_KEY: 'a'.repeat(32),
+  API_KEY_POSTMAN: 'a'.repeat(32),
+  API_KEY_ADMIN: 'b'.repeat(32),
+  API_KEY_MOVIL: 'c'.repeat(32),
   ALLOWED_ORIGIN: 'http://localhost:5173',
 });
 
@@ -16,7 +18,11 @@ describe('cargarConfiguracion', () => {
       expect(cargarConfiguracion(variablesValidas)).toEqual({
         entorno: 'development',
         puerto: 3000,
-        apiKey: 'a'.repeat(32),
+        apiKeys: {
+          postman: 'a'.repeat(32),
+          admin: 'b'.repeat(32),
+          movil: 'c'.repeat(32),
+        },
         origenPermitido: 'http://localhost:5173',
       });
     });
@@ -55,11 +61,17 @@ describe('cargarConfiguracion', () => {
       ['PORT decimal', { PORT: '30.5' }, /PORT/],
       ['PORT en cero', { PORT: '0' }, /PORT/],
       ['PORT fuera de rango', { PORT: '70000' }, /PORT/],
-      ['API_KEY ausente', { API_KEY: undefined }, /API_KEY es obligatoria/],
-      ['API_KEY demasiado corta', { API_KEY: 'corta' }, /al menos 32 caracteres/],
+      ['API_KEY_POSTMAN ausente', { API_KEY_POSTMAN: undefined }, /API_KEY_POSTMAN es obligatoria/],
+      ['API_KEY_ADMIN ausente', { API_KEY_ADMIN: undefined }, /API_KEY_ADMIN es obligatoria/],
+      ['API_KEY_MOVIL ausente', { API_KEY_MOVIL: undefined }, /API_KEY_MOVIL es obligatoria/],
       [
-        'API_KEY con el valor de ejemplo',
-        { API_KEY: 'cambiar-por-una-llave-larga-y-aleatoria' },
+        'API_KEY_POSTMAN demasiado corta',
+        { API_KEY_POSTMAN: 'corta' },
+        /API_KEY_POSTMAN.*al menos 32 caracteres/,
+      ],
+      [
+        'API_KEY_POSTMAN con el valor de ejemplo',
+        { API_KEY_POSTMAN: 'REEMPLAZAR_CON_API_KEY_SEGURA000' },
         /valor de ejemplo/,
       ],
       ['ALLOWED_ORIGIN ausente', { ALLOWED_ORIGIN: undefined }, /ALLOWED_ORIGIN es obligatoria/],
@@ -76,7 +88,7 @@ describe('cargarConfiguracion', () => {
     it('nunca incluye el valor de la API_KEY en el mensaje de error', () => {
       const llaveSecreta = 'secreto-corto';
 
-      expect(() => cargarConfiguracion(conCambios({ API_KEY: llaveSecreta }))).toThrow(
+      expect(() => cargarConfiguracion(conCambios({ API_KEY_POSTMAN: llaveSecreta }))).toThrow(
         expect.objectContaining({
           message: expect.not.stringContaining(llaveSecreta),
         }),
