@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const swaggerUi = require('swagger-ui-express');
+const rutasAuth = require('./routes/auth.routes');
 
 const { env } = require('./config/env');
 const { documentoSwagger } = require('./docs/swagger');
@@ -44,6 +45,8 @@ const crearApp = ({ apiKeys, origenPermitido } = env) => {
   app.use('/api', validarApiKey);
 
   app.use('/api/seguridad', rutasSeguridad);
+  app.use('/api/seguridad', rutasSeguridad);
+  app.use('/api/auth', rutasAuth);
   // Aquí se montarán los demás recursos: app.use('/api/colaboradores', ...) ...
 
   app.use(rutaNoEncontrada);

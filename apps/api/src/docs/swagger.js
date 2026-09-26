@@ -20,6 +20,10 @@ const definicion = {
       name: 'Seguridad',
       description: 'Endpoints relacionados con autenticación y seguridad de la API',
     },
+    {
+      name: 'Autenticación',
+      description: 'Registro e inicio de sesión de usuarios',
+    },
     // Aquí se agregarán los tags de cada recurso: Colaboradores, Servicios,
     // Clientes, Vehículos, Órdenes de lavado...
   ],

@@ -8,6 +8,7 @@ const {
   TIPOS_VEHICULO_MOTO,
   SERVICIOS_CON_LAVADO_MOTOR,
   PATRONES_PLACA,
+  ROLES,
 } = require('../../../src/constants/dominio');
 
 const todosLosEstados = Object.values(ESTADOS_ORDEN);
@@ -75,6 +76,12 @@ describe('constantes de dominio', () => {
   describe('reglas de servicio', () => {
     it('los servicios con lavado de motor son el 5, 6, 7 y 8 (R7)', () => {
       expect(SERVICIOS_CON_LAVADO_MOTOR).toEqual([5, 6, 7, 8]);
+    });
+  });
+
+  describe('roles de usuario', () => {
+    it('define superadmin, administrador y soporte', () => {
+      expect(ROLES).toEqual(['superadmin', 'administrador', 'soporte']);
     });
   });
 

@@ -49,4 +49,5 @@ module.exports = {
   SERVICIOS_CON_LAVADO_MOTOR: dominio.serviciosConLavadoMotor,
   PATRONES_PLACA,
   LIMITES: dominio.limites,
+  ROLES: dominio.roles,
 };
