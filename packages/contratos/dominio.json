@@ -33,5 +33,6 @@
     "observaciones": { "max": 255 },
     "porcentajeComision": { "min": 0, "max": 1 },
     "turno": { "min": 1 }
-  }
+  },
+  "roles": ["superadmin", "administrador", "soporte"]
 }
