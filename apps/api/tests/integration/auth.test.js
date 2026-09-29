@@ -21,18 +21,17 @@ const datosDeRegistro = {
   nombre: 'Administrador Lavadero',
   email: 'admin@lavadero.com',
   password: 'ClaveSegura2026!',
-  rol: 'superadmin',
 };
 
 describe('POST /api/auth/registro', () => {
-  it('registra un usuario válido (201)', async () => {
+  it('registra un usuario válido (201), con rol "pendiente" asignado por el servidor', async () => {
     const respuesta = await conApiKey('post', '/api/auth/registro').send(datosDeRegistro);
 
     expect(respuesta.status).toBe(201);
     expect(respuesta.body.usuario).toMatchObject({
       nombre: datosDeRegistro.nombre,
       email: datosDeRegistro.email,
-      rol: datosDeRegistro.rol,
+      rol: 'pendiente',
       activo: true,
     });
   });
@@ -63,19 +62,38 @@ describe('POST /api/auth/registro', () => {
     expect(respuesta.status).toBe(400);
   });
 
-  it('bloquea mass assignment: activo y rol falso no llegan al usuario creado', async () => {
+  it('bloquea escalada de privilegios y mass assignment (Parte 10-12 del laboratorio)', async () => {
     const respuesta = await conApiKey('post', '/api/auth/registro').send({
-      ...datosDeRegistro,
+      nombre: 'Usuario Ataque',
       email: 'ataque@lavadero.com',
+      password: 'ClaveSegura2026!',
+      rol: 'administrador',
       activo: false,
+      id: 9999,
       esSuperAdmin: true,
-      passwordHash: 'HASH_FALSO',
+      passwordHash: 'HASH_CONTROLADO',
+      permisos: ['DELETE_ALL', 'ADMIN'],
     });
 
     expect(respuesta.status).toBe(201);
-    expect(respuesta.body.usuario.activo).toBe(true);
-    expect(respuesta.body.usuario.esSuperAdmin).toBeUndefined();
+    // ATACANTE SOLICITÓ → SERVIDOR GUARDÓ
+    expect(respuesta.body.usuario.rol).toBe('pendiente'); // administrador → pendiente
+    expect(respuesta.body.usuario.activo).toBe(true); // false → true
+    expect(respuesta.body.usuario.esSuperAdmin).toBeUndefined(); // ni siquiera existe
     expect(respuesta.body.usuario.passwordHash).toBeUndefined();
+    expect(respuesta.body.usuario.permisos).toBeUndefined();
+    expect(respuesta.body.usuario.id).not.toBe(9999);
+  });
+
+  it('un rol inválido para el dominio (ej. "medico") tampoco causa 400: se ignora igual', async () => {
+    const respuesta = await conApiKey('post', '/api/auth/registro').send({
+      ...datosDeRegistro,
+      email: 'otro@lavadero.com',
+      rol: 'medico',
+    });
+
+    expect(respuesta.status).toBe(201);
+    expect(respuesta.body.usuario.rol).toBe('pendiente');
   });
 
   it('dos usuarios con la misma contraseña terminan con hashes distintos (salt)', async () => {
@@ -92,6 +110,17 @@ describe('POST /api/auth/registro', () => {
   it('requiere API Key, igual que el resto de /api', async () => {
     const respuesta = await request(app).post('/api/auth/registro').send(datosDeRegistro);
     expect(respuesta.status).toBe(401);
+  });
+  it('un usuario recién registrado (pendiente) puede loguearse: login no depende del rol', async () => {
+    await conApiKey('post', '/api/auth/registro').send(datosDeRegistro);
+
+    const respuesta = await conApiKey('post', '/api/auth/login').send({
+      email: datosDeRegistro.email,
+      password: datosDeRegistro.password,
+    });
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body.usuario.rol).toBe('pendiente');
   });
 });
 

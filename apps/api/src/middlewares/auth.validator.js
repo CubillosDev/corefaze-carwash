@@ -1,11 +1,16 @@
 const { body } = require('express-validator');
-const { ROLES } = require('../constants/dominio');
 
 const LONGITUD_MINIMA_PASSWORD = 10;
 // bcrypt trunca silenciosamente cualquier entrada más allá de 72 bytes;
 // limitar aquí evita que una contraseña más larga se recorte sin avisar.
 const LONGITUD_MAXIMA_PASSWORD = 72;
 
+/**
+ * El registro público NUNCA acepta "rol": el cliente no decide su propio
+ * nivel de acceso. Toda cuenta nace en estado "pendiente" (ver
+ * usuarios.service.js); solo un superadmin puede asignar un rol operativo
+ * después, a través de una operación administrativa protegida.
+ */
 const validarRegistro = [
   body('nombre')
     .isString()
@@ -26,9 +31,6 @@ const validarRegistro = [
     .withMessage(
       `La contraseña debe tener entre ${LONGITUD_MINIMA_PASSWORD} y ${LONGITUD_MAXIMA_PASSWORD} caracteres`,
     ),
-  body('rol')
-    .isIn(Object.values(ROLES))
-    .withMessage(`El rol debe ser uno de: ${Object.values(ROLES).join(', ')}`),
 ];
 
 const validarLogin = [

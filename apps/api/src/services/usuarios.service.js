@@ -34,10 +34,22 @@ const obtenerUsuarioPorId = (id) => {
 };
 
 /**
- * Crea un usuario nuevo. El id se asigna aquí (consecutivo simple, como en
- * el resto de recursos en memoria) y la contraseña se hashea antes de guardarla.
+ * Crea un usuario nuevo a través del registro público.
  *
- * @param {{ nombre: string, email: string, password: string, rol: string }} datos
+ * Seguridad (allowlisting explícito): el objeto se construye campo por
+ * campo, tomando de `datos` únicamente nombre, email y password. Cualquier
+ * otro campo que el cliente haya enviado (rol, activo, id, passwordHash,
+ * esSuperAdmin, permisos...) NO llega aquí siquiera, porque el validador ya
+ * los descarta antes (ver auth.validator.js).
+ *
+ * `rol` y `activo` los decide el servidor, nunca el cliente:
+ * - rol siempre nace "pendiente": nadie se auto-asigna acceso con privilegios.
+ *   Solo un superadmin, en una operación administrativa aparte, puede
+ *   asignar el rol real de un usuario.
+ * - activo siempre nace true: no hay forma de que un registro público cree
+ *   una cuenta ya desactivada.
+ *
+ * @param {{ nombre: string, email: string, password: string }} datos
  * @returns {Promise<object>} el usuario creado, sin passwordHash
  */
 const crearUsuario = async (datos) => {
@@ -48,7 +60,8 @@ const crearUsuario = async (datos) => {
     nombre: datos.nombre,
     email: datos.email.toLowerCase(),
     passwordHash,
-    rol: datos.rol,
+    // Valores controlados por el servidor, nunca por el cliente:
+    rol: 'pendiente',
     activo: true,
   };
 

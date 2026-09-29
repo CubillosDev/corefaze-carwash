@@ -80,8 +80,14 @@ describe('constantes de dominio', () => {
   });
 
   describe('roles de usuario', () => {
-    it('define superadmin, administrador y soporte', () => {
-      expect(ROLES).toEqual(['superadmin', 'administrador', 'soporte']);
+    it('define superadmin, administrador, soporte y pendiente', () => {
+      expect(ROLES).toEqual(['superadmin', 'administrador', 'soporte', 'pendiente']);
+    });
+
+    it('pendiente es el estado de una cuenta sin rol operativo asignado', () => {
+      // Nadie se auto-asigna un rol con privilegios: toda cuenta nueva
+      // nace en "pendiente" hasta que un superadmin decide su rol real.
+      expect(ROLES).toContain('pendiente');
     });
   });
 

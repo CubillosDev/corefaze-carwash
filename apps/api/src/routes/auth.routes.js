@@ -11,23 +11,19 @@ const router = Router();
  *   schemas:
  *     RegistroUsuario:
  *       type: object
- *       required: [nombre, email, password, rol]
+ *       required: [nombre, email, password]
  *       properties:
  *         nombre:
  *           type: string
- *           example: Administrador Lavadero
+ *           example: Colaborador Lavadero
  *         email:
  *           type: string
  *           format: email
- *           example: admin@lavadero.com
+ *           example: colaborador@lavadero.com
  *         password:
  *           type: string
  *           format: password
  *           example: ClaveSegura2026!
- *         rol:
- *           type: string
- *           enum: [superadmin, administrador, soporte]
- *           example: administrador
  *     LoginUsuario:
  *       type: object
  *       required: [email, password]
@@ -35,7 +31,7 @@ const router = Router();
  *         email:
  *           type: string
  *           format: email
- *           example: admin@lavadero.com
+ *           example: colaborador@lavadero.com
  *         password:
  *           type: string
  *           format: password
@@ -48,8 +44,13 @@ const router = Router();
  *   post:
  *     tags:
  *       - Autenticación
- *     summary: Registrar un usuario
- *     description: Registra un usuario almacenando su contraseña mediante bcrypt (salt + cost factor).
+ *     summary: Registrar un nuevo usuario
+ *     description: >
+ *       Registra un nuevo usuario utilizando bcrypt para proteger la contraseña.
+ *       El rol es asignado por el servidor (siempre nace como "pendiente") y no
+ *       puede ser definido por el cliente. Solo un superadmin puede asignar un
+ *       rol operativo a una cuenta, a través de una operación administrativa
+ *       aparte.
  *     requestBody:
  *       required: true
  *       content:

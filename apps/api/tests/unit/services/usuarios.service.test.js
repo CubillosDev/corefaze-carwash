@@ -18,7 +18,6 @@ const datosDeEjemplo = {
   nombre: 'Administrador Lavadero',
   email: 'admin@lavadero.com',
   password: 'ClaveSegura2026!',
-  rol: 'superadmin',
 };
 
 describe('usuarios.service', () => {
@@ -42,6 +41,25 @@ describe('usuarios.service', () => {
     it('siempre crea el usuario como activo', async () => {
       const usuario = await crearUsuario(datosDeEjemplo);
       expect(usuario.activo).toBe(true);
+    });
+
+    it('siempre crea el usuario con rol "pendiente", sin importar qué rol venga en datos', async () => {
+      const usuario = await crearUsuario({ ...datosDeEjemplo, rol: 'superadmin' });
+      expect(usuario.rol).toBe('pendiente');
+    });
+
+    it('ignora por completo cualquier intento de escalada de privilegios', async () => {
+      const usuario = await crearUsuario({
+        ...datosDeEjemplo,
+        rol: 'administrador',
+        activo: false,
+        esSuperAdmin: true,
+        passwordHash: 'HASH_FALSO',
+      });
+
+      expect(usuario.rol).toBe('pendiente');
+      expect(usuario.activo).toBe(true);
+      expect(usuario.esSuperAdmin).toBeUndefined();
     });
 
     it('nunca devuelve passwordHash', async () => {

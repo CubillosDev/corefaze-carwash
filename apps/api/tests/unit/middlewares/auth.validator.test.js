@@ -13,7 +13,6 @@ const datosDeRegistroValidos = {
   nombre: 'Administrador Lavadero',
   email: 'admin@lavadero.com',
   password: 'ClaveSegura2026!',
-  rol: 'superadmin',
 };
 
 describe('auth.validator', () => {
@@ -23,23 +22,12 @@ describe('auth.validator', () => {
       expect(resultado.isEmpty()).toBe(true);
     });
 
-    it('acepta cada uno de los tres roles del dominio', async () => {
-      for (const rol of ['superadmin', 'administrador', 'soporte']) {
-        const resultado = await ejecutarValidaciones(validarRegistro, {
-          ...datosDeRegistroValidos,
-          rol,
-        });
-        expect(resultado.isEmpty()).toBe(true);
-      }
-    });
-
-    it('rechaza un rol que no existe en el dominio', async () => {
+    it('ya no valida ni conoce el campo rol: el registro pasa aunque se envíe uno', async () => {
       const resultado = await ejecutarValidaciones(validarRegistro, {
         ...datosDeRegistroValidos,
-        rol: 'medico',
+        rol: 'superadmin',
       });
-      expect(resultado.isEmpty()).toBe(false);
-      expect(resultado.array()[0].path).toBe('rol');
+      expect(resultado.isEmpty()).toBe(true);
     });
 
     it('rechaza un nombre demasiado corto', async () => {
