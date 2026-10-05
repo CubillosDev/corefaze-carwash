@@ -31,6 +31,7 @@ const ESTADOS_ORDEN = aEnumeracion(dominio.estadosOrden);
 const MEDIOS_PAGO = aEnumeracion(dominio.mediosPago);
 const TIPOS_VEHICULO = aEnumeracion(dominio.tiposVehiculo);
 const ESTADOS_ACTIVIDAD = aEnumeracion(dominio.estadosActividad);
+const TIPOS_CLIENTE = aEnumeracion(dominio.tiposCliente);
 
 const PATRONES_PLACA = Object.freeze({
   CARRO: new RegExp(dominio.patronesPlaca.carro),
@@ -50,4 +51,5 @@ module.exports = {
   PATRONES_PLACA,
   LIMITES: dominio.limites,
   ROLES: dominio.roles,
+  TIPOS_CLIENTE,
 };

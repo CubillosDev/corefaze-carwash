@@ -1,7 +1,8 @@
 const usuariosService = require('../../../src/services/usuarios.service');
-const { registrar, login } = require('../../../src/controllers/auth.controller');
+const { registrar, login, perfil } = require('../../../src/controllers/auth.controller');
 const { Conflicto, NoAutenticado, AccesoDenegado } = require('../../../src/utils/errores');
-
+jest.mock('../../../src/services/usuarios.service');
+jest.mock('../../../src/utils/jwt.util');
 jest.mock('../../../src/services/usuarios.service');
 
 const crearRespuesta = () => {
@@ -10,6 +11,8 @@ const crearRespuesta = () => {
   res.json = jest.fn().mockReturnValue(res);
   return res;
 };
+
+const { generarToken } = require('../../../src/utils/jwt.util');
 
 const crearPeticion = (cuerpo) => ({ datos: { cuerpo } });
 
@@ -70,13 +73,14 @@ describe('auth.controller', () => {
   describe('login', () => {
     const credenciales = { email: 'admin@lavadero.com', password: 'ClaveSegura2026!' };
 
-    it('responde 200 con el usuario cuando las credenciales son correctas', async () => {
+    it('responde 200 con el usuario y un token cuando las credenciales son correctas', async () => {
       usuariosService.verificarCredenciales.mockResolvedValue({
         id: 1,
         email: credenciales.email,
-        rol: 'superadmin',
+        rol: 'pendiente',
         activo: true,
       });
+      generarToken.mockReturnValue('token-de-prueba');
 
       const req = crearPeticion(credenciales);
       const res = crearRespuesta();
@@ -84,9 +88,12 @@ describe('auth.controller', () => {
 
       await login(req, res, next);
 
+      expect(generarToken).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 1, email: credenciales.email }),
+      );
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ mensaje: 'Autenticación correcta' }),
+        expect.objectContaining({ mensaje: 'Autenticación correcta', token: 'token-de-prueba' }),
       );
     });
 
@@ -138,6 +145,24 @@ describe('auth.controller', () => {
 
       const cuerpoEnviado = res.json.mock.calls[0][0];
       expect(cuerpoEnviado.usuario.passwordHash).toBeUndefined();
+    });
+  });
+  describe('perfil', () => {
+    it('responde 200 con req.usuario y req.clienteApi', () => {
+      const req = {
+        usuario: { id: 1, email: 'admin@lavadero.com', rol: 'pendiente' },
+        clienteApi: { id: 1, nombre: 'Postman / Laboratorio' },
+      };
+      const res = crearRespuesta();
+
+      perfil(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        mensaje: 'Usuario autenticado mediante JWT',
+        usuario: req.usuario,
+        clienteApi: req.clienteApi,
+      });
     });
   });
 });

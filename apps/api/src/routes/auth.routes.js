@@ -1,7 +1,8 @@
 const { Router } = require('express');
-const { registrar, login } = require('../controllers/auth.controller');
 const { validarRegistro, validarLogin } = require('../middlewares/auth.validator');
 const { validar } = require('../middlewares/validar.middleware');
+const { autenticarJWT } = require('../middlewares/auth.middleware');
+const { registrar, login, perfil } = require('../controllers/auth.controller');
 
 const router = Router();
 
@@ -92,5 +93,24 @@ router.post('/registro', validarRegistro, validar, registrar);
  *         description: Usuario deshabilitado
  */
 router.post('/login', validarLogin, validar, login);
+
+/**
+ * @swagger
+ * /api/auth/perfil:
+ *   get:
+ *     tags:
+ *       - Autenticación
+ *     summary: Obtener perfil del usuario autenticado
+ *     description: Requiere API Key y un JWT válido.
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Usuario autenticado correctamente
+ *       401:
+ *         description: Credenciales de autenticación ausentes o inválidas
+ */
+router.get('/perfil', autenticarJWT, perfil);
 
 module.exports = router;

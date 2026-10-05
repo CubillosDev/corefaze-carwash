@@ -9,6 +9,7 @@ const {
   SERVICIOS_CON_LAVADO_MOTOR,
   PATRONES_PLACA,
   ROLES,
+  TIPOS_CLIENTE,
 } = require('../../../src/constants/dominio');
 
 const todosLosEstados = Object.values(ESTADOS_ORDEN);
@@ -88,6 +89,18 @@ describe('constantes de dominio', () => {
       // Nadie se auto-asigna un rol con privilegios: toda cuenta nueva
       // nace en "pendiente" hasta que un superadmin decide su rol real.
       expect(ROLES).toContain('pendiente');
+    });
+  });
+
+  describe('tipos de cliente', () => {
+    it('expone particular y empresa en snake_case bajo llaves UPPER_SNAKE_CASE', () => {
+      expect(TIPOS_CLIENTE.PARTICULAR).toBe('particular');
+      expect(TIPOS_CLIENTE.EMPRESA).toBe('empresa');
+    });
+
+    it('no tiene valores repetidos', () => {
+      const valores = Object.values(TIPOS_CLIENTE);
+      expect(new Set(valores).size).toBe(valores.length);
     });
   });
 

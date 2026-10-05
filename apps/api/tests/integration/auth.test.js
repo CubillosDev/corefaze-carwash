@@ -179,4 +179,74 @@ describe('POST /api/auth/login', () => {
 
     expect(respuesta.body.usuario.passwordHash).toBeUndefined();
   });
+  const { generarToken } = require('../../src/utils/jwt.util');
+
+  const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  describe('GET /api/auth/perfil', () => {
+    it('requiere API Key (401 sin ella, aunque el JWT sea válido)', async () => {
+      const token = generarToken({ id: 1, email: 'x@x.com', rol: 'pendiente' });
+      const respuesta = await request(app)
+        .get('/api/auth/perfil')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(respuesta.status).toBe(401);
+    });
+
+    it('con API Key pero sin JWT: 401 "Token de autenticación requerido"', async () => {
+      const respuesta = await conApiKey('get', '/api/auth/perfil');
+
+      expect(respuesta.status).toBe(401);
+      expect(respuesta.body).toEqual({ mensaje: 'Token de autenticación requerido' });
+    });
+
+    it('con API Key y JWT válido: 200, muestra usuario y clienteApi', async () => {
+      await conApiKey('post', '/api/auth/registro').send(datosDeRegistro);
+      const login = await conApiKey('post', '/api/auth/login').send({
+        email: datosDeRegistro.email,
+        password: datosDeRegistro.password,
+      });
+
+      const respuesta = await conApiKey('get', '/api/auth/perfil').set(
+        'Authorization',
+        `Bearer ${login.body.token}`,
+      );
+
+      expect(respuesta.status).toBe(200);
+      expect(respuesta.body.usuario).toMatchObject({
+        email: datosDeRegistro.email,
+        rol: 'pendiente',
+      });
+      expect(respuesta.body.clienteApi).toEqual({ id: 1, nombre: 'Postman / Laboratorio' });
+    });
+
+    it('con un JWT alterado: 401 "Token inválido"', async () => {
+      const token = generarToken({ id: 1, email: 'x@x.com', rol: 'pendiente' });
+      const tokenAlterado = `${token.slice(0, -1)}x`;
+
+      const respuesta = await conApiKey('get', '/api/auth/perfil').set(
+        'Authorization',
+        `Bearer ${tokenAlterado}`,
+      );
+
+      expect(respuesta.status).toBe(401);
+      expect(respuesta.body).toEqual({ mensaje: 'Token inválido' });
+    });
+
+    it('con un JWT expirado: 401 "Token expirado"', async () => {
+      const token = generarToken(
+        { id: 1, email: 'x@x.com', rol: 'pendiente' },
+        { expiresIn: '1ms' },
+      );
+      await esperar(50);
+
+      const respuesta = await conApiKey('get', '/api/auth/perfil').set(
+        'Authorization',
+        `Bearer ${token}`,
+      );
+
+      expect(respuesta.status).toBe(401);
+      expect(respuesta.body).toEqual({ mensaje: 'Token expirado' });
+    });
+  });
 });

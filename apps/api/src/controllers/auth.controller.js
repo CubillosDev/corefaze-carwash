@@ -1,10 +1,11 @@
 const { Conflicto, NoAutenticado, AccesoDenegado } = require('../utils/errores');
 const usuariosService = require('../services/usuarios.service');
+const { generarToken } = require('../utils/jwt.util');
 
 /**
  * POST /api/auth/registro
  * req.datos.cuerpo ya viene filtrado por el middleware `validar` (solo
- * nombre, email, password y rol) — protección contra mass assignment.
+ * nombre, email y password) — protección contra mass assignment.
  */
 const registrar = async (req, res, next) => {
   try {
@@ -28,7 +29,9 @@ const registrar = async (req, res, next) => {
 
 /**
  * POST /api/auth/login
- * Todavía no emite JWT (Bloque 5); solo confirma si las credenciales son correctas.
+ * Si las credenciales son correctas, genera un JWT (Bloque 5) que el
+ * cliente debe enviar en siguientes peticiones protegidas como
+ * Authorization: Bearer <token>.
  */
 const login = async (req, res, next) => {
   try {
@@ -36,8 +39,6 @@ const login = async (req, res, next) => {
 
     const usuario = await usuariosService.verificarCredenciales(email, password);
 
-    // Un solo mensaje para email inexistente Y contraseña incorrecta:
-    // no revelar cuál de las dos partes de la credencial falló.
     if (!usuario) {
       throw new NoAutenticado('Credenciales inválidas');
     }
@@ -46,13 +47,30 @@ const login = async (req, res, next) => {
       throw new AccesoDenegado('Usuario deshabilitado');
     }
 
+    const token = generarToken(usuario);
+
     return res.status(200).json({
       mensaje: 'Autenticación correcta',
       usuario,
+      token,
     });
   } catch (error) {
     return next(error);
   }
 };
 
-module.exports = { registrar, login };
+/**
+ * GET /api/auth/perfil
+ * Requiere API Key (aplicación) Y JWT (usuario) — ambos niveles a la vez.
+ * Endpoint de prueba aislado: todavía no se protege ningún recurso de
+ * negocio con JWT (eso llega con RBAC, Bloque 6).
+ */
+const perfil = (req, res) => {
+  return res.status(200).json({
+    mensaje: 'Usuario autenticado mediante JWT',
+    usuario: req.usuario,
+    clienteApi: req.clienteApi,
+  });
+};
+
+module.exports = { registrar, login, perfil };
