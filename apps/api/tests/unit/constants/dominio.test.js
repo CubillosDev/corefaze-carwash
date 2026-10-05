@@ -10,6 +10,7 @@ const {
   PATRONES_PLACA,
   ROLES,
   TIPOS_CLIENTE,
+  LIMITES,
 } = require('../../../src/constants/dominio');
 
 const todosLosEstados = Object.values(ESTADOS_ORDEN);
@@ -96,6 +97,12 @@ describe('constantes de dominio', () => {
     it('expone particular y empresa en snake_case bajo llaves UPPER_SNAKE_CASE', () => {
       expect(TIPOS_CLIENTE.PARTICULAR).toBe('particular');
       expect(TIPOS_CLIENTE.EMPRESA).toBe('empresa');
+    });
+
+    describe('límites de marca y color', () => {
+      it('define un rango de 2 a 30 caracteres', () => {
+        expect(LIMITES.marcaColor).toEqual({ min: 2, max: 30 });
+      });
     });
 
     it('no tiene valores repetidos', () => {

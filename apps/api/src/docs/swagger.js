@@ -25,6 +25,11 @@ const definicion = {
       description: 'Endpoints relacionados con autenticación y seguridad de la API',
     },
     {
+      name: 'Vehículos',
+      description: 'Gestión de vehículos atendidos y su relación con el cliente',
+    },
+
+    {
       name: 'Autenticación',
       description: 'Registro e inicio de sesión de usuarios',
     },

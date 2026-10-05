@@ -1,4 +1,5 @@
 const clientesService = require('../../../src/services/clientes.service');
+const vehiculosService = require('../../../src/services/vehiculos.service');
 const {
   listar,
   obtenerPorId,
@@ -8,6 +9,7 @@ const {
 } = require('../../../src/controllers/clientes.controller');
 
 jest.mock('../../../src/services/clientes.service');
+jest.mock('../../../src/services/vehiculos.service');
 
 const crearRespuesta = () => {
   const res = {};
@@ -108,6 +110,8 @@ describe('clientes.controller', () => {
 
   describe('eliminar', () => {
     it('responde 200 al eliminar correctamente', () => {
+      vehiculosService.clienteTieneVehiculos.mockReturnValue(false);
+
       const res = crearRespuesta();
       eliminar(crearPeticion({ parametros: { id: 1 } }), res, jest.fn());
 
@@ -117,6 +121,7 @@ describe('clientes.controller', () => {
     });
 
     it('pasa el error al siguiente manejador si el id no existe (404)', () => {
+      vehiculosService.clienteTieneVehiculos.mockReturnValue(false);
       const error = new Error('no encontrado');
       clientesService.eliminarCliente.mockImplementation(() => {
         throw error;
@@ -126,6 +131,17 @@ describe('clientes.controller', () => {
       eliminar(crearPeticion({ parametros: { id: 999 } }), crearRespuesta(), next);
 
       expect(next).toHaveBeenCalledWith(error);
+    });
+
+    it('responde 409 si el cliente tiene vehículos asociados', () => {
+      vehiculosService.clienteTieneVehiculos.mockReturnValue(true);
+
+      const next = jest.fn();
+      eliminar(crearPeticion({ parametros: { id: 1 } }), crearRespuesta(), next);
+
+      const [error] = next.mock.calls[0];
+      expect(error.estado).toBe(409);
+      expect(clientesService.eliminarCliente).not.toHaveBeenCalled();
     });
   });
 });

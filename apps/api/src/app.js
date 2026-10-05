@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const swaggerUi = require('swagger-ui-express');
-const rutasAuth = require('./routes/auth.routes');
 
 const { env } = require('./config/env');
 const { documentoSwagger } = require('./docs/swagger');
@@ -12,7 +11,9 @@ const { crearMiddlewareApiKey } = require('./middlewares/apiKey.middleware');
 const { rutaNoEncontrada, manejarErrores } = require('./middlewares/errores.middleware');
 const rutasSalud = require('./routes/salud.routes');
 const rutasSeguridad = require('./routes/seguridad.routes');
+const rutasAuth = require('./routes/auth.routes');
 const rutasClientes = require('./routes/clientes.routes');
+const rutasVehiculos = require('./routes/vehiculos.routes');
 
 const LIMITE_CUERPO = '10kb';
 
@@ -29,15 +30,14 @@ const crearApp = ({ apiKeys, origenPermitido } = env) => {
   const servicioApiKeys = crearServicioApiKeys(construirRegistrosApiKeys(apiKeys));
   const validarApiKey = crearMiddlewareApiKey(servicioApiKeys);
 
+  // Documentación interactiva: se monta ANTES de helmet, porque el CSP por
+  // defecto de helmet bloquea el script en línea que usa Swagger UI para
+  // arrancar, dejando la página visible pero sin interactividad.
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(documentoSwagger));
+
   app.use(helmet());
   app.use(cors({ origin: origenPermitido }));
   app.use(express.json({ limit: LIMITE_CUERPO }));
-
-  // Documentación interactiva. Va detrás de helmet a propósito: el CSP por
-  // defecto permite estos archivos porque swagger-ui-express los sirve como
-  // scripts externos del mismo origen, así que la página queda protegida
-  // por las mismas cabeceras que el resto de la API.
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(documentoSwagger));
 
   // Rutas públicas
   app.use('/api/salud', rutasSalud);
@@ -46,10 +46,9 @@ const crearApp = ({ apiKeys, origenPermitido } = env) => {
   app.use('/api', validarApiKey);
 
   app.use('/api/seguridad', rutasSeguridad);
-  app.use('/api/seguridad', rutasSeguridad);
-  app.use('/api/auth', rutasAuth);
   app.use('/api/auth', rutasAuth);
   app.use('/api/clientes', rutasClientes);
+  app.use('/api/vehiculos', rutasVehiculos);
   // Aquí se montarán los demás recursos: app.use('/api/colaboradores', ...) ...
 
   app.use(rutaNoEncontrada);
