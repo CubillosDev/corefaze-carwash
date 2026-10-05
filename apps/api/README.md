@@ -88,6 +88,7 @@ npm run format && npm run lint && npm test
 ```
 
 ## Estructura de carpetas
+
 src/
 ├── app.js # Construye la aplicación Express (sin escuchar)
 ├── server.js # Arranca y detiene el servidor
@@ -104,8 +105,6 @@ src/
 tests/
 ├── integration/ # Pruebas de la aplicación completa (Supertest)
 └── unit/ # Pruebas por archivo, organizadas igual que src/
-
-
 
 ## Pendiente
 

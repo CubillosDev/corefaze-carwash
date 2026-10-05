@@ -5,6 +5,7 @@ const PUERTO_MINIMO = 1;
 const PUERTO_MAXIMO = 65535;
 const LONGITUD_MINIMA_API_KEY = 32;
 const PREFIJO_API_KEY_DE_EJEMPLO = 'REEMPLAZAR_CON';
+const JWT_EXPIRES_IN_POR_DEFECTO = '1h';
 
 /**
  * Cada función leer* toma UNA variable, la valida y devuelve su valor ya
@@ -52,6 +53,8 @@ const validarClaveApi = (nombreVariable, variables, errores) => {
   return clave;
 };
 
+const leerJwtExpiresIn = (variables) => variables.JWT_EXPIRES_IN || JWT_EXPIRES_IN_POR_DEFECTO;
+
 const esUrlHttp = (texto) => {
   try {
     return ['http:', 'https:'].includes(new URL(texto).protocol);
@@ -98,6 +101,13 @@ const cargarConfiguracion = (variables = process.env) => {
       postman: validarClaveApi('API_KEY_POSTMAN', variables, errores),
       admin: validarClaveApi('API_KEY_ADMIN', variables, errores),
       movil: validarClaveApi('API_KEY_MOVIL', variables, errores),
+    },
+    jwt: {
+      // Reutilizamos validarClaveApi: un secreto JWT tiene las mismas
+      // reglas que una API Key (obligatorio, mínimo 32 caracteres, no
+      // puede ser el valor de ejemplo).
+      secret: validarClaveApi('JWT_SECRET', variables, errores),
+      expiresIn: leerJwtExpiresIn(variables),
     },
     origenPermitido: leerOrigenPermitido(variables, errores),
   };

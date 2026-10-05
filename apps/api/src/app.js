@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const swaggerUi = require('swagger-ui-express');
+const rutasAuth = require('./routes/auth.routes');
 
 const { env } = require('./config/env');
 const { documentoSwagger } = require('./docs/swagger');
@@ -11,6 +12,7 @@ const { crearMiddlewareApiKey } = require('./middlewares/apiKey.middleware');
 const { rutaNoEncontrada, manejarErrores } = require('./middlewares/errores.middleware');
 const rutasSalud = require('./routes/salud.routes');
 const rutasSeguridad = require('./routes/seguridad.routes');
+const rutasClientes = require('./routes/clientes.routes');
 
 const LIMITE_CUERPO = '10kb';
 
@@ -44,6 +46,10 @@ const crearApp = ({ apiKeys, origenPermitido } = env) => {
   app.use('/api', validarApiKey);
 
   app.use('/api/seguridad', rutasSeguridad);
+  app.use('/api/seguridad', rutasSeguridad);
+  app.use('/api/auth', rutasAuth);
+  app.use('/api/auth', rutasAuth);
+  app.use('/api/clientes', rutasClientes);
   // Aquí se montarán los demás recursos: app.use('/api/colaboradores', ...) ...
 
   app.use(rutaNoEncontrada);

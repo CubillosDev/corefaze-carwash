@@ -17,8 +17,16 @@ const definicion = {
       description: 'Verificación del estado del servicio',
     },
     {
+      name: 'Clientes',
+      description: 'Gestión de particulares y empresas con convenio de crédito',
+    },
+    {
       name: 'Seguridad',
       description: 'Endpoints relacionados con autenticación y seguridad de la API',
+    },
+    {
+      name: 'Autenticación',
+      description: 'Registro e inicio de sesión de usuarios',
     },
     // Aquí se agregarán los tags de cada recurso: Colaboradores, Servicios,
     // Clientes, Vehículos, Órdenes de lavado...
@@ -29,6 +37,13 @@ const definicion = {
         type: 'apiKey',
         in: 'header',
         name: 'X-API-Key',
+        description: 'API Key requerida para consumir los endpoints protegidos.',
+      },
+      BearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'JWT obtenido mediante el endpoint de login.',
       },
     },
   },
