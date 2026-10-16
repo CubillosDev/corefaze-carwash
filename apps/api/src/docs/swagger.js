@@ -33,8 +33,11 @@ const definicion = {
       name: 'Autenticación',
       description: 'Registro e inicio de sesión de usuarios',
     },
-    // Aquí se agregarán los tags de cada recurso: Colaboradores, Servicios,
-    // Clientes, Vehículos, Órdenes de lavado...
+    {
+      name: 'Colaboradores',
+      description: 'Gestión de colaboradores del lavadero y su código de identificación',
+    },
+    // Aquí se agregarán los tags de cada recurso: Servicios, Órdenes de lavado...
   ],
   components: {
     securitySchemes: {

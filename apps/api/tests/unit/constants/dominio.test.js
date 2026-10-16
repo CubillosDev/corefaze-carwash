@@ -11,6 +11,8 @@ const {
   ROLES,
   TIPOS_CLIENTE,
   LIMITES,
+  TIPOS_VINCULACION,
+  DIAS_GRACIA_CODIGO_COLABORADOR,
 } = require('../../../src/constants/dominio');
 
 const todosLosEstados = Object.values(ESTADOS_ORDEN);
@@ -72,6 +74,17 @@ describe('constantes de dominio', () => {
       ESTADOS_ORDEN_ABIERTOS.forEach((estado) => {
         expect(ESTADOS_ORDEN_CERRADOS).not.toContain(estado);
       });
+    });
+  });
+
+  describe('vinculación de colaboradores', () => {
+    it('define fijo y ocasional', () => {
+      expect(TIPOS_VINCULACION.FIJO).toBe('fijo');
+      expect(TIPOS_VINCULACION.OCASIONAL).toBe('ocasional');
+    });
+
+    it('el período de gracia del código es de 15 días', () => {
+      expect(DIAS_GRACIA_CODIGO_COLABORADOR).toBe(15);
     });
   });
 
