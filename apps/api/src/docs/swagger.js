@@ -37,7 +37,11 @@ const definicion = {
       name: 'Colaboradores',
       description: 'Gestión de colaboradores del lavadero y su código de identificación',
     },
-    // Aquí se agregarán los tags de cada recurso: Servicios, Órdenes de lavado...
+    {
+      name: 'Servicios',
+      description: 'Catálogo de tipos de lavado y sus tarifas por tipo de vehículo',
+    },
+    // Aquí se agregará el tag de Órdenes de lavado...
   ],
   components: {
     securitySchemes: {
