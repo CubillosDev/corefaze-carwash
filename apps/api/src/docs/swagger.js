@@ -41,7 +41,11 @@ const definicion = {
       name: 'Servicios',
       description: 'Catálogo de tipos de lavado y sus tarifas por tipo de vehículo',
     },
-    // Aquí se agregará el tag de Órdenes de lavado...
+    {
+      name: 'Órdenes de lavado',
+      description:
+        'Registro auditable de lavados: une clientes, vehículos, colaboradores y servicios',
+    },
   ],
   components: {
     securitySchemes: {

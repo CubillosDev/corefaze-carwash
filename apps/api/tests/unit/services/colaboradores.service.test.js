@@ -3,7 +3,6 @@ const {
   listarColaboradores,
   obtenerColaboradorPorId,
   obtenerColaboradorOFallar,
-  colaboradorTieneOrdenes,
   crearColaborador,
   actualizarColaborador,
   cambiarEstadoColaborador,
@@ -102,13 +101,6 @@ describe('colaboradores.service', () => {
   describe('obtenerColaboradorOFallar', () => {
     it('lanza NoEncontrado si el id no existe', () => {
       expect(() => obtenerColaboradorOFallar(999)).toThrow(NoEncontrado);
-    });
-  });
-
-  describe('colaboradorTieneOrdenes', () => {
-    it('siempre devuelve false (placeholder hasta que exista ordenesLavado.service.js)', () => {
-      const colaborador = crearColaborador(colaboradorValido);
-      expect(colaboradorTieneOrdenes(colaborador.id)).toBe(false);
     });
   });
 

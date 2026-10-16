@@ -1,4 +1,5 @@
 const serviciosService = require('../../../src/services/servicios.service');
+const ordenesLavadoService = require('../../../src/services/ordenesLavado.service');
 const {
   listar,
   obtenerPorId,
@@ -8,6 +9,7 @@ const {
 } = require('../../../src/controllers/servicios.controller');
 
 jest.mock('../../../src/services/servicios.service');
+jest.mock('../../../src/services/ordenesLavado.service');
 
 const crearRespuesta = () => {
   const res = {};
@@ -138,7 +140,7 @@ describe('servicios.controller', () => {
 
   describe('eliminar', () => {
     it('responde 200 al eliminar correctamente', () => {
-      serviciosService.servicioTieneOrdenes.mockReturnValue(false);
+      ordenesLavadoService.servicioTieneOrdenes.mockReturnValue(false);
 
       const res = crearRespuesta();
       eliminar(crearPeticion({ parametros: { id: 1 } }), res, jest.fn());
@@ -149,7 +151,7 @@ describe('servicios.controller', () => {
     });
 
     it('pasa el error al siguiente manejador si el id no existe (404)', () => {
-      serviciosService.servicioTieneOrdenes.mockReturnValue(false);
+      ordenesLavadoService.servicioTieneOrdenes.mockReturnValue(false);
       const error = new Error('no encontrado');
       serviciosService.eliminarServicio.mockImplementation(() => {
         throw error;
@@ -162,7 +164,7 @@ describe('servicios.controller', () => {
     });
 
     it('responde 409 si el servicio tiene órdenes de lavado asociadas y no elimina', () => {
-      serviciosService.servicioTieneOrdenes.mockReturnValue(true);
+      ordenesLavadoService.servicioTieneOrdenes.mockReturnValue(true);
 
       const next = jest.fn();
       eliminar(crearPeticion({ parametros: { id: 1 } }), crearRespuesta(), next);

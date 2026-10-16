@@ -3,7 +3,6 @@ const {
   listarServicios,
   obtenerServicioPorId,
   obtenerServicioOFallar,
-  servicioTieneOrdenes,
   obtenerTarifaParaTipoVehiculo,
   requiereAutorizacionMotor,
   crearServicio,
@@ -83,13 +82,6 @@ describe('servicios.service', () => {
 
     it('lanza NoEncontrado si el id no existe', () => {
       expect(() => obtenerServicioOFallar(999)).toThrow(NoEncontrado);
-    });
-  });
-
-  describe('servicioTieneOrdenes', () => {
-    it('siempre devuelve false (placeholder hasta que exista ordenesLavado.service.js)', () => {
-      const servicio = crearServicio(servicioValido);
-      expect(servicioTieneOrdenes(servicio.id)).toBe(false);
     });
   });
 

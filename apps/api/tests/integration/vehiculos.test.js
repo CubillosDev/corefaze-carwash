@@ -2,6 +2,12 @@ const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const clientes = require('../../src/data/clientes');
 const vehiculos = require('../../src/data/vehiculos');
+const servicios = require('../../src/data/servicios');
+const colaboradores = require('../../src/data/colaboradores');
+const ordenesLavado = require('../../src/data/ordenesLavado');
+const serviciosService = require('../../src/services/servicios.service');
+const colaboradoresService = require('../../src/services/colaboradores.service');
+const ordenesLavadoService = require('../../src/services/ordenesLavado.service');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -13,6 +19,9 @@ const app = crearApp({
 beforeEach(() => {
   clientes.length = 0;
   vehiculos.length = 0;
+  servicios.length = 0;
+  colaboradores.length = 0;
+  ordenesLavado.length = 0;
 });
 
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
@@ -198,5 +207,51 @@ describe('Integridad referencial: DELETE /api/clientes/:id con vehículos', () =
     const respuesta = await conApiKey('delete', `/api/clientes/${cliente.id}`);
 
     expect(respuesta.status).toBe(200);
+  });
+});
+
+describe('Integridad referencial: DELETE /api/vehiculos/:id con órdenes de lavado', () => {
+  it('no se puede eliminar un vehículo con órdenes de lavado asociadas (409)', async () => {
+    const cliente = await registrarCliente();
+    const vehiculoCreado = await conApiKey('post', '/api/vehiculos').send({
+      placa: 'ABC123',
+      tipo: 'automovil',
+      clienteId: cliente.id,
+    });
+    const vehiculo = vehiculoCreado.body.vehiculo;
+
+    // No existe todavía un endpoint HTTP para Órdenes de lavado, así que la
+    // orden de prueba se crea directamente contra el service, que opera
+    // sobre el mismo arreglo en memoria que usa la app.
+    const servicio = serviciosService.crearServicio({
+      numero: 1,
+      nombre: 'Lavado básico',
+      descripcion: 'Lavado exterior con shampoo',
+      categoria: 'basico',
+      tarifas: [{ tipoVehiculo: 'automovil', valor: 15000 }],
+    });
+    const colaborador = colaboradoresService.crearColaborador({
+      codigo: 401,
+      nombre: 'Juan Pérez',
+      documento: '1020304050',
+      telefono: '3001234567',
+      porcentajeComision: 0.15,
+      tipoVinculacion: 'fijo',
+    });
+    ordenesLavadoService.crearOrden({
+      fecha: '2026-01-10',
+      turno: 1,
+      vehiculoId: vehiculo.id,
+      servicioId: servicio.id,
+      colaboradorId: colaborador.id,
+      medioPago: 'efectivo',
+    });
+
+    const respuesta = await conApiKey('delete', `/api/vehiculos/${vehiculo.id}`);
+
+    expect(respuesta.status).toBe(409);
+    expect(respuesta.body).toEqual({
+      mensaje: 'No se puede eliminar un vehículo con órdenes de lavado asociadas',
+    });
   });
 });

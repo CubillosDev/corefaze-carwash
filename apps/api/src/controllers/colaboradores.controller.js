@@ -1,4 +1,5 @@
 const colaboradoresService = require('../services/colaboradores.service');
+const ordenesLavadoService = require('../services/ordenesLavado.service');
 const { Conflicto } = require('../utils/errores');
 
 /** GET /api/colaboradores */
@@ -64,7 +65,7 @@ const eliminar = (req, res, next) => {
   try {
     const { id } = req.datos.parametros;
 
-    if (colaboradoresService.colaboradorTieneOrdenes(id)) {
+    if (ordenesLavadoService.colaboradorTieneOrdenes(id)) {
       throw new Conflicto('No se puede eliminar un colaborador con órdenes de lavado asociadas');
     }
 

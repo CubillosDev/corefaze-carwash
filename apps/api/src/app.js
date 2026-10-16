@@ -16,6 +16,7 @@ const rutasClientes = require('./routes/clientes.routes');
 const rutasVehiculos = require('./routes/vehiculos.routes');
 const rutasColaboradores = require('./routes/colaboradores.routes');
 const rutasServicios = require('./routes/servicios.routes');
+const rutasOrdenesLavado = require('./routes/ordenesLavado.routes');
 
 const LIMITE_CUERPO = '10kb';
 
@@ -53,7 +54,7 @@ const crearApp = ({ apiKeys, origenPermitido } = env) => {
   app.use('/api/vehiculos', rutasVehiculos);
   app.use('/api/colaboradores', rutasColaboradores);
   app.use('/api/servicios', rutasServicios);
-  // Aquí se montarán los demás recursos...
+  app.use('/api/ordenes-lavado', rutasOrdenesLavado);
 
   app.use(rutaNoEncontrada);
   app.use(manejarErrores);

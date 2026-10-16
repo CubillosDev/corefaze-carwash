@@ -1,4 +1,5 @@
 const colaboradoresService = require('../../../src/services/colaboradores.service');
+const ordenesLavadoService = require('../../../src/services/ordenesLavado.service');
 const {
   listar,
   obtenerPorId,
@@ -9,6 +10,7 @@ const {
 } = require('../../../src/controllers/colaboradores.controller');
 
 jest.mock('../../../src/services/colaboradores.service');
+jest.mock('../../../src/services/ordenesLavado.service');
 
 const crearRespuesta = () => {
   const res = {};
@@ -181,7 +183,7 @@ describe('colaboradores.controller', () => {
 
   describe('eliminar', () => {
     it('responde 200 al eliminar correctamente', () => {
-      colaboradoresService.colaboradorTieneOrdenes.mockReturnValue(false);
+      ordenesLavadoService.colaboradorTieneOrdenes.mockReturnValue(false);
 
       const res = crearRespuesta();
       eliminar(crearPeticion({ parametros: { id: 1 } }), res, jest.fn());
@@ -192,7 +194,7 @@ describe('colaboradores.controller', () => {
     });
 
     it('pasa el error al siguiente manejador si el id no existe (404)', () => {
-      colaboradoresService.colaboradorTieneOrdenes.mockReturnValue(false);
+      ordenesLavadoService.colaboradorTieneOrdenes.mockReturnValue(false);
       const error = new Error('no encontrado');
       colaboradoresService.eliminarColaborador.mockImplementation(() => {
         throw error;
@@ -205,7 +207,7 @@ describe('colaboradores.controller', () => {
     });
 
     it('responde 409 si el colaborador tiene órdenes de lavado asociadas y no elimina', () => {
-      colaboradoresService.colaboradorTieneOrdenes.mockReturnValue(true);
+      ordenesLavadoService.colaboradorTieneOrdenes.mockReturnValue(true);
 
       const next = jest.fn();
       eliminar(crearPeticion({ parametros: { id: 1 } }), crearRespuesta(), next);

@@ -72,20 +72,6 @@ const obtenerServicioOFallar = (id) => {
 };
 
 /**
- * Integridad referencial (patrón <entidad>Tiene<Relacion>() del estándar):
- * se conecta aquí cuando exista ordenesLavado.service.js, que es quien
- * tiene la llave foránea servicioId.
- *
- * TODO(ordenesLavado): reemplazar este placeholder por la llamada real:
- *   return ordenesLavadoService.servicioTieneOrdenes(servicioId);
- * Hasta entonces, nunca bloquea la eliminación (siempre false).
- *
- * @param {number|string} _servicioId
- * @returns {boolean}
- */
-const servicioTieneOrdenes = (_servicioId) => false;
-
-/**
  * R3: el servicio debe tener tarifa definida para el tipo de vehículo
  * (un servicio de motos no aplica a una camioneta). Órdenes de lavado
  * la usará para resolver el valor a cobrar.
@@ -201,7 +187,6 @@ module.exports = {
   listarServicios,
   obtenerServicioPorId,
   obtenerServicioOFallar,
-  servicioTieneOrdenes,
   obtenerTarifaParaTipoVehiculo,
   requiereAutorizacionMotor,
   crearServicio,

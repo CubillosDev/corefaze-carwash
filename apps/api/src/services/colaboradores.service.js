@@ -81,20 +81,6 @@ const obtenerColaboradorOFallar = (id) => {
 };
 
 /**
- * Integridad referencial (patrón <entidad>Tiene<Relacion>() del estándar):
- * se conecta aquí cuando exista ordenesLavado.service.js, que es quien
- * tiene la llave foránea colaboradorId.
- *
- * TODO(ordenesLavado): reemplazar este placeholder por la llamada real:
- *   return ordenesLavadoService.colaboradorTieneOrdenes(colaboradorId);
- * Hasta entonces, nunca bloquea la eliminación (siempre false).
- *
- * @param {number|string} _colaboradorId
- * @returns {boolean}
- */
-const colaboradorTieneOrdenes = (_colaboradorId) => false;
-
-/**
  * Crea un colaborador nuevo.
  *
  * Reglas de negocio:
@@ -204,7 +190,6 @@ module.exports = {
   listarColaboradores,
   obtenerColaboradorPorId,
   obtenerColaboradorOFallar,
-  colaboradorTieneOrdenes,
   crearColaborador,
   actualizarColaborador,
   cambiarEstadoColaborador,

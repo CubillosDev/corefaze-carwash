@@ -1,4 +1,5 @@
 const serviciosService = require('../services/servicios.service');
+const ordenesLavadoService = require('../services/ordenesLavado.service');
 const { Conflicto } = require('../utils/errores');
 
 /** GET /api/servicios */
@@ -50,7 +51,7 @@ const eliminar = (req, res, next) => {
   try {
     const { id } = req.datos.parametros;
 
-    if (serviciosService.servicioTieneOrdenes(id)) {
+    if (ordenesLavadoService.servicioTieneOrdenes(id)) {
       throw new Conflicto('No se puede eliminar un servicio con órdenes de lavado asociadas');
     }
 

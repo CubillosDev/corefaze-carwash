@@ -1,4 +1,6 @@
 const vehiculosService = require('../services/vehiculos.service');
+const ordenesLavadoService = require('../services/ordenesLavado.service');
+const { Conflicto } = require('../utils/errores');
 
 /** GET /api/vehiculos */
 const listar = (_req, res, next) => {
@@ -43,14 +45,16 @@ const actualizar = (req, res, next) => {
 
 /**
  * DELETE /api/vehiculos/:id
- *
- * La verificación "no se puede eliminar un vehículo con lavados" (409) se
- * conecta aquí cuando exista ordenesLavado.service.js, con el mismo patrón
- * que clienteTieneVehiculos en clientes.controller.js.
+ * No se puede eliminar un vehículo que tenga órdenes de lavado asociadas (409).
  */
 const eliminar = (req, res, next) => {
   try {
     const { id } = req.datos.parametros;
+
+    if (ordenesLavadoService.vehiculoTieneOrdenes(id)) {
+      throw new Conflicto('No se puede eliminar un vehículo con órdenes de lavado asociadas');
+    }
+
     vehiculosService.eliminarVehiculo(id);
     return res.status(200).json({ mensaje: 'Vehículo eliminado correctamente' });
   } catch (error) {
