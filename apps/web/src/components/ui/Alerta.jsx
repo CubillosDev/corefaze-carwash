@@ -7,22 +7,22 @@ import { IconoInfo } from '@/components/ui/iconos/IconoInfo';
 const CONFIGURACION_POR_TIPO = {
   exito: {
     Icono: IconoExito,
-    contenedor: 'border-exito-borde bg-exito-suave',
+    contenedor: 'bg-exito-suave',
     acento: 'text-exito',
   },
   advertencia: {
     Icono: IconoAdvertencia,
-    contenedor: 'border-advertencia-borde bg-advertencia-suave',
+    contenedor: 'bg-advertencia-suave',
     acento: 'text-advertencia',
   },
   error: {
     Icono: IconoError,
-    contenedor: 'border-error-borde bg-error-suave',
+    contenedor: 'bg-error-suave',
     acento: 'text-error',
   },
   info: {
     Icono: IconoInfo,
-    contenedor: 'border-info-borde bg-info-suave',
+    contenedor: 'bg-info-suave',
     acento: 'text-info',
   },
 };
@@ -48,14 +48,12 @@ export function Alerta({ tipo = 'info', titulo, children, alCerrar, className = 
   return (
     <div
       role={interrumpe ? 'alert' : 'status'}
-      className={`flex items-start gap-3 rounded-xl border p-4 text-sm ${configuracion.contenedor} ${className}`}
+      className={`flex items-start gap-3 rounded-tarjeta p-4 text-control ${configuracion.contenedor} ${className}`}
     >
       <Icono className={`mt-0.5 size-5 shrink-0 ${configuracion.acento}`} />
 
       <div className="min-w-0 flex-1">
-        {titulo ? (
-          <p className={`font-semibold ${configuracion.acento}`}>{titulo}</p>
-        ) : null}
+        {titulo ? <p className="font-semibold text-neutro-900">{titulo}</p> : null}
         {children ? <div className="text-neutro-700">{children}</div> : null}
       </div>
 
@@ -64,7 +62,7 @@ export function Alerta({ tipo = 'info', titulo, children, alCerrar, className = 
           type="button"
           onClick={alCerrar}
           aria-label="Cerrar mensaje"
-          className={`-m-1 shrink-0 rounded-lg p-1 transition-colors hover:bg-neutro-900/5 ${configuracion.acento}`}
+          className={`-m-1 shrink-0 rounded-opcion p-1 transition-colors hover:bg-neutro-900/5 ${configuracion.acento}`}
         >
           <IconoCerrar className="size-4" />
         </button>

@@ -14,11 +14,11 @@ export function MuestraDeColor({ token, clase, valor }) {
   return (
     <div className="flex items-center gap-3">
       <span
-        className={`size-10 shrink-0 rounded-lg ring-1 ring-neutro-900/10 ring-inset ${clase}`}
+        className={`size-10 shrink-0 rounded-control ring-1 ring-neutro-900/10 ring-inset ${clase}`}
       />
       <span className="min-w-0">
-        <span className="block truncate font-mono text-xs text-neutro-700">{token}</span>
-        <span className="block truncate font-mono text-xs text-neutro-500">{valor || '—'}</span>
+        <span className="block truncate font-mono text-meta text-neutro-700">{token}</span>
+        <span className="block truncate font-mono text-meta text-neutro-500">{valor || '—'}</span>
       </span>
     </div>
   );
