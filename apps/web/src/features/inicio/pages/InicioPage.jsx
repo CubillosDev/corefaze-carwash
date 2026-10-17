@@ -34,8 +34,8 @@ export function InicioPage() {
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-neutro-900">Panel de gestión</h1>
-        <p className="text-sm text-neutro-600">
+        <h1 className="text-titulo text-neutro-900">Panel de gestión</h1>
+        <p className="text-detalle text-neutro-600">
           Armazón del panel web de Car Wash: barra lateral, encabezado y área de contenido.
         </p>
       </header>
@@ -45,21 +45,21 @@ export function InicioPage() {
         de muestra para revisar el layout y los formatos.
       </Alerta>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="grid gap-4 escritorio:grid-cols-3">
         <h2 className="sr-only">Resumen de ejemplo</h2>
         {RESUMEN_DE_EJEMPLO.map((tarjeta) => (
           <article
             key={tarjeta.id}
-            className="flex flex-col gap-1 rounded-xl border border-neutro-200 bg-white p-5"
+            className="flex flex-col gap-1 rounded-tarjeta border border-neutro-200 bg-white p-5"
           >
-            <p className="text-sm text-neutro-500">{tarjeta.titulo}</p>
-            <p className="text-2xl font-semibold text-primario">{tarjeta.valor}</p>
+            <p className="text-detalle text-neutro-600">{tarjeta.titulo}</p>
+            <p className="text-indicador text-neutro-900">{tarjeta.valor}</p>
           </article>
         ))}
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-neutro-900">Últimas órdenes (ejemplo)</h2>
+        <h2 className="text-titulo-tarjeta text-neutro-900">Últimas órdenes (ejemplo)</h2>
         <Tabla
           columnas={COLUMNAS}
           filas={ORDENES_DE_EJEMPLO}

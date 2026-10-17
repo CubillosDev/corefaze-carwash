@@ -6,9 +6,9 @@ import { useBloqueoDeScroll } from '@/hooks/useBloqueoDeScroll';
 import { useFocoAtrapado } from '@/hooks/useFocoAtrapado';
 
 const ANCHOS = {
-  pequeno: 'sm:max-w-md',
-  mediano: 'sm:max-w-lg',
-  grande: 'sm:max-w-2xl',
+  pequeno: 'escritorio:max-w-md',
+  mediano: 'escritorio:max-w-lg',
+  grande: 'escritorio:max-w-2xl',
 };
 
 /**
@@ -50,13 +50,13 @@ export function Modal({ abierto, alCerrar, titulo, tamano = 'mediano', pie, chil
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center escritorio:items-center escritorio:p-5">
       <button
         type="button"
         tabIndex={-1}
         aria-hidden="true"
         onClick={alCerrar}
-        className="absolute inset-0 animate-aparecer bg-neutro-900/60"
+        className="absolute inset-0 animate-aparecer bg-velo"
       />
 
       <div
@@ -66,25 +66,25 @@ export function Modal({ abierto, alCerrar, titulo, tamano = 'mediano', pie, chil
         aria-labelledby={idTitulo}
         tabIndex={-1}
         onKeyDown={manejarTecla}
-        className={`relative flex max-h-[92dvh] w-full animate-subir flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl ${
+        className={`relative flex max-h-[92dvh] w-full animate-entrar-modal flex-col overflow-hidden rounded-t-panel bg-white shadow-modal escritorio:rounded-modal ${
           ANCHOS[tamano] ?? ANCHOS.mediano
         }`}
       >
         <div className="flex items-start gap-4 border-b border-neutro-200 px-5 py-4">
-          <h2 id={idTitulo} className="min-w-0 flex-1 text-lg font-semibold text-neutro-900">
+          <h2 id={idTitulo} className="min-w-0 flex-1 text-titulo-modal text-neutro-900">
             {titulo}
           </h2>
           <button
             type="button"
             onClick={alCerrar}
             aria-label="Cerrar ventana"
-            className="-m-1 shrink-0 rounded-lg p-1 text-neutro-500 transition-colors hover:bg-neutro-100 hover:text-neutro-800"
+            className="-m-1 shrink-0 rounded-opcion p-1 text-neutro-500 transition-colors hover:bg-neutro-100 hover:text-neutro-800"
           >
             <IconoCerrar />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-sm text-neutro-700">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-control text-neutro-700">
           {children}
         </div>
 

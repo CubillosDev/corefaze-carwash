@@ -45,9 +45,9 @@ export function Tabla({
       role="region"
       aria-label={descripcion}
       tabIndex={0}
-      className={`overflow-x-auto rounded-xl border border-neutro-200 bg-white ${className}`}
+      className={`overflow-x-auto rounded-tarjeta border border-neutro-200 bg-white ${className}`}
     >
-      <table className="w-full min-w-md border-collapse text-sm">
+      <table className="w-full min-w-md border-collapse text-control">
         <caption className="sr-only">{descripcion}</caption>
 
         <thead>

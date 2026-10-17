@@ -21,7 +21,7 @@ const ENLACES_DE_DESARROLLO = [
 const ENLACES_VISIBLES = import.meta.env.DEV ? [...ENLACES, ...ENLACES_DE_DESARROLLO] : ENLACES;
 
 const ESTILOS_ENLACE =
-  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors';
+  'flex items-center gap-3 rounded-control px-3 py-2.5 text-cuerpo font-medium transition-colors';
 
 /**
  * Contenido de la barra lateral: marca, navegación y pie.
@@ -38,7 +38,7 @@ export function BarraLateral({ alNavegar }) {
     <div className="flex h-full flex-col bg-primario">
       <div className="flex h-16 shrink-0 items-center gap-2.5 px-5">
         <img src="/favicon.svg" alt="" aria-hidden="true" className="size-8 shrink-0" />
-        <span className="truncate text-base font-semibold text-white">Car Wash</span>
+        <span className="truncate text-marca text-white">Car Wash</span>
       </div>
 
       <nav aria-label="Navegación principal" className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
@@ -53,7 +53,7 @@ export function BarraLateral({ alNavegar }) {
                   `${ESTILOS_ENLACE} ${
                     isActive
                       ? 'bg-primario-600 text-white'
-                      : 'text-primario-100 hover:bg-primario-700 hover:text-white'
+                      : 'text-primario-100 hover:bg-primario-800 hover:text-white'
                   }`
                 }
               >
@@ -65,7 +65,7 @@ export function BarraLateral({ alNavegar }) {
         </ul>
       </nav>
 
-      <p className="shrink-0 px-5 pb-5 text-xs text-primario-300">Versión 0.1.0 · Sprint 0</p>
+      <p className="shrink-0 px-5 pb-5 text-meta text-primario-200">Versión 0.1.0 · Sprint 0</p>
     </div>
   );
 }
