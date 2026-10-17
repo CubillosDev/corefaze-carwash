@@ -25,11 +25,31 @@ const definicion = {
       description: 'Endpoints relacionados con autenticación y seguridad de la API',
     },
     {
+      name: 'Vehículos',
+      description: 'Gestión de vehículos atendidos y su relación con el cliente',
+    },
+
+    {
       name: 'Autenticación',
       description: 'Registro e inicio de sesión de usuarios',
     },
-    // Aquí se agregarán los tags de cada recurso: Colaboradores, Servicios,
-    // Clientes, Vehículos, Órdenes de lavado...
+    {
+      name: 'Colaboradores',
+      description: 'Gestión de colaboradores del lavadero y su código de identificación',
+    },
+    {
+      name: 'Servicios',
+      description: 'Catálogo de tipos de lavado y sus tarifas por tipo de vehículo',
+    },
+    {
+      name: 'Órdenes de lavado',
+      description:
+        'Registro auditable de lavados: une clientes, vehículos, colaboradores y servicios',
+    },
+    {
+      name: 'Jornadas',
+      description: 'Apertura y cierre del día operativo del lavadero',
+    },
   ],
   components: {
     securitySchemes: {

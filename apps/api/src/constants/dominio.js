@@ -32,6 +32,8 @@ const MEDIOS_PAGO = aEnumeracion(dominio.mediosPago);
 const TIPOS_VEHICULO = aEnumeracion(dominio.tiposVehiculo);
 const ESTADOS_ACTIVIDAD = aEnumeracion(dominio.estadosActividad);
 const TIPOS_CLIENTE = aEnumeracion(dominio.tiposCliente);
+const TIPOS_VINCULACION = aEnumeracion(dominio.tiposVinculacion);
+const ESTADOS_JORNADA = aEnumeracion(dominio.estadosJornada);
 
 const PATRONES_PLACA = Object.freeze({
   CARRO: new RegExp(dominio.patronesPlaca.carro),
@@ -52,4 +54,7 @@ module.exports = {
   LIMITES: dominio.limites,
   ROLES: dominio.roles,
   TIPOS_CLIENTE,
+  TIPOS_VINCULACION,
+  DIAS_GRACIA_CODIGO_COLABORADOR: dominio.diasGraciaCodigoColaborador,
+  ESTADOS_JORNADA,
 };

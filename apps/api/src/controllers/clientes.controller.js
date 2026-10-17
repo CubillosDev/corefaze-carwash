@@ -1,4 +1,6 @@
 const clientesService = require('../services/clientes.service');
+const vehiculosService = require('../services/vehiculos.service');
+const { Conflicto } = require('../utils/errores');
 
 /** GET /api/clientes */
 const listar = (_req, res, next) => {
@@ -43,15 +45,16 @@ const actualizar = (req, res, next) => {
 
 /**
  * DELETE /api/clientes/:id
- *
- * La verificación "no se puede eliminar un cliente con vehículos" (409) se
- * conecta aquí cuando exista vehiculos.service.js — este controller importará
- * clienteTieneVehiculos(id) y la llamará antes de eliminarCliente(id).
- * Por ahora, el DELETE elimina sin esa comprobación.
+ * No se puede eliminar un cliente que tenga vehículos asociados (409).
  */
 const eliminar = (req, res, next) => {
   try {
     const { id } = req.datos.parametros;
+
+    if (vehiculosService.clienteTieneVehiculos(id)) {
+      throw new Conflicto('No se puede eliminar un cliente con vehículos asociados');
+    }
+
     clientesService.eliminarCliente(id);
     return res.status(200).json({ mensaje: 'Cliente eliminado correctamente' });
   } catch (error) {

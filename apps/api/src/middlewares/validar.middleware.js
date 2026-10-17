@@ -1,5 +1,15 @@
-const { validationResult, matchedData } = require('express-validator');
+const { validationResult, matchedData, param } = require('express-validator');
 const { SolicitudInvalida } = require('../utils/errores');
+
+/**
+ * Valida que :id de la URL sea un entero positivo (400 si no lo es).
+ * Compartida por todos los recursos (antes estaba duplicada, idéntica,
+ * en cada routes.js) para no repetir la misma validación archivo por
+ * archivo; se usa como cualquier otro middleware de validación.
+ */
+const validarIdDeUrl = [
+  param('id').isInt({ min: 1 }).withMessage('El id debe ser un entero positivo').toInt(),
+];
 
 /**
  * Va al final de la cadena de validaciones de cada ruta:
@@ -27,4 +37,4 @@ const validar = (req, _res, next) => {
   return next();
 };
 
-module.exports = { validar };
+module.exports = { validar, validarIdDeUrl };

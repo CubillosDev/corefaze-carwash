@@ -10,6 +10,9 @@ const {
   PATRONES_PLACA,
   ROLES,
   TIPOS_CLIENTE,
+  LIMITES,
+  TIPOS_VINCULACION,
+  DIAS_GRACIA_CODIGO_COLABORADOR,
 } = require('../../../src/constants/dominio');
 
 const todosLosEstados = Object.values(ESTADOS_ORDEN);
@@ -74,6 +77,17 @@ describe('constantes de dominio', () => {
     });
   });
 
+  describe('vinculación de colaboradores', () => {
+    it('define fijo y ocasional', () => {
+      expect(TIPOS_VINCULACION.FIJO).toBe('fijo');
+      expect(TIPOS_VINCULACION.OCASIONAL).toBe('ocasional');
+    });
+
+    it('el período de gracia del código es de 15 días', () => {
+      expect(DIAS_GRACIA_CODIGO_COLABORADOR).toBe(15);
+    });
+  });
+
   describe('reglas de servicio', () => {
     it('los servicios con lavado de motor son el 5, 6, 7 y 8 (R7)', () => {
       expect(SERVICIOS_CON_LAVADO_MOTOR).toEqual([5, 6, 7, 8]);
@@ -96,6 +110,12 @@ describe('constantes de dominio', () => {
     it('expone particular y empresa en snake_case bajo llaves UPPER_SNAKE_CASE', () => {
       expect(TIPOS_CLIENTE.PARTICULAR).toBe('particular');
       expect(TIPOS_CLIENTE.EMPRESA).toBe('empresa');
+    });
+
+    describe('límites de marca y color', () => {
+      it('define un rango de 2 a 30 caracteres', () => {
+        expect(LIMITES.marcaColor).toEqual({ min: 2, max: 30 });
+      });
     });
 
     it('no tiene valores repetidos', () => {

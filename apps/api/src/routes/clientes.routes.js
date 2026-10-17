@@ -1,5 +1,4 @@
 const { Router } = require('express');
-const { param } = require('express-validator');
 const {
   listar,
   obtenerPorId,
@@ -8,14 +7,9 @@ const {
   eliminar,
 } = require('../controllers/clientes.controller');
 const { validarCrear, validarActualizar } = require('../middlewares/clientes.validator');
-const { validar } = require('../middlewares/validar.middleware');
+const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
 
 const router = Router();
-
-/** Valida que :id de la URL sea un entero positivo (400 si no lo es). */
-const validarIdDeUrl = [
-  param('id').isInt({ min: 1 }).withMessage('El id debe ser un entero positivo').toInt(),
-];
 
 /**
  * @swagger
