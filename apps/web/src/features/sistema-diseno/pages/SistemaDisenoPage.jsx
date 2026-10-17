@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Alerta } from '@/components/ui/Alerta';
 import { Boton } from '@/components/ui/Boton';
 import { CampoTexto } from '@/components/ui/CampoTexto';
+import { IconoMenu } from '@/components/ui/iconos/IconoMenu';
 import { Modal } from '@/components/ui/Modal';
 import { Tabla } from '@/components/ui/Tabla';
 import { MuestraDeColor } from '@/features/sistema-diseno/components/MuestraDeColor';
@@ -320,7 +321,7 @@ export function SistemaDisenoPage() {
 
       <SeccionDelCatalogo
         titulo="Botones"
-        descripcion="Cuatro variantes, tres tamaños y los estados cargando y deshabilitado."
+        descripcion="Cinco variantes, tamaños de texto y de icono, y los estados cargando y deshabilitado."
       >
         <div className="flex flex-col gap-6">
           <div className="flex flex-wrap items-center gap-3">
@@ -345,6 +346,15 @@ export function SistemaDisenoPage() {
             <Boton variante="peligro" disabled>
               Deshabilitado
             </Boton>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 rounded-control bg-marco p-3">
+            <Boton variante="marco" tamano="icono" aria-label="Abrir menú de navegación">
+              <IconoMenu />
+            </Boton>
+            <span className="text-detalle text-white/70">
+              Variante marco en tamaño icono: botones de la cabecera.
+            </span>
           </div>
         </div>
       </SeccionDelCatalogo>

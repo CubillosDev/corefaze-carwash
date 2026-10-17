@@ -6,14 +6,14 @@
  *
  * @param {{ className?: string }} props
  */
-export function IconoPaleta({ className = 'size-5' }) {
+export function IconoPaleta({ className = 'size-4.25' }) {
   return (
     <svg
       className={className}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth="1.7"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
