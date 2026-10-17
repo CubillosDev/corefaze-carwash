@@ -16,12 +16,13 @@ La aplicación queda en <http://localhost:5173>.
 
 ### Variables de entorno
 
-| Variable        | Para qué sirve                                          |
-| --------------- | ------------------------------------------------------- |
-| `VITE_API_URL`  | URL base de la API (`apps/api`).                        |
-| `VITE_API_KEY`  | Valor que viaja en el encabezado `X-API-Key`.           |
+| Variable        | Para qué sirve                                                         |
+| --------------- | ---------------------------------------------------------------------- |
+| `VITE_API_URL`  | URL base de la API (`apps/api`), incluido el prefijo `/api`.           |
+| `VITE_API_KEY`  | Encabezado `X-API-Key`: el valor de `API_KEY_ADMIN` de `apps/api/.env`. |
 
-Solo se versiona `.env.example`. El archivo `.env` está en `.gitignore`.
+Solo se versiona `.env.example`. El archivo `.env` está en `.gitignore`. Toda variable `VITE_*`
+queda dentro del JavaScript que descarga el navegador, así que es pública: nunca lleva secretos.
 
 ## Comandos
 
