@@ -50,7 +50,7 @@ export function Modal({ abierto, alCerrar, titulo, tamano = 'mediano', pie, chil
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center escritorio:items-center escritorio:p-5">
+    <div className="fixed inset-0 z-80 flex items-end justify-center escritorio:items-center escritorio:p-5">
       <button
         type="button"
         tabIndex={-1}

@@ -92,13 +92,19 @@ JetBrains Mono 600 para placas y códigos (`@fontsource/jetbrains-mono`), sin CD
 
 ### Layout
 
-`LayoutPrincipal` arma barra lateral, encabezado y área de contenido (`<Outlet />`). Desde 1024 px
-la barra lateral queda fija a la izquierda; por debajo se oculta y se abre como cajón desde el
-botón de menú: atrapa el foco, se cierra con Escape, con el velo o al elegir una opción, y
-devuelve el foco al botón que lo abrió.
+`LayoutPrincipal` arma el marco del diseño: la cabecera sobre el fondo `marco` (logo, divisor y
+nombre) y un panel redondeado con la barra lateral y el área de contenido (`<Outlet />`). La
+página no se desplaza: el scroll es del área de contenido, que vuelve arriba al cambiar de página
+y anima la entrada de cada vista.
 
-Para agregar una sección al menú, se suma su entrada a `ENLACES` en
-[`src/components/layout/BarraLateral.jsx`](src/components/layout/BarraLateral.jsx).
+Desde el punto de quiebre `escritorio` (760 px) la barra lateral queda fija. Por debajo es un
+cajón que se abre con el botón de menú de la cabecera: atrapa el foco, se cierra con Escape, con
+el velo o al elegir una opción, y devuelve el foco al botón. Cerrado queda inerte, así que sus
+enlaces no se alcanzan con el teclado.
+
+Las opciones del menú salen de `MENU_PRINCIPAL` en [`src/constants/rutas.js`](src/constants/rutas.js).
+Una sección se agrega ahí solo cuando su página ya está en el enrutador; una prueba lo verifica.
+Cada página se carga en diferido (`React.lazy`) desde el `index.js` de su feature.
 
 ## Convenciones
 
