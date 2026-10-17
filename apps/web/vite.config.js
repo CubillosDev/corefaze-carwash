@@ -8,6 +8,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // Contratos compartidos con la API, de solo lectura.
+      '@contratos': fileURLToPath(new URL('../../packages/contratos', import.meta.url)),
     },
   },
   server: {
