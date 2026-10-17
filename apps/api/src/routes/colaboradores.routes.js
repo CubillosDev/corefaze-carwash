@@ -1,5 +1,4 @@
 const { Router } = require('express');
-const { param, body } = require('express-validator');
 const {
   listar,
   obtenerPorId,
@@ -8,21 +7,14 @@ const {
   cambiarEstado,
   eliminar,
 } = require('../controllers/colaboradores.controller');
-const { validarCrear, validarActualizar } = require('../middlewares/colaboradores.validator');
-const { validar } = require('../middlewares/validar.middleware');
-const { ESTADOS_ACTIVIDAD } = require('../constants/dominio');
+const {
+  validarCrear,
+  validarActualizar,
+  validarCambioDeEstado,
+} = require('../middlewares/colaboradores.validator');
+const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
 
 const router = Router();
-
-const validarIdDeUrl = [
-  param('id').isInt({ min: 1 }).withMessage('El id debe ser un entero positivo').toInt(),
-];
-
-const validarCambioDeEstado = [
-  body('estado')
-    .isIn(Object.values(ESTADOS_ACTIVIDAD))
-    .withMessage(`El estado debe ser uno de: ${Object.values(ESTADOS_ACTIVIDAD).join(', ')}`),
-];
 
 /**
  * @swagger

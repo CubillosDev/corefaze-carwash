@@ -1,6 +1,13 @@
 const { body } = require('express-validator');
 const { LIMITES, ESTADOS_ACTIVIDAD, TIPOS_VINCULACION } = require('../constants/dominio');
 
+/** PATCH /api/colaboradores/:id/estado: único campo del body. */
+const validarCambioDeEstado = [
+  body('estado')
+    .isIn(Object.values(ESTADOS_ACTIVIDAD))
+    .withMessage(`El estado debe ser uno de: ${Object.values(ESTADOS_ACTIVIDAD).join(', ')}`),
+];
+
 const CODIGO_MIN = 10 ** (LIMITES.codigoColaborador.longitud - 1);
 const CODIGO_MAX = 10 ** LIMITES.codigoColaborador.longitud - 1;
 
@@ -89,4 +96,4 @@ const validarActualizar = [
   validarEstado(),
 ];
 
-module.exports = { validarCrear, validarActualizar };
+module.exports = { validarCrear, validarActualizar, validarCambioDeEstado };

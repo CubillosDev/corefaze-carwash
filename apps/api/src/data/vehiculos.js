@@ -3,7 +3,7 @@
  * de Supabase, Bloque 10). Empieza vacía: los vehículos se crean a través de
  * POST /api/vehiculos.
  *
- * @type {Array<{ id: number, placa: string, tipo: string, marca: string|null, color: string|null, clienteId: number }>}
+ * @type {Array<{ id: number, placa: string, tipoVehiculo: string, marca: string|null, color: string|null, clienteId: number }>}
  */
 const vehiculos = [];
 

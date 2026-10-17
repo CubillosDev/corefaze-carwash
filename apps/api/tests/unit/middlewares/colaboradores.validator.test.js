@@ -2,6 +2,7 @@ const { validationResult } = require('express-validator');
 const {
   validarCrear,
   validarActualizar,
+  validarCambioDeEstado,
 } = require('../../../src/middlewares/colaboradores.validator');
 
 const ejecutarValidaciones = async (validaciones, cuerpo) => {
@@ -241,6 +242,23 @@ describe('colaboradores.validator', () => {
 
     it('rechaza un estado que no existe en el dominio', async () => {
       const resultado = await ejecutarValidaciones(validarActualizar, { estado: 'suspendido' });
+      expect(resultado.isEmpty()).toBe(false);
+    });
+  });
+
+  describe('validarCambioDeEstado', () => {
+    it('pasa con un estado real del dominio', async () => {
+      const resultado = await ejecutarValidaciones(validarCambioDeEstado, { estado: 'inactivo' });
+      expect(resultado.isEmpty()).toBe(true);
+    });
+
+    it('rechaza un estado que no existe en el dominio', async () => {
+      const resultado = await ejecutarValidaciones(validarCambioDeEstado, { estado: 'suspendido' });
+      expect(resultado.isEmpty()).toBe(false);
+    });
+
+    it('rechaza cuando falta el campo estado', async () => {
+      const resultado = await ejecutarValidaciones(validarCambioDeEstado, {});
       expect(resultado.isEmpty()).toBe(false);
     });
   });

@@ -1,5 +1,4 @@
 const { Router } = require('express');
-const { param } = require('express-validator');
 const {
   listar,
   obtenerPorId,
@@ -13,13 +12,9 @@ const {
   validarCambioDeEstado,
   validarFiltroListar,
 } = require('../middlewares/ordenesLavado.validator');
-const { validar } = require('../middlewares/validar.middleware');
+const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
 
 const router = Router();
-
-const validarIdDeUrl = [
-  param('id').isInt({ min: 1 }).withMessage('El id debe ser un entero positivo').toInt(),
-];
 
 /**
  * @swagger

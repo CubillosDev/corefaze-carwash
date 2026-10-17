@@ -59,7 +59,7 @@ const crearVehiculoDePrueba = (datos = {}) => {
   const idCliente = clienteId ?? crearClienteDePrueba().id;
   return vehiculosService.crearVehiculo({
     placa: 'ABC123',
-    tipo: 'automovil',
+    tipoVehiculo: 'automovil',
     clienteId: idCliente,
     ...resto,
   });
@@ -195,7 +195,7 @@ describe('ordenesLavado.service', () => {
 
     it('R3: rechaza un servicio sin tarifa para el tipo de vehículo (409)', () => {
       abrirJornadaDePrueba();
-      const vehiculo = crearVehiculoDePrueba({ tipo: 'automovil' });
+      const vehiculo = crearVehiculoDePrueba({ tipoVehiculo: 'automovil' });
       const colaborador = crearColaboradorDePrueba();
       const servicio = crearServicioDePrueba({
         tarifas: [{ tipoVehiculo: 'camioneta', valor: 20000 }],
@@ -349,7 +349,7 @@ describe('ordenesLavado.service', () => {
       expect(editada.valor).toBe(15000);
     });
 
-    it('"valor" es inmutable: editar vehiculoId a uno de otro tipo no lo recalcula', () => {
+    it('R3: permite editar a un vehículo de otro tipo que el servicio sí cubre (200), sin recalcular "valor"', () => {
       abrirJornadaDePrueba();
       const escenario = construirEscenarioValido();
       serviciosService.actualizarServicio(escenario.servicio.id, {
@@ -360,11 +360,25 @@ describe('ordenesLavado.service', () => {
       });
       const orden = crearOrden(datosOrdenValida(escenario));
 
-      const nuevoVehiculo = crearVehiculoDePrueba({ placa: 'XYZ789', tipo: 'camioneta' });
+      const nuevoVehiculo = crearVehiculoDePrueba({ placa: 'XYZ789', tipoVehiculo: 'camioneta' });
       const editada = editarOrden(orden.id, { vehiculoId: nuevoVehiculo.id });
 
       expect(editada.vehiculoId).toBe(nuevoVehiculo.id);
       expect(editada.valor).toBe(15000);
+    });
+
+    it('R3: rechaza editar a un vehículo de un tipo que el servicio no cubre (409)', () => {
+      abrirJornadaDePrueba();
+      // escenario.servicio solo tiene tarifa para 'automovil'.
+      const escenario = construirEscenarioValido();
+      const orden = crearOrden(datosOrdenValida(escenario));
+
+      const vehiculoMoto = crearVehiculoDePrueba({
+        placa: 'XYZ12D',
+        tipoVehiculo: 'moto_hasta_150cc',
+      });
+
+      expect(() => editarOrden(orden.id, { vehiculoId: vehiculoMoto.id })).toThrow(Conflicto);
     });
 
     it('permite editar aunque el servicio original haya quedado inactivo (ya no se revalida al editar)', () => {

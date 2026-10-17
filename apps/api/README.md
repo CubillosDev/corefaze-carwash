@@ -106,9 +106,15 @@ tests/
 ├── integration/ # Pruebas de la aplicación completa (Supertest)
 └── unit/ # Pruebas por archivo, organizadas igual que src/
 
+## Dominio y contratos
+
+Cambios de contrato recientes que todo el equipo debe tener en cuenta (sección 10.1 del estándar):
+
+- **Órdenes de lavado**: el campo `valor` se fija una sola vez al crear la orden (según la tarifa del servicio para el tipo de vehículo) y es **inmutable**: editar una orden (`PATCH /api/ordenes-lavado/:id`) nunca lo recalcula, aunque cambie la tarifa del servicio o el vehículo tenga un tipo distinto.
+- **Jornadas**: las URLs no llevan verbos (el verbo va en el método HTTP). Se abre con `POST /api/jornadas` (sin body) y se cierra o reabre con un único endpoint, `PATCH /api/jornadas/:id/estado`, enviando `{ "estado": "cerrada" | "abierta" }`. Los antiguos `POST /api/jornadas/abrir`, `PATCH /api/jornadas/:id/cerrar` y `PATCH /api/jornadas/:id/reabrir` ya no existen.
+- **Vehículos**: el atributo se llama `tipoVehiculo`, no `tipo`, tanto en el body de `POST`/`PUT /api/vehiculos` como en el objeto que devuelve la API.
+
 ## Pendiente
 
 - Persistencia con Supabase/PostgreSQL (Bloque 10) — actualmente los datos viven en memoria.
-- Especificación completa de Swagger/OpenAPI para todos los recursos (`/api-docs`, `/openapi.json`); por ahora solo documenta Salud y Seguridad.
 - Pipeline de CI (`api.yml`) para automatizar lint, formato y pruebas en cada Pull Request.
-- Recursos de negocio pendientes: colaboradores, servicios, clientes, vehículos, órdenes de lavado.

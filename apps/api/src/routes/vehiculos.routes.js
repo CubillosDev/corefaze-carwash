@@ -1,5 +1,4 @@
 const { Router } = require('express');
-const { param } = require('express-validator');
 const {
   listar,
   obtenerPorId,
@@ -8,13 +7,9 @@ const {
   eliminar,
 } = require('../controllers/vehiculos.controller');
 const { validarCrear, validarActualizar } = require('../middlewares/vehiculos.validator');
-const { validar } = require('../middlewares/validar.middleware');
+const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
 
 const router = Router();
-
-const validarIdDeUrl = [
-  param('id').isInt({ min: 1 }).withMessage('El id debe ser un entero positivo').toInt(),
-];
 
 /**
  * @swagger
@@ -22,13 +17,13 @@ const validarIdDeUrl = [
  *   schemas:
  *     VehiculoCrear:
  *       type: object
- *       required: [placa, tipo, clienteId]
+ *       required: [placa, tipoVehiculo, clienteId]
  *       properties:
  *         placa:
  *           type: string
  *           description: ABC123 (carro) o ABC12D (moto); se normaliza a mayúsculas.
  *           example: ABC123
- *         tipo:
+ *         tipoVehiculo:
  *           type: string
  *           enum: [automovil, camioneta, platon_7_pasajeros, moto_hasta_150cc, moto_desde_150cc]
  *           example: automovil
@@ -46,7 +41,7 @@ const validarIdDeUrl = [
  *       properties:
  *         placa:
  *           type: string
- *         tipo:
+ *         tipoVehiculo:
  *           type: string
  *           enum: [automovil, camioneta, platon_7_pasajeros, moto_hasta_150cc, moto_desde_150cc]
  *         marca:

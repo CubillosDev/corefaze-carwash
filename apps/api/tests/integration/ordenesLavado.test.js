@@ -28,7 +28,7 @@ const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', 
 // --- Helpers de setup: registran cada recurso vía sus propios endpoints HTTP ---
 
 const abrirJornada = async () => {
-  const respuesta = await conApiKey('post', '/api/jornadas/abrir');
+  const respuesta = await conApiKey('post', '/api/jornadas');
   return respuesta.body.jornada;
 };
 
@@ -58,7 +58,7 @@ const registrarClienteEmpresaConCredito = async (overrides = {}) => {
 const registrarVehiculo = async (clienteId, overrides = {}) => {
   const respuesta = await conApiKey('post', '/api/vehiculos').send({
     placa: 'ABC123',
-    tipo: 'automovil',
+    tipoVehiculo: 'automovil',
     clienteId,
     ...overrides,
   });
@@ -194,7 +194,7 @@ describe('POST /api/ordenes-lavado', () => {
   it('R3 "Tarifa incompatible": rechaza un servicio sin tarifa para el tipo de vehículo (409)', async () => {
     await abrirJornada();
     const cliente = await registrarClienteParticular();
-    const vehiculo = await registrarVehiculo(cliente.id, { tipo: 'automovil' });
+    const vehiculo = await registrarVehiculo(cliente.id, { tipoVehiculo: 'automovil' });
     const colaborador = await registrarColaborador();
     const servicioSoloMoto = await registrarServicioParaMoto();
 
@@ -334,7 +334,7 @@ describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
 
     const nuevoVehiculo = await registrarVehiculo(escenario.cliente.id, {
       placa: 'XYZ789',
-      tipo: 'camioneta',
+      tipoVehiculo: 'camioneta',
     });
 
     const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
@@ -417,7 +417,9 @@ describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
     const jornadaAbierta = jornadasRespuesta.body.jornadas.find(
       (jornada) => jornada.estado === 'abierta',
     );
-    await conApiKey('patch', `/api/jornadas/${jornadaAbierta.id}/cerrar`);
+    await conApiKey('patch', `/api/jornadas/${jornadaAbierta.id}/estado`).send({
+      estado: 'cerrada',
+    });
 
     const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
       observaciones: 'tarde',

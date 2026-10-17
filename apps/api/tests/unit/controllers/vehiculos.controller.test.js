@@ -59,7 +59,7 @@ describe('vehiculos.controller', () => {
 
   describe('crear', () => {
     it('responde 201 con el vehículo creado', () => {
-      const datosVehiculo = { placa: 'ABC123', tipo: 'automovil', clienteId: 1 };
+      const datosVehiculo = { placa: 'ABC123', tipoVehiculo: 'automovil', clienteId: 1 };
       vehiculosService.crearVehiculo.mockReturnValue({ id: 1, ...datosVehiculo });
 
       const res = crearRespuesta();

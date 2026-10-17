@@ -4,8 +4,7 @@ const {
   listar,
   obtenerPorId,
   abrir,
-  cerrar,
-  reabrir,
+  cambiarEstado,
 } = require('../../../src/controllers/jornadas.controller');
 
 jest.mock('../../../src/services/jornadas.service');
@@ -151,14 +150,19 @@ describe('jornadas.controller', () => {
     });
   });
 
-  describe('cerrar', () => {
-    it('responde 200 con la jornada cerrada', () => {
+  describe('cambiarEstado', () => {
+    it('estado "cerrada": despacha a cerrarJornada y responde 200', () => {
       jornadasService.cerrarJornada.mockReturnValue({ id: 1, estado: 'cerrada' });
 
       const res = crearRespuesta();
-      cerrar(crearPeticion({ parametros: { id: 1 } }), res, jest.fn());
+      cambiarEstado(
+        crearPeticion({ parametros: { id: 1 }, cuerpo: { estado: 'cerrada' } }),
+        res,
+        jest.fn(),
+      );
 
       expect(jornadasService.cerrarJornada).toHaveBeenCalledWith(1);
+      expect(jornadasService.reabrirJornada).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ mensaje: 'Jornada cerrada correctamente' }),
@@ -172,20 +176,27 @@ describe('jornadas.controller', () => {
       });
 
       const next = jest.fn();
-      cerrar(crearPeticion({ parametros: { id: 1 } }), crearRespuesta(), next);
+      cambiarEstado(
+        crearPeticion({ parametros: { id: 1 }, cuerpo: { estado: 'cerrada' } }),
+        crearRespuesta(),
+        next,
+      );
 
       expect(next).toHaveBeenCalledWith(error);
     });
-  });
 
-  describe('reabrir', () => {
-    it('responde 200 con la jornada reabierta', () => {
+    it('estado "abierta": despacha a reabrirJornada y responde 200', () => {
       jornadasService.reabrirJornada.mockReturnValue({ id: 1, estado: 'abierta' });
 
       const res = crearRespuesta();
-      reabrir(crearPeticion({ parametros: { id: 1 } }), res, jest.fn());
+      cambiarEstado(
+        crearPeticion({ parametros: { id: 1 }, cuerpo: { estado: 'abierta' } }),
+        res,
+        jest.fn(),
+      );
 
       expect(jornadasService.reabrirJornada).toHaveBeenCalledWith(1);
+      expect(jornadasService.cerrarJornada).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ mensaje: 'Jornada reabierta correctamente' }),
@@ -199,7 +210,11 @@ describe('jornadas.controller', () => {
       });
 
       const next = jest.fn();
-      reabrir(crearPeticion({ parametros: { id: 1 } }), crearRespuesta(), next);
+      cambiarEstado(
+        crearPeticion({ parametros: { id: 1 }, cuerpo: { estado: 'abierta' } }),
+        crearRespuesta(),
+        next,
+      );
 
       expect(next).toHaveBeenCalledWith(error);
     });

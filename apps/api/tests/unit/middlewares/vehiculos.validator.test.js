@@ -9,7 +9,7 @@ const ejecutarValidaciones = async (validaciones, cuerpo) => {
   return validationResult(req);
 };
 
-const vehiculoValido = { placa: 'ABC123', tipo: 'automovil', clienteId: 1 };
+const vehiculoValido = { placa: 'ABC123', tipoVehiculo: 'automovil', clienteId: 1 };
 
 describe('vehiculos.validator', () => {
   describe('validarCrear', () => {
@@ -22,7 +22,7 @@ describe('vehiculos.validator', () => {
       const resultado = await ejecutarValidaciones(validarCrear, {
         ...vehiculoValido,
         placa: 'ABC12D',
-        tipo: 'moto_hasta_150cc',
+        tipoVehiculo: 'moto_hasta_150cc',
       });
       expect(resultado.isEmpty()).toBe(true);
     });
@@ -35,10 +35,10 @@ describe('vehiculos.validator', () => {
       expect(resultado.isEmpty()).toBe(false);
     });
 
-    it('rechaza un tipo que no existe en el dominio', async () => {
+    it('rechaza un tipoVehiculo que no existe en el dominio', async () => {
       const resultado = await ejecutarValidaciones(validarCrear, {
         ...vehiculoValido,
-        tipo: 'barco',
+        tipoVehiculo: 'barco',
       });
       expect(resultado.isEmpty()).toBe(false);
     });

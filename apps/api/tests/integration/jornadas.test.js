@@ -25,6 +25,12 @@ beforeEach(() => {
 
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
 
+const abrirJornada = () => conApiKey('post', '/api/jornadas');
+const cerrarJornada = (id) =>
+  conApiKey('patch', `/api/jornadas/${id}/estado`).send({ estado: 'cerrada' });
+const reabrirJornada = (id) =>
+  conApiKey('patch', `/api/jornadas/${id}/estado`).send({ estado: 'abierta' });
+
 // --- Helpers mínimos para probar los agregados de SCRUM-38 ---
 
 let contadorDocumentoCliente = 0;
@@ -39,7 +45,7 @@ const registrarVehiculoDePrueba = async (overrides = {}) => {
   });
   const vehiculo = await conApiKey('post', '/api/vehiculos').send({
     placa: 'ABC123',
-    tipo: 'automovil',
+    tipoVehiculo: 'automovil',
     clienteId: cliente.body.cliente.id,
     ...overrides,
   });
@@ -86,9 +92,9 @@ const crearOrdenDePrueba = async (overrides = {}) => {
   return respuesta.body.orden;
 };
 
-describe('POST /api/jornadas/abrir', () => {
+describe('POST /api/jornadas', () => {
   it('abre la primera jornada (201)', async () => {
-    const respuesta = await conApiKey('post', '/api/jornadas/abrir');
+    const respuesta = await abrirJornada();
 
     expect(respuesta.status).toBe(201);
     expect(respuesta.body.jornada.estado).toBe('abierta');
@@ -96,29 +102,29 @@ describe('POST /api/jornadas/abrir', () => {
   });
 
   it('rechaza abrir una segunda jornada mientras la primera sigue abierta (409)', async () => {
-    await conApiKey('post', '/api/jornadas/abrir');
+    await abrirJornada();
 
-    const respuesta = await conApiKey('post', '/api/jornadas/abrir');
+    const respuesta = await abrirJornada();
     expect(respuesta.status).toBe(409);
   });
 
   it('rechaza abrir si ya existe una jornada para hoy, aunque esté cerrada (409)', async () => {
-    const primera = await conApiKey('post', '/api/jornadas/abrir');
-    await conApiKey('patch', `/api/jornadas/${primera.body.jornada.id}/cerrar`);
+    const primera = await abrirJornada();
+    await cerrarJornada(primera.body.jornada.id);
 
-    const respuesta = await conApiKey('post', '/api/jornadas/abrir');
+    const respuesta = await abrirJornada();
     expect(respuesta.status).toBe(409);
   });
 
   it('requiere API Key', async () => {
-    const respuesta = await request(app).post('/api/jornadas/abrir');
+    const respuesta = await request(app).post('/api/jornadas');
     expect(respuesta.status).toBe(401);
   });
 });
 
 describe('GET /api/jornadas', () => {
   it('lista las jornadas creadas', async () => {
-    await conApiKey('post', '/api/jornadas/abrir');
+    await abrirJornada();
 
     const respuesta = await conApiKey('get', '/api/jornadas');
 
@@ -132,7 +138,7 @@ describe('GET /api/jornadas', () => {
   });
 
   it('SCRUM-38: incluye unidades, ventaTotal (agregados de sus propias órdenes) y diferenciaCaja en null', async () => {
-    const jornadaAbierta = await conApiKey('post', '/api/jornadas/abrir');
+    const jornadaAbierta = await abrirJornada();
     const jornadaId = jornadaAbierta.body.jornada.id;
 
     await crearOrdenDePrueba({
@@ -148,7 +154,7 @@ describe('GET /api/jornadas', () => {
       servicio: { numero: 2 },
     });
 
-    await conApiKey('patch', `/api/jornadas/${jornadaId}/cerrar`);
+    await cerrarJornada(jornadaId);
 
     const respuesta = await conApiKey('get', '/api/jornadas');
 
@@ -162,7 +168,7 @@ describe('GET /api/jornadas', () => {
 
 describe('GET /api/jornadas/:id', () => {
   it('devuelve la jornada encontrada (200)', async () => {
-    const creada = await conApiKey('post', '/api/jornadas/abrir');
+    const creada = await abrirJornada();
 
     const respuesta = await conApiKey('get', `/api/jornadas/${creada.body.jornada.id}`);
 
@@ -181,36 +187,34 @@ describe('GET /api/jornadas/:id', () => {
   });
 });
 
-describe('PATCH /api/jornadas/:id/cerrar', () => {
-  it('cierra la jornada abierta (200)', async () => {
-    const creada = await conApiKey('post', '/api/jornadas/abrir');
+describe('PATCH /api/jornadas/:id/estado', () => {
+  it('estado "cerrada": cierra la jornada abierta (200)', async () => {
+    const creada = await abrirJornada();
 
-    const respuesta = await conApiKey('patch', `/api/jornadas/${creada.body.jornada.id}/cerrar`);
+    const respuesta = await cerrarJornada(creada.body.jornada.id);
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.jornada.estado).toBe('cerrada');
   });
 
   it('rechaza cerrar una jornada que ya está cerrada (409)', async () => {
-    const creada = await conApiKey('post', '/api/jornadas/abrir');
-    await conApiKey('patch', `/api/jornadas/${creada.body.jornada.id}/cerrar`);
+    const creada = await abrirJornada();
+    await cerrarJornada(creada.body.jornada.id);
 
-    const respuesta = await conApiKey('patch', `/api/jornadas/${creada.body.jornada.id}/cerrar`);
+    const respuesta = await cerrarJornada(creada.body.jornada.id);
     expect(respuesta.status).toBe(409);
   });
 
-  it('id inexistente: 404', async () => {
-    const respuesta = await conApiKey('patch', '/api/jornadas/9999/cerrar');
+  it('id inexistente al cerrar: 404', async () => {
+    const respuesta = await cerrarJornada(9999);
     expect(respuesta.status).toBe(404);
   });
-});
 
-describe('PATCH /api/jornadas/:id/reabrir', () => {
-  it('reabre la jornada cerrada (200) y registra la reapertura', async () => {
-    const creada = await conApiKey('post', '/api/jornadas/abrir');
-    await conApiKey('patch', `/api/jornadas/${creada.body.jornada.id}/cerrar`);
+  it('estado "abierta": reabre la jornada cerrada (200) y registra la reapertura', async () => {
+    const creada = await abrirJornada();
+    await cerrarJornada(creada.body.jornada.id);
 
-    const respuesta = await conApiKey('patch', `/api/jornadas/${creada.body.jornada.id}/reabrir`);
+    const respuesta = await reabrirJornada(creada.body.jornada.id);
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.jornada.estado).toBe('abierta');
@@ -218,14 +222,24 @@ describe('PATCH /api/jornadas/:id/reabrir', () => {
   });
 
   it('rechaza reabrir una jornada que no está cerrada (409)', async () => {
-    const creada = await conApiKey('post', '/api/jornadas/abrir');
+    const creada = await abrirJornada();
 
-    const respuesta = await conApiKey('patch', `/api/jornadas/${creada.body.jornada.id}/reabrir`);
+    const respuesta = await reabrirJornada(creada.body.jornada.id);
     expect(respuesta.status).toBe(409);
   });
 
-  it('id inexistente: 404', async () => {
-    const respuesta = await conApiKey('patch', '/api/jornadas/9999/reabrir');
+  it('id inexistente al reabrir: 404', async () => {
+    const respuesta = await reabrirJornada(9999);
     expect(respuesta.status).toBe(404);
+  });
+
+  it('rechaza un estado que no existe en el dominio (400)', async () => {
+    const creada = await abrirJornada();
+
+    const respuesta = await conApiKey(
+      'patch',
+      `/api/jornadas/${creada.body.jornada.id}/estado`,
+    ).send({ estado: 'pausada' });
+    expect(respuesta.status).toBe(400);
   });
 });

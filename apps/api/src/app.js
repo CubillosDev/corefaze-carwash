@@ -34,12 +34,20 @@ const crearApp = ({ apiKeys, origenPermitido } = env) => {
   const servicioApiKeys = crearServicioApiKeys(construirRegistrosApiKeys(apiKeys));
   const validarApiKey = crearMiddlewareApiKey(servicioApiKeys);
 
-  // Documentación interactiva: se monta ANTES de helmet, porque el CSP por
-  // defecto de helmet bloquea el script en línea que usa Swagger UI para
-  // arrancar, dejando la página visible pero sin interactividad.
+  // Helmet va primero, antes de cualquier ruta (incluida la
+  // documentación): así su CSP protege también a /api-docs, no solo a
+  // /api/*. No hace falta tocar el CSP por defecto de Helmet para que
+  // Swagger UI funcione: swagger-ui-express@5 sirve swagger-ui-bundle.js,
+  // swagger-ui-standalone-preset.js y swagger-ui-init.js (con el spec ya
+  // embebido) como archivos same-origin via <script src="...">, nunca como
+  // <script> en línea — verificado inspeccionando el HTML y esos tres
+  // archivos servidos. script-src 'self' (el valor por defecto) ya los
+  // permite.
+  app.use(helmet());
+
+  // Documentación interactiva.
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(documentoSwagger));
 
-  app.use(helmet());
   app.use(cors({ origin: origenPermitido }));
   app.use(express.json({ limit: LIMITE_CUERPO }));
 

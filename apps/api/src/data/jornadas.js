@@ -1,7 +1,7 @@
 /**
  * "Tabla" de jornadas en memoria (equivalente a la futura tabla `jornadas`
  * de Supabase, Bloque 10). Empieza vacía: se abre la primera a través de
- * POST /api/jornadas/abrir.
+ * POST /api/jornadas.
  *
  * `fecha` es única por jornada (una fila por día calendario; reabrir
  * reutiliza la misma fila, nunca crea una segunda para la misma fecha).

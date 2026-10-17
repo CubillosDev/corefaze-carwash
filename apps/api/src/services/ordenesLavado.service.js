@@ -217,6 +217,23 @@ const resolverClienteCredito = (medioPago, clienteId) => {
 };
 
 /**
+ * R3 (aplicabilidad, al editar): el servicio de la orden debe tener
+ * tarifa para el tipo de vehículo nuevo. Reutiliza
+ * serviciosService.obtenerTarifaParaTipoVehiculo —la misma función que
+ * consulta calcularValorServicio— pero descarta el valor devuelto: es
+ * una verificación de aplicabilidad servicio↔tipo, no de precio. No
+ * revisa servicio.activo; esa parte de R3 solo se revalida al crear.
+ *
+ * @param {number|string} servicioId
+ * @param {string} tipoVehiculo
+ * @throws {Conflicto} si el servicio no tiene tarifa para ese tipo de vehículo
+ */
+const validarServicioAplicaATipo = (servicioId, tipoVehiculo) => {
+  const servicio = serviciosService.obtenerServicioOFallar(servicioId);
+  serviciosService.obtenerTarifaParaTipoVehiculo(servicio, tipoVehiculo);
+};
+
+/**
  * R6: un vehículo no puede tener más de una orden abierta a la vez.
  * `idOrdenAExcluir` permite revalidar esta regla al editar una orden sin
  * que choque contra sí misma; al crear, se le pasa null.
@@ -260,7 +277,7 @@ const crearOrden = (datos) => {
   const colaborador = colaboradoresService.obtenerColaboradorOFallar(datos.colaboradorId);
 
   validarColaboradorActivo(colaborador); // R2
-  const valor = calcularValorServicio(servicio, vehiculo.tipo); // R3
+  const valor = calcularValorServicio(servicio, vehiculo.tipoVehiculo); // R3
   validarAutorizacionMotor(servicio, datos.autorizaMotor); // R7
   const clienteId = resolverClienteCredito(datos.medioPago, datos.clienteId); // R8
 
@@ -309,14 +326,17 @@ const crearOrden = (datos) => {
  * puede dispararse desde aquí (solo desde crearOrden, que es quien sí
  * calcula el valor).
  *
- * Reutiliza las mismas reglas R2/R6/R8 que crearOrden, mediante las
- * funciones privadas de este archivo, para no duplicar su lógica.
+ * Reutiliza las mismas reglas R2/R3 (aplicabilidad)/R6/R8 que crearOrden,
+ * mediante las funciones privadas de este archivo, para no duplicar su
+ * lógica. Si el vehículo cambia, revalida que el servicio original
+ * tenga tarifa para el tipo de vehículo nuevo (R3), sin importar si el
+ * tipo coincide con el anterior o no.
  *
  * @param {number|string} id
  * @param {{ vehiculoId?: number, colaboradorId?: number, medioPago?: string, clienteId?: number, observaciones?: string }} datos
  * @returns {object} la orden editada
  * @throws {NoEncontrado} si el id no existe, o el nuevo vehiculoId/colaboradorId no existen
- * @throws {Conflicto} si la orden está cerrada, su jornada ya no está abierta, o viola R2/R6/R8
+ * @throws {Conflicto} si la orden está cerrada, su jornada ya no está abierta, o viola R2/R3/R6/R8
  */
 const editarOrden = (id, datos) => {
   const orden = obtenerOrdenOFallar(id);
@@ -337,8 +357,9 @@ const editarOrden = (id, datos) => {
   const clienteIdFinal = datos.clienteId !== undefined ? datos.clienteId : orden.clienteId;
 
   if (vehiculoIdFinal !== orden.vehiculoId) {
-    vehiculosService.obtenerVehiculoOFallar(vehiculoIdFinal); // R1
+    const vehiculo = vehiculosService.obtenerVehiculoOFallar(vehiculoIdFinal); // R1
     validarVehiculoSinOtraOrdenAbierta(vehiculoIdFinal, orden.id); // R6
+    validarServicioAplicaATipo(orden.servicioId, vehiculo.tipoVehiculo); // R3 (aplicabilidad)
   }
 
   if (colaboradorIdFinal !== orden.colaboradorId) {

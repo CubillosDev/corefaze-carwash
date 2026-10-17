@@ -1,5 +1,6 @@
 const jornadasService = require('../services/jornadas.service');
 const ordenesLavadoService = require('../services/ordenesLavado.service');
+const { ESTADOS_JORNADA } = require('../constants/dominio');
 
 /**
  * Agrega a la jornada sus totales (SCRUM-38): unidades y ventaTotal
@@ -38,7 +39,7 @@ const obtenerPorId = (req, res, next) => {
   }
 };
 
-/** POST /api/jornadas/abrir */
+/** POST /api/jornadas: crea (abre) la jornada del día. */
 const abrir = (_req, res, next) => {
   try {
     const jornada = jornadasService.abrirJornada();
@@ -48,21 +49,24 @@ const abrir = (_req, res, next) => {
   }
 };
 
-/** PATCH /api/jornadas/:id/cerrar */
-const cerrar = (req, res, next) => {
+/**
+ * PATCH /api/jornadas/:id/estado
+ * El verbo va en el método HTTP, no en la URL: este único endpoint
+ * reemplaza los antiguos POST /abrir, PATCH /:id/cerrar y PATCH
+ * /:id/reabrir. El validator ya garantiza que "estado" es "cerrada" o
+ * "abierta" (único otro valor del enum ESTADOS_JORNADA); el controller
+ * solo despacha a la función de negocio correspondiente.
+ */
+const cambiarEstado = (req, res, next) => {
   try {
     const { id } = req.datos.parametros;
-    const jornada = jornadasService.cerrarJornada(id);
-    return res.status(200).json({ mensaje: 'Jornada cerrada correctamente', jornada });
-  } catch (error) {
-    return next(error);
-  }
-};
+    const { estado } = req.datos.cuerpo;
 
-/** PATCH /api/jornadas/:id/reabrir */
-const reabrir = (req, res, next) => {
-  try {
-    const { id } = req.datos.parametros;
+    if (estado === ESTADOS_JORNADA.CERRADA) {
+      const jornada = jornadasService.cerrarJornada(id);
+      return res.status(200).json({ mensaje: 'Jornada cerrada correctamente', jornada });
+    }
+
     const jornada = jornadasService.reabrirJornada(id);
     return res.status(200).json({ mensaje: 'Jornada reabierta correctamente', jornada });
   } catch (error) {
@@ -70,4 +74,4 @@ const reabrir = (req, res, next) => {
   }
 };
 
-module.exports = { listar, obtenerPorId, abrir, cerrar, reabrir };
+module.exports = { listar, obtenerPorId, abrir, cambiarEstado };

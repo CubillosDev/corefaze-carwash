@@ -27,7 +27,7 @@ const crearClienteDePrueba = () =>
 
 const datosVehiculo = (clienteId) => ({
   placa: 'ABC123',
-  tipo: 'automovil',
+  tipoVehiculo: 'automovil',
   clienteId,
 });
 
@@ -59,14 +59,14 @@ describe('vehiculos.service', () => {
     it('rechaza una placa de moto para un vehículo tipo automovil (400)', () => {
       const cliente = crearClienteDePrueba();
       expect(() =>
-        crearVehiculo({ placa: 'ABC12D', tipo: 'automovil', clienteId: cliente.id }),
+        crearVehiculo({ placa: 'ABC12D', tipoVehiculo: 'automovil', clienteId: cliente.id }),
       ).toThrow(SolicitudInvalida);
     });
 
     it('rechaza una placa de carro para un vehículo tipo moto (400)', () => {
       const cliente = crearClienteDePrueba();
       expect(() =>
-        crearVehiculo({ placa: 'ABC123', tipo: 'moto_hasta_150cc', clienteId: cliente.id }),
+        crearVehiculo({ placa: 'ABC123', tipoVehiculo: 'moto_hasta_150cc', clienteId: cliente.id }),
       ).toThrow(SolicitudInvalida);
     });
   });

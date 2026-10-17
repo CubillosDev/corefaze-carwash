@@ -93,6 +93,28 @@ describe('aplicación', () => {
     });
   });
 
+  describe('documentación interactiva', () => {
+    it('GET /api-docs responde 200 con las cabeceras de Helmet activas', async () => {
+      const respuesta = await request(app).get('/api-docs/');
+
+      expect(respuesta.status).toBe(200);
+      expect(respuesta.headers['x-content-type-options']).toBe('nosniff');
+      expect(respuesta.headers['content-security-policy']).toContain("script-src 'self'");
+    });
+
+    it('sirve los scripts de Swagger UI same-origin, sin necesitar ajustar el CSP por defecto', async () => {
+      const pagina = await request(app).get('/api-docs/');
+      const initJs = await request(app).get('/api-docs/swagger-ui-init.js');
+
+      // swagger-ui-express@5 carga todo con <script src="..."> same-origin
+      // (nunca <script> en línea), así que el script-src 'self' por
+      // defecto de Helmet ya los permite sin necesitar 'unsafe-inline'.
+      expect(pagina.text).not.toMatch(/<script>[\s\S]*?<\/script>/);
+      expect(pagina.text).toContain('<script src="./swagger-ui-init.js">');
+      expect(initJs.status).toBe(200);
+    });
+  });
+
   describe('CORS', () => {
     it('anuncia únicamente el origen configurado', async () => {
       const respuesta = await request(app).get('/api/salud').set('Origin', 'http://sitio-malo.com');

@@ -3,7 +3,7 @@ const { TIPOS_VEHICULO, PATRONES_PLACA, LIMITES } = require('../constants/domini
 
 const normalizarPlaca = (valor) => valor.trim().toUpperCase();
 
-/** Acepta el formato de carro O el de moto; la correspondencia exacta con el tipo se valida en el service. */
+/** Acepta el formato de carro O el de moto; la correspondencia exacta con el tipoVehiculo se valida en el service. */
 const esFormatoDePlacaValido = (placa) =>
   PATRONES_PLACA.CARRO.test(placa) || PATRONES_PLACA.MOTO.test(placa);
 
@@ -16,10 +16,10 @@ const validarPlaca = () =>
     .custom(esFormatoDePlacaValido)
     .withMessage('La placa debe tener el formato ABC123 (carro) o ABC12D (moto)');
 
-const validarTipo = () =>
-  body('tipo')
+const validarTipoVehiculo = () =>
+  body('tipoVehiculo')
     .isIn(Object.values(TIPOS_VEHICULO))
-    .withMessage(`El tipo debe ser uno de: ${Object.values(TIPOS_VEHICULO).join(', ')}`);
+    .withMessage(`tipoVehiculo debe ser uno de: ${Object.values(TIPOS_VEHICULO).join(', ')}`);
 
 const validarMarcaOColor = (campo) =>
   body(campo)
@@ -36,10 +36,10 @@ const validarMarcaOColor = (campo) =>
 const validarClienteId = () =>
   body('clienteId').isInt({ min: 1 }).withMessage('clienteId debe ser un entero positivo').toInt();
 
-/** POST /api/vehiculos: placa, tipo y clienteId son obligatorios. */
+/** POST /api/vehiculos: placa, tipoVehiculo y clienteId son obligatorios. */
 const validarCrear = [
   validarPlaca(),
-  validarTipo(),
+  validarTipoVehiculo(),
   validarMarcaOColor('marca'),
   validarMarcaOColor('color'),
   validarClienteId(),
@@ -48,7 +48,7 @@ const validarCrear = [
 /** PUT /api/vehiculos/:id: cada campo es opcional. */
 const validarActualizar = [
   validarPlaca().optional(),
-  validarTipo().optional(),
+  validarTipoVehiculo().optional(),
   validarMarcaOColor('marca'),
   validarMarcaOColor('color'),
   validarClienteId().optional(),

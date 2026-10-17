@@ -1,20 +1,14 @@
 const { Router } = require('express');
-const { param } = require('express-validator');
 const {
   listar,
   obtenerPorId,
   abrir,
-  cerrar,
-  reabrir,
+  cambiarEstado,
 } = require('../controllers/jornadas.controller');
-const { validarFiltroListar } = require('../middlewares/jornadas.validator');
-const { validar } = require('../middlewares/validar.middleware');
+const { validarFiltroListar, validarCambioDeEstado } = require('../middlewares/jornadas.validator');
+const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
 
 const router = Router();
-
-const validarIdDeUrl = [
-  param('id').isInt({ min: 1 }).withMessage('El id debe ser un entero positivo').toInt(),
-];
 
 /**
  * @swagger
@@ -126,56 +120,37 @@ router.get('/:id', validarIdDeUrl, validar, obtenerPorId);
 
 /**
  * @swagger
- * /api/jornadas/abrir:
+ * /api/jornadas:
  *   post:
  *     tags: [Jornadas]
  *     summary: Abrir la jornada del día
  *     description: >
- *       La fecha la fija siempre el servidor (la de hoy); el cliente no la
- *       envía y este endpoint no recibe body. Solo puede existir una
- *       jornada abierta a la vez en todo el sistema, y solo puede existir
- *       una jornada por fecha calendario.
+ *       El verbo va en el método HTTP, no en la URL (no existe
+ *       POST /api/jornadas/abrir). La fecha la fija siempre el servidor
+ *       (la de hoy); el cliente no la envía y este endpoint no recibe
+ *       body. Solo puede existir una jornada abierta a la vez en todo el
+ *       sistema, y solo puede existir una jornada por fecha calendario.
  *     responses:
  *       201:
  *         description: Jornada abierta correctamente
  *       409:
  *         description: Ya existe una jornada abierta, o ya existe una jornada registrada para hoy
  */
-router.post('/abrir', abrir);
+router.post('/', abrir);
 
 /**
  * @swagger
- * /api/jornadas/{id}/cerrar:
+ * /api/jornadas/{id}/estado:
  *   patch:
  *     tags: [Jornadas]
- *     summary: Cerrar una jornada abierta
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Jornada cerrada correctamente
- *       400:
- *         description: Id inválido
- *       404:
- *         description: Jornada no encontrada
- *       409:
- *         description: Solo se puede cerrar una jornada abierta
- */
-router.patch('/:id/cerrar', validarIdDeUrl, validar, cerrar);
-
-/**
- * @swagger
- * /api/jornadas/{id}/reabrir:
- *   patch:
- *     tags: [Jornadas]
- *     summary: Reabrir una jornada cerrada
+ *     summary: Cerrar o reabrir una jornada
  *     description: >
- *       Pensado para rol DUEÑO; el RBAC por rol todavía no existe en el
- *       proyecto, así que este endpoint no lo exige todavía. Cada
+ *       Único endpoint de cambio de estado (reemplaza los antiguos
+ *       PATCH /:id/cerrar y PATCH /:id/reabrir: el verbo va en el método
+ *       HTTP, no en la URL). estado="cerrada" cierra una jornada
+ *       abierta; estado="abierta" reabre una jornada cerrada (pensado
+ *       para rol DUEÑO; el RBAC por rol todavía no existe en el
+ *       proyecto, así que este endpoint no lo exige todavía). Cada
  *       reapertura queda registrada en el arreglo "reaperturas" de la
  *       jornada como auditoría mínima.
  *     parameters:
@@ -184,16 +159,31 @@ router.patch('/:id/cerrar', validarIdDeUrl, validar, cerrar);
  *         required: true
  *         schema:
  *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [estado]
+ *             properties:
+ *               estado:
+ *                 type: string
+ *                 enum: [cerrada, abierta]
+ *                 example: cerrada
  *     responses:
  *       200:
- *         description: Jornada reabierta correctamente
+ *         description: Jornada cerrada o reabierta correctamente, según el estado enviado
  *       400:
- *         description: Id inválido
+ *         description: Estado o id inválidos
  *       404:
  *         description: Jornada no encontrada
  *       409:
- *         description: Solo se puede reabrir una jornada cerrada, o ya hay otra jornada abierta
+ *         description: >
+ *           Solo se puede cerrar una jornada abierta; solo se puede
+ *           reabrir una jornada cerrada; o ya hay otra jornada abierta
+ *           (al reabrir)
  */
-router.patch('/:id/reabrir', validarIdDeUrl, validar, reabrir);
+router.patch('/:id/estado', validarIdDeUrl, validarCambioDeEstado, validar, cambiarEstado);
 
 module.exports = router;

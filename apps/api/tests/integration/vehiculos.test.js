@@ -45,7 +45,7 @@ describe('POST /api/vehiculos', () => {
 
     const respuesta = await conApiKey('post', '/api/vehiculos').send({
       placa: 'abc123',
-      tipo: 'automovil',
+      tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
 
@@ -59,7 +59,7 @@ describe('POST /api/vehiculos', () => {
 
     const respuesta = await conApiKey('post', '/api/vehiculos').send({
       placa: 'ABC12D',
-      tipo: 'moto_hasta_150cc',
+      tipoVehiculo: 'moto_hasta_150cc',
       clienteId: cliente.id,
     });
 
@@ -71,7 +71,7 @@ describe('POST /api/vehiculos', () => {
 
     const respuesta = await conApiKey('post', '/api/vehiculos').send({
       placa: 'ABC12D',
-      tipo: 'automovil',
+      tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
 
@@ -83,7 +83,7 @@ describe('POST /api/vehiculos', () => {
 
     const respuesta = await conApiKey('post', '/api/vehiculos').send({
       placa: '12-ABC',
-      tipo: 'automovil',
+      tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
 
@@ -93,7 +93,7 @@ describe('POST /api/vehiculos', () => {
   it('cliente inexistente: 404', async () => {
     const respuesta = await conApiKey('post', '/api/vehiculos').send({
       placa: 'ABC123',
-      tipo: 'automovil',
+      tipoVehiculo: 'automovil',
       clienteId: 9999,
     });
 
@@ -104,13 +104,13 @@ describe('POST /api/vehiculos', () => {
     const cliente = await registrarCliente();
     await conApiKey('post', '/api/vehiculos').send({
       placa: 'ABC123',
-      tipo: 'automovil',
+      tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
 
     const respuesta = await conApiKey('post', '/api/vehiculos').send({
       placa: 'ABC123',
-      tipo: 'automovil',
+      tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
 
@@ -122,7 +122,7 @@ describe('POST /api/vehiculos', () => {
 
     const respuesta = await conApiKey('post', '/api/vehiculos').send({
       placa: 'ABC123',
-      tipo: 'automovil',
+      tipoVehiculo: 'automovil',
       clienteId: cliente.id,
       id: 9999,
     });
@@ -154,7 +154,7 @@ describe('PUT /api/vehiculos/:id', () => {
     const cliente = await registrarCliente();
     const creado = await conApiKey('post', '/api/vehiculos').send({
       placa: 'ABC123',
-      tipo: 'automovil',
+      tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
 
@@ -172,7 +172,7 @@ describe('DELETE /api/vehiculos/:id', () => {
     const cliente = await registrarCliente();
     const creado = await conApiKey('post', '/api/vehiculos').send({
       placa: 'ABC123',
-      tipo: 'automovil',
+      tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
 
@@ -192,7 +192,7 @@ describe('Integridad referencial: DELETE /api/clientes/:id con vehículos', () =
     const cliente = await registrarCliente();
     await conApiKey('post', '/api/vehiculos').send({
       placa: 'ABC123',
-      tipo: 'automovil',
+      tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
 
@@ -218,7 +218,7 @@ describe('Integridad referencial: DELETE /api/vehiculos/:id con órdenes de lava
     const cliente = await registrarCliente();
     const vehiculoCreado = await conApiKey('post', '/api/vehiculos').send({
       placa: 'ABC123',
-      tipo: 'automovil',
+      tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
     const vehiculo = vehiculoCreado.body.vehiculo;

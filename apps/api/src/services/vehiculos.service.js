@@ -51,27 +51,27 @@ const obtenerVehiculoOFallar = (id) => {
 const clienteTieneVehiculos = (clienteId) =>
   vehiculos.some((vehiculo) => vehiculo.clienteId === Number(clienteId));
 
-const esTipoMoto = (tipo) => TIPOS_VEHICULO_MOTO.includes(tipo);
+const esTipoMoto = (tipoVehiculo) => TIPOS_VEHICULO_MOTO.includes(tipoVehiculo);
 
 /**
  * La placa debe corresponder exactamente al tipo de vehículo (no una placa
  * de moto en un automóvil, ni viceversa). El validador solo confirma que
  * la placa tenga ALGUNO de los dos formatos; esta correspondencia exacta
- * vive aquí porque en una actualización el tipo puede no venir en la
- * petición, y hace falta el vehículo ya guardado para resolverlo.
+ * vive aquí porque en una actualización el tipoVehiculo puede no venir en
+ * la petición, y hace falta el vehículo ya guardado para resolverlo.
  *
  * @param {string} placa
- * @param {string} tipo
+ * @param {string} tipoVehiculo
  * @throws {SolicitudInvalida} si no corresponden
  */
-const validarPlacaCorrespondeATipo = (placa, tipo) => {
-  const patronEsperado = esTipoMoto(tipo) ? PATRONES_PLACA.MOTO : PATRONES_PLACA.CARRO;
+const validarPlacaCorrespondeATipo = (placa, tipoVehiculo) => {
+  const patronEsperado = esTipoMoto(tipoVehiculo) ? PATRONES_PLACA.MOTO : PATRONES_PLACA.CARRO;
 
   if (!patronEsperado.test(placa)) {
     throw new SolicitudInvalida([
       {
         campo: 'placa',
-        mensaje: `La placa no corresponde al formato de ${esTipoMoto(tipo) ? 'moto' : 'carro'}`,
+        mensaje: `La placa no corresponde al formato de ${esTipoMoto(tipoVehiculo) ? 'moto' : 'carro'}`,
       },
     ]);
   }
@@ -82,10 +82,10 @@ const validarPlacaCorrespondeATipo = (placa, tipo) => {
  *
  * Reglas de negocio:
  * - La placa debe ser única (409 si ya existe).
- * - La placa debe corresponder al tipo de vehículo (400 si no).
+ * - La placa debe corresponder al tipoVehiculo (400 si no).
  * - clienteId debe existir (404 si no) — se delega a clientesService.
  *
- * @param {{ placa: string, tipo: string, marca?: string, color?: string, clienteId: number }} datos
+ * @param {{ placa: string, tipoVehiculo: string, marca?: string, color?: string, clienteId: number }} datos
  * @returns {object} el vehículo creado
  */
 const crearVehiculo = (datos) => {
@@ -93,7 +93,7 @@ const crearVehiculo = (datos) => {
     throw new Conflicto('Ya existe un vehículo con esa placa');
   }
 
-  validarPlacaCorrespondeATipo(datos.placa, datos.tipo);
+  validarPlacaCorrespondeATipo(datos.placa, datos.tipoVehiculo);
 
   // Lanza NoEncontrado (404) si el cliente no existe; no seguimos si falla.
   clientesService.obtenerClienteOFallar(datos.clienteId);
@@ -101,7 +101,7 @@ const crearVehiculo = (datos) => {
   const nuevoVehiculo = {
     id: vehiculos.length > 0 ? Math.max(...vehiculos.map((vehiculo) => vehiculo.id)) + 1 : 1,
     placa: datos.placa,
-    tipo: datos.tipo,
+    tipoVehiculo: datos.tipoVehiculo,
     marca: datos.marca ?? null,
     color: datos.color ?? null,
     clienteId: Number(datos.clienteId),
@@ -115,11 +115,11 @@ const crearVehiculo = (datos) => {
  * Actualiza un vehículo existente.
  *
  * @param {number|string} id
- * @param {{ placa?: string, tipo?: string, marca?: string, color?: string, clienteId?: number }} datos
+ * @param {{ placa?: string, tipoVehiculo?: string, marca?: string, color?: string, clienteId?: number }} datos
  * @returns {object} el vehículo actualizado
  * @throws {NoEncontrado} si el vehículo o el nuevo clienteId no existen
  * @throws {Conflicto} si la placa nueva ya pertenece a otro vehículo
- * @throws {SolicitudInvalida} si la placa resultante no corresponde al tipo resultante
+ * @throws {SolicitudInvalida} si la placa resultante no corresponde al tipoVehiculo resultante
  */
 const actualizarVehiculo = (id, datos) => {
   const vehiculo = obtenerVehiculoOFallar(id);
@@ -131,9 +131,9 @@ const actualizarVehiculo = (id, datos) => {
     }
   }
 
-  const tipoResultante = datos.tipo ?? vehiculo.tipo;
+  const tipoVehiculoResultante = datos.tipoVehiculo ?? vehiculo.tipoVehiculo;
   const placaResultante = datos.placa ?? vehiculo.placa;
-  validarPlacaCorrespondeATipo(placaResultante, tipoResultante);
+  validarPlacaCorrespondeATipo(placaResultante, tipoVehiculoResultante);
 
   if (datos.clienteId !== undefined) {
     clientesService.obtenerClienteOFallar(datos.clienteId);
@@ -141,7 +141,7 @@ const actualizarVehiculo = (id, datos) => {
 
   Object.assign(vehiculo, {
     placa: datos.placa ?? vehiculo.placa,
-    tipo: datos.tipo ?? vehiculo.tipo,
+    tipoVehiculo: datos.tipoVehiculo ?? vehiculo.tipoVehiculo,
     marca: datos.marca ?? vehiculo.marca,
     color: datos.color ?? vehiculo.color,
     clienteId: datos.clienteId !== undefined ? Number(datos.clienteId) : vehiculo.clienteId,
