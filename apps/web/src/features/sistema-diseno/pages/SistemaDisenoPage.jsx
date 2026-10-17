@@ -349,7 +349,7 @@ export function SistemaDisenoPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 rounded-control bg-marco p-3">
-            <Boton variante="marco" tamano="icono" aria-label="Abrir menú de navegación">
+            <Boton variante="marco" tamano="icono" aria-label="Ejemplo de botón de la cabecera">
               <IconoMenu />
             </Boton>
             <span className="text-detalle text-white/70">

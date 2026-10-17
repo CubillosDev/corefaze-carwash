@@ -1,43 +1,45 @@
+import logoCorefaze from '@/assets/images/logo-corefaze.webp';
+import { Boton } from '@/components/ui/Boton';
 import { IconoMenu } from '@/components/ui/iconos/IconoMenu';
 
 /**
- * Barra superior del panel.
+ * Cabecera del panel sobre el fondo del marco: logo, divisor y nombre de la
+ * aplicación. Al pasar el puntero, el logo se despliega y muestra la palabra
+ * COREFAZE.
  *
- * En pantallas angostas trae el botón que abre el cajón de navegación y repite
- * la marca, porque allí la barra lateral está oculta.
+ * En pantallas angostas suma el botón que abre el cajón de navegación.
  *
  * @param {object} props
  * @param {() => void} props.alAbrirMenu
  * @param {boolean} props.menuAbierto
- * @param {import('react').ReactNode} [props.acciones] Acciones de la página actual.
+ * @param {string} props.idMenu Id del elemento que abre el botón (aria-controls).
  */
-export function Encabezado({ alAbrirMenu, menuAbierto, acciones }) {
+export function Encabezado({ alAbrirMenu, menuAbierto, idMenu }) {
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-neutro-200 bg-white px-4 escritorio:px-8">
-      <button
-        type="button"
-        onClick={alAbrirMenu}
-        aria-label="Abrir menú de navegación"
-        aria-expanded={menuAbierto}
-        className="-ml-1 rounded-control p-2 text-neutro-600 transition-colors hover:bg-neutro-100 hover:text-neutro-900 escritorio:hidden"
-      >
-        <IconoMenu />
-      </button>
+    <header className="flex h-encabezado shrink-0 items-center px-3 escritorio:px-4.5">
+      <div className="flex items-center gap-3.5">
+        <Boton
+          variante="marco"
+          tamano="icono"
+          onClick={alAbrirMenu}
+          aria-label="Abrir menú de navegación"
+          aria-expanded={menuAbierto}
+          aria-controls={idMenu}
+          className="-mr-1 escritorio:hidden"
+        >
+          <IconoMenu />
+        </Boton>
 
-      <span className="flex min-w-0 items-center gap-2 escritorio:hidden">
-        <img src="/favicon.svg" alt="" aria-hidden="true" className="size-7 shrink-0" />
-        <span className="truncate text-control font-semibold text-neutro-900">Car Wash</span>
-      </span>
+        <div
+          title="Corefaze"
+          className="h-6 w-6 shrink-0 overflow-hidden transition-[width] duration-380 ease-suave hover:w-29.75"
+        >
+          <img src={logoCorefaze} alt="Corefaze" className="block h-6 w-auto max-w-none" />
+        </div>
 
-      <p className="hidden text-control font-medium text-neutro-500 escritorio:block">Panel de gestión</p>
+        <span aria-hidden="true" className="h-5 w-px shrink-0 bg-white/25" />
 
-      <div className="ml-auto flex shrink-0 items-center gap-2">
-        {import.meta.env.DEV ? (
-          <span className="hidden rounded-full bg-resalte px-2.5 py-1 text-meta font-medium text-neutro-900 escritorio:inline">
-            Desarrollo
-          </span>
-        ) : null}
-        {acciones}
+        <span className="text-marca text-white">CarWash</span>
       </div>
     </header>
   );
