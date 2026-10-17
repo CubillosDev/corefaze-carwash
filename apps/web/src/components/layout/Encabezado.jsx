@@ -13,27 +13,27 @@ import { IconoMenu } from '@/components/ui/iconos/IconoMenu';
  */
 export function Encabezado({ alAbrirMenu, menuAbierto, acciones }) {
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-neutro-200 bg-white px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-neutro-200 bg-white px-4 escritorio:px-8">
       <button
         type="button"
         onClick={alAbrirMenu}
         aria-label="Abrir menú de navegación"
         aria-expanded={menuAbierto}
-        className="-ml-1 rounded-lg p-2 text-neutro-600 transition-colors hover:bg-neutro-100 hover:text-neutro-900 lg:hidden"
+        className="-ml-1 rounded-control p-2 text-neutro-600 transition-colors hover:bg-neutro-100 hover:text-neutro-900 escritorio:hidden"
       >
         <IconoMenu />
       </button>
 
-      <span className="flex min-w-0 items-center gap-2 lg:hidden">
+      <span className="flex min-w-0 items-center gap-2 escritorio:hidden">
         <img src="/favicon.svg" alt="" aria-hidden="true" className="size-7 shrink-0" />
-        <span className="truncate text-sm font-semibold text-neutro-900">Car Wash</span>
+        <span className="truncate text-control font-semibold text-neutro-900">Car Wash</span>
       </span>
 
-      <p className="hidden text-sm font-medium text-neutro-500 lg:block">Panel de gestión</p>
+      <p className="hidden text-control font-medium text-neutro-500 escritorio:block">Panel de gestión</p>
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
         {import.meta.env.DEV ? (
-          <span className="hidden rounded-full bg-resalte-100 px-2.5 py-1 text-xs font-medium text-resalte-700 sm:inline">
+          <span className="hidden rounded-full bg-resalte px-2.5 py-1 text-meta font-medium text-neutro-900 escritorio:inline">
             Desarrollo
           </span>
         ) : null}

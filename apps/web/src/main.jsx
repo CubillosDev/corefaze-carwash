@@ -1,7 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
-import '@fontsource-variable/inter';
+import '@fontsource-variable/dm-sans/opsz.css';
+import '@fontsource/jetbrains-mono/600.css';
 import '@/styles/global.css';
 
 import { App } from '@/app/App';

@@ -64,7 +64,7 @@ describe('Boton', () => {
 
   it('aplica el color de cada variante', () => {
     const { rerender } = render(<Boton variante="peligro">Anular</Boton>);
-    expect(screen.getByRole('button')).toHaveClass('bg-acento');
+    expect(screen.getByRole('button')).toHaveClass('bg-error');
 
     rerender(<Boton variante="fantasma">Ver detalle</Boton>);
     expect(screen.getByRole('button')).toHaveClass('bg-transparent');

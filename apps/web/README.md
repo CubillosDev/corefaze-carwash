@@ -65,22 +65,30 @@ desarrollo**; en la compilación de producción desaparece del paquete.
 
 ### Tokens
 
-Toda la paleta, la tipografía y las animaciones se definen con `@theme` en
-[`src/styles/global.css`](src/styles/global.css). La paleta por defecto de Tailwind se borra a
-propósito (`--color-*: initial`), de modo que `bg-blue-500` no existe: **en los componentes los
-colores se usan siempre por nombre** (`bg-primario`, `text-acento`, `border-error-borde`) y nunca
-con un hex suelto.
+Los valores vienen del diseño aprobado (handoff en `docs/diseno/`, que es solo referencia y no
+se importa). Colores, tipografía, radios, sombras, la curva de movimiento y el punto de quiebre
+se definen con `@theme` en [`src/styles/global.css`](src/styles/global.css). Los valores por
+defecto de Tailwind se borran a propósito (`--color-*: initial`, `--radius-*: initial`, ...),
+así que `bg-blue-500` o `rounded-lg` no existen: **en los componentes los tokens se usan
+siempre por nombre** (`bg-primario`, `rounded-control`, `shadow-modal`) y nunca con un valor
+suelto.
 
-| Familia       | Base      | Para qué                                                        |
-| ------------- | --------- | --------------------------------------------------------------- |
-| `primario`    | `#0b1f4f` | Azul marino de la marca: barra lateral, botones primarios.      |
-| `acento`      | `#d0202e` | Rojo: acciones destructivas y marcas de campo obligatorio.      |
-| `resalte`     | `#f5b800` | Amarillo: solo como fondo y con texto oscuro encima.            |
-| `neutro`      | `#6b7488` | Fondos, bordes y texto.                                         |
-| Estado        | —         | `exito`, `advertencia`, `error`, `info`, cada uno con `-suave` y `-borde`. |
+| Grupo      | Tokens                                                              | Para qué                                     |
+| ---------- | ------------------------------------------------------------------- | -------------------------------------------- |
+| Marco      | `marco` `#0e1730`, `velo`                                           | Cabecera, borde del panel y capa de modales. |
+| Primario   | `primario` `#1268e8` y los tonos `50` `100` `200` `600` `800`          | Botones primarios, foco y selección.         |
+| Resalte    | `resalte` `#f2c230`                                                 | Amarillo de placa, solo como fondo.          |
+| Neutros    | `neutro-50` a `neutro-900`                                          | Superficies y bordes; texto en los oscuros.  |
+| Estado     | `exito`, `advertencia`, `error`, `info` con `-solido` y `-suave`      | Texto, puntos e iconos, y fondo.             |
+| Tipografía | `text-titulo`, `text-cuerpo`, `text-control`, `text-etiqueta`, ...    | Escala por rol; cada token trae su peso.     |
+| Radios     | `rounded-control` (9 px), `rounded-tarjeta`, `rounded-panel`, ...     | Controles, tarjetas y panel.                 |
+| Sombras    | `shadow-pildora`, `shadow-cajon`, `shadow-modal`, ...                 | Elevación de cada capa.                      |
+| Movimiento | `ease-suave` y `animate-entrar-vista`, `animate-entrar-modal`, ...    | Una sola curva para todo.                    |
+| Quiebre    | `escritorio:` (760 px)                                              | Por debajo, la barra lateral es un cajón.    |
 
-Cada familia de marca tiene su escala de `50` a `900`. La tipografía es Inter, cargada desde
-`@fontsource-variable/inter` (sin CDN), con siete tamaños de `text-xs` a `text-3xl`.
+La tipografía es DM Sans con eje de tamaño óptico (`@fontsource-variable/dm-sans/opsz.css`) y
+JetBrains Mono 600 para placas y códigos (`@fontsource/jetbrains-mono`), sin CDN. El catálogo
+`/sistema-diseno` muestra todos los tokens con su valor leído del tema en vivo.
 
 ### Layout
 

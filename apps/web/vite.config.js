@@ -20,6 +20,11 @@ export default defineConfig({
     port: 4173,
     strictPort: true,
   },
+  build: {
+    // Las fuentes nunca se incrustan en el CSS: así el navegador solo descarga
+    // los alfabetos que necesita (unicode-range). El resto sigue la regla de Vite.
+    assetsInlineLimit: (archivo) => (/\.woff2?$/.test(archivo) ? false : undefined),
+  },
   test: {
     environment: 'jsdom',
     globals: false,

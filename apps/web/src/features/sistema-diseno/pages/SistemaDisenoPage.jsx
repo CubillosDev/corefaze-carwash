@@ -6,65 +6,49 @@ import { CampoTexto } from '@/components/ui/CampoTexto';
 import { Modal } from '@/components/ui/Modal';
 import { Tabla } from '@/components/ui/Tabla';
 import { MuestraDeColor } from '@/features/sistema-diseno/components/MuestraDeColor';
+import { MuestraDeForma } from '@/features/sistema-diseno/components/MuestraDeForma';
 import { SeccionDelCatalogo } from '@/features/sistema-diseno/components/SeccionDelCatalogo';
-import { useValoresDeColor } from '@/features/sistema-diseno/hooks/useValoresDeColor';
+import { useValoresDeTokens } from '@/features/sistema-diseno/hooks/useValoresDeTokens';
 import { formatoFecha, formatoFechaHora } from '@/utils/formatoFecha';
 import { formatoMoneda } from '@/utils/formatoMoneda';
 
 const GRUPOS_DE_COLOR = [
   {
-    nombre: 'Primario · azul marino',
-    nota: 'Color principal de la marca: barra lateral, botones primarios y cifras destacadas.',
+    nombre: 'Marco',
+    nota: 'Fondo de la cabecera y del borde del panel, y velo detrás del cajón y de los modales.',
+    tonos: [
+      { token: 'marco', clase: 'bg-marco' },
+      { token: 'velo', clase: 'bg-velo' },
+    ],
+  },
+  {
+    nombre: 'Primario · Electric Blue',
+    nota: 'Botones primarios, foco y selección. Solo existen los tonos que usa el diseño.',
     tonos: [
       { token: 'primario-50', clase: 'bg-primario-50' },
       { token: 'primario-100', clase: 'bg-primario-100' },
       { token: 'primario-200', clase: 'bg-primario-200' },
-      { token: 'primario-300', clase: 'bg-primario-300' },
-      { token: 'primario-400', clase: 'bg-primario-400' },
       { token: 'primario-500', clase: 'bg-primario-500' },
       { token: 'primario-600', clase: 'bg-primario-600' },
-      { token: 'primario-700', clase: 'bg-primario-700' },
       { token: 'primario-800', clase: 'bg-primario-800' },
-      { token: 'primario-900', clase: 'bg-primario-900' },
     ],
   },
   {
-    nombre: 'Acento · rojo',
-    nota: 'Acciones destructivas y marcas de campo obligatorio. Llama mucho la atención: se usa con medida.',
-    tonos: [
-      { token: 'acento-50', clase: 'bg-acento-50' },
-      { token: 'acento-100', clase: 'bg-acento-100' },
-      { token: 'acento-200', clase: 'bg-acento-200' },
-      { token: 'acento-300', clase: 'bg-acento-300' },
-      { token: 'acento-400', clase: 'bg-acento-400' },
-      { token: 'acento-500', clase: 'bg-acento-500' },
-      { token: 'acento-600', clase: 'bg-acento-600' },
-      { token: 'acento-700', clase: 'bg-acento-700' },
-      { token: 'acento-800', clase: 'bg-acento-800' },
-    ],
-  },
-  {
-    nombre: 'Resalte · amarillo',
-    nota: 'Solo como fondo y siempre con texto oscuro encima: sobre blanco no alcanza el contraste mínimo.',
-    tonos: [
-      { token: 'resalte-50', clase: 'bg-resalte-50' },
-      { token: 'resalte-100', clase: 'bg-resalte-100' },
-      { token: 'resalte-200', clase: 'bg-resalte-200' },
-      { token: 'resalte-300', clase: 'bg-resalte-300' },
-      { token: 'resalte-400', clase: 'bg-resalte-400' },
-      { token: 'resalte-500', clase: 'bg-resalte-500' },
-      { token: 'resalte-600', clase: 'bg-resalte-600' },
-      { token: 'resalte-700', clase: 'bg-resalte-700' },
-    ],
+    nombre: 'Resalte',
+    nota: 'Amarillo de placa física. Solo como fondo y con texto oscuro encima.',
+    tonos: [{ token: 'resalte', clase: 'bg-resalte' }],
   },
   {
     nombre: 'Neutros',
-    nota: 'Fondos, bordes y texto. El cuerpo del panel vive casi por completo en esta escala.',
+    nota: 'Superficies y bordes en los tonos claros; texto e iconos en los oscuros.',
     tonos: [
       { token: 'neutro-50', clase: 'bg-neutro-50' },
       { token: 'neutro-100', clase: 'bg-neutro-100' },
+      { token: 'neutro-150', clase: 'bg-neutro-150' },
       { token: 'neutro-200', clase: 'bg-neutro-200' },
+      { token: 'neutro-250', clase: 'bg-neutro-250' },
       { token: 'neutro-300', clase: 'bg-neutro-300' },
+      { token: 'neutro-350', clase: 'bg-neutro-350' },
       { token: 'neutro-400', clase: 'bg-neutro-400' },
       { token: 'neutro-500', clase: 'bg-neutro-500' },
       { token: 'neutro-600', clase: 'bg-neutro-600' },
@@ -75,35 +59,69 @@ const GRUPOS_DE_COLOR = [
   },
   {
     nombre: 'Estado',
-    nota: 'Alertas y validaciones. Cada estado trae su tono fuerte, uno suave de fondo y uno de borde.',
+    nota: 'Cada estado trae su tono de texto, uno sólido para puntos e iconos y uno suave de fondo.',
     tonos: [
       { token: 'exito', clase: 'bg-exito' },
+      { token: 'exito-solido', clase: 'bg-exito-solido' },
       { token: 'exito-suave', clase: 'bg-exito-suave' },
-      { token: 'exito-borde', clase: 'bg-exito-borde' },
       { token: 'advertencia', clase: 'bg-advertencia' },
+      { token: 'advertencia-solido', clase: 'bg-advertencia-solido' },
       { token: 'advertencia-suave', clase: 'bg-advertencia-suave' },
-      { token: 'advertencia-borde', clase: 'bg-advertencia-borde' },
       { token: 'error', clase: 'bg-error' },
       { token: 'error-suave', clase: 'bg-error-suave' },
-      { token: 'error-borde', clase: 'bg-error-borde' },
       { token: 'info', clase: 'bg-info' },
       { token: 'info-suave', clase: 'bg-info-suave' },
-      { token: 'info-borde', clase: 'bg-info-borde' },
     ],
   },
 ];
 
-/** Todos los tokens del catálogo, en una referencia estable para el hook. */
-const TOKENS_DE_COLOR = GRUPOS_DE_COLOR.flatMap((grupo) => grupo.tonos.map((tono) => tono.token));
-
 const ESCALA_TIPOGRAFICA = [
-  { token: 'text-3xl', clase: 'text-3xl', uso: 'Cifra o título de portada' },
-  { token: 'text-2xl', clase: 'text-2xl', uso: 'Título de página' },
-  { token: 'text-xl', clase: 'text-xl', uso: 'Título de sección' },
-  { token: 'text-lg', clase: 'text-lg', uso: 'Subtítulo' },
-  { token: 'text-base', clase: 'text-base', uso: 'Texto corrido' },
-  { token: 'text-sm', clase: 'text-sm', uso: 'Texto de interfaz y tablas' },
-  { token: 'text-xs', clase: 'text-xs', uso: 'Ayudas y etiquetas' },
+  { clase: 'text-indicador', uso: 'Cifras de indicadores' },
+  { clase: 'text-titulo', uso: 'Título de página' },
+  { clase: 'text-total', uso: 'Totales' },
+  { clase: 'text-titulo-modal', uso: 'Título de ventana modal' },
+  { clase: 'text-marca', uso: 'Nombre de la aplicación en la cabecera' },
+  { clase: 'text-titulo-tarjeta', uso: 'Título de tarjeta y de sección' },
+  { clase: 'text-cuerpo', uso: 'Navegación y campos' },
+  { clase: 'text-control', uso: 'Botones y filas de tabla' },
+  { clase: 'text-detalle', uso: 'Subtítulos y chips' },
+  { clase: 'text-meta', uso: 'Etiquetas de campo y datos secundarios' },
+  { clase: 'text-micro', uso: 'Insignias y encabezados de tabla' },
+  { clase: 'text-etiqueta uppercase', uso: 'Etiqueta de sección, siempre en mayúsculas' },
+];
+
+const RADIOS = [
+  { clase: 'rounded-placa', uso: 'Placa' },
+  { clase: 'rounded-opcion', uso: 'Opciones de menú y botón de cerrar' },
+  { clase: 'rounded-control', uso: 'Botones, campos y píldora del menú' },
+  { clase: 'rounded-tarjeta', uso: 'Tarjetas y tablas' },
+  { clase: 'rounded-modal', uso: 'Modal; panel y cajón en móvil' },
+  { clase: 'rounded-panel', uso: 'Panel principal y hoja inferior' },
+];
+
+const SOMBRAS = [
+  { clase: 'shadow-pildora', uso: 'Píldora activa del menú' },
+  { clase: 'shadow-barra-lateral', uso: 'Borde derecho de la barra lateral' },
+  { clase: 'shadow-cajon', uso: 'Cajón de navegación abierto' },
+  { clase: 'shadow-modal', uso: 'Ventana modal' },
+];
+
+const ANIMACIONES = [
+  { variable: '--animate-aparecer', uso: 'Velo de los modales' },
+  { variable: '--animate-aparecer-velo', uso: 'Velo del cajón de navegación' },
+  { variable: '--animate-entrar-vista', uso: 'Entrada del contenido al cambiar de página' },
+  { variable: '--animate-entrar-modal', uso: 'Entrada de la ventana modal' },
+];
+
+/** La utilidad de texto coincide con su variable: 'text-etiqueta uppercase' -> '--text-etiqueta'. */
+const variableDeTexto = (clase) => `--${clase.split(' ')[0]}`;
+
+/** Todas las variables que muestra el catálogo, en una referencia estable para el hook. */
+const VARIABLES_DEL_CATALOGO = [
+  ...GRUPOS_DE_COLOR.flatMap((grupo) => grupo.tonos.map((tono) => `--color-${tono.token}`)),
+  ...ESCALA_TIPOGRAFICA.map((nivel) => variableDeTexto(nivel.clase)),
+  '--ease-suave',
+  ...ANIMACIONES.map((animacion) => animacion.variable),
 ];
 
 const COLUMNAS_DE_SERVICIOS = [
@@ -149,43 +167,45 @@ const EJEMPLOS_DE_FORMATO = [
  * Catálogo visual del sistema de diseño.
  *
  * Solo se publica en desarrollo (ver src/app/router.jsx). Sirve para revisar de
- * un vistazo la paleta, la tipografía y el comportamiento de los componentes
- * base sin tener que navegar por toda la aplicación.
+ * un vistazo los tokens y el comportamiento de los componentes base sin tener
+ * que navegar por toda la aplicación. Todos los valores se leen del tema en
+ * vivo, así que el catálogo no puede desincronizarse de global.css.
  */
 export function SistemaDisenoPage() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [alertaVisible, setAlertaVisible] = useState(true);
   const [placa, setPlaca] = useState('');
-  const valoresDeColor = useValoresDeColor(TOKENS_DE_COLOR);
+  const [repeticiones, setRepeticiones] = useState(0);
+  const valores = useValoresDeTokens(VARIABLES_DEL_CATALOGO);
 
   return (
     <div className="flex flex-col gap-10">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-neutro-900">Sistema de diseño</h1>
-        <p className="text-sm text-neutro-600">
-          Paleta, tipografía, componentes base y formatos del panel de Car Wash. Los valores de
-          color se leen del tema en vivo.
+        <h1 className="text-titulo text-neutro-900">Sistema de diseño</h1>
+        <p className="text-detalle text-neutro-600">
+          Tokens, componentes base y formatos del panel de Car Wash. Los valores se leen del tema en
+          vivo.
         </p>
       </header>
 
       <SeccionDelCatalogo
         titulo="Paleta"
-        descripcion="Definida con @theme en src/styles/global.css. En los componentes se usa por nombre (bg-primario, text-acento), nunca con un hex suelto."
+        descripcion="Definida con @theme en src/styles/global.css. En los componentes se usa por nombre (bg-primario, text-error), nunca con un hex suelto."
       >
         <div className="flex flex-col gap-8">
           {GRUPOS_DE_COLOR.map((grupo) => (
             <div key={grupo.nombre} className="flex flex-col gap-3">
               <div>
-                <h3 className="text-sm font-semibold text-neutro-800">{grupo.nombre}</h3>
-                <p className="mt-0.5 text-xs text-neutro-500">{grupo.nota}</p>
+                <h3 className="text-control font-semibold text-neutro-800">{grupo.nombre}</h3>
+                <p className="mt-0.5 text-meta text-neutro-600">{grupo.nota}</p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
                 {grupo.tonos.map((tono) => (
                   <MuestraDeColor
                     key={tono.token}
                     token={tono.token}
                     clase={tono.clase}
-                    valor={valoresDeColor[tono.token]}
+                    valor={valores[`--color-${tono.token}`]}
                   />
                 ))}
               </div>
@@ -196,24 +216,106 @@ export function SistemaDisenoPage() {
 
       <SeccionDelCatalogo
         titulo="Tipografía"
-        descripcion="Inter, cargada desde @fontsource-variable/inter. Siete tamaños, cada uno con su interlineado."
+        descripcion="DM Sans con eje de tamaño óptico y JetBrains Mono 600, desde @fontsource. La escala va por rol: cada token ya trae su peso y su espaciado cuando el diseño los fija."
       >
         <ul className="flex flex-col gap-4">
           {ESCALA_TIPOGRAFICA.map((nivel) => (
             <li
-              key={nivel.token}
-              className="flex flex-col gap-1 border-b border-neutro-100 pb-4 last:border-b-0 last:pb-0"
+              key={nivel.clase}
+              className="flex flex-col gap-1 border-b border-neutro-150 pb-4 last:border-b-0 last:pb-0"
             >
               <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="font-mono text-xs text-neutro-500">{nivel.token}</span>
-                <span className="text-xs text-neutro-400">{nivel.uso}</span>
+                <span className="font-mono text-meta text-neutro-700">{nivel.clase.split(' ')[0]}</span>
+                <span className="font-mono text-micro text-neutro-500">
+                  {valores[variableDeTexto(nivel.clase)] || '—'}
+                </span>
+                <span className="text-meta text-neutro-600">{nivel.uso}</span>
               </span>
-              <span className={`font-medium text-neutro-900 ${nivel.clase}`}>
-                Órdenes de lavado
-              </span>
+              <span className={`text-neutro-900 ${nivel.clase}`}>Órdenes de lavado</span>
             </li>
           ))}
+          <li className="flex flex-col gap-1">
+            <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="font-mono text-meta text-neutro-700">font-mono</span>
+              <span className="text-meta text-neutro-600">Placas y códigos de operador</span>
+            </span>
+            <span className="font-mono text-cuerpo font-semibold text-neutro-900">ABC123 · Op. 400</span>
+          </li>
         </ul>
+      </SeccionDelCatalogo>
+
+      <SeccionDelCatalogo titulo="Radios" descripcion="Los chips y los puntos usan rounded-full.">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-5">
+          {RADIOS.map((radio) => (
+            <MuestraDeForma
+              key={radio.clase}
+              clase={radio.clase}
+              nombre={radio.clase}
+              uso={radio.uso}
+              propiedad="borderRadius"
+            />
+          ))}
+        </div>
+      </SeccionDelCatalogo>
+
+      <SeccionDelCatalogo titulo="Sombras">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-6 bg-neutro-50 p-4">
+          {SOMBRAS.map((sombra) => (
+            <MuestraDeForma
+              key={sombra.clase}
+              clase={`rounded-tarjeta ${sombra.clase}`}
+              nombre={sombra.clase}
+              uso={sombra.uso}
+              propiedad="boxShadow"
+            />
+          ))}
+        </div>
+      </SeccionDelCatalogo>
+
+      <SeccionDelCatalogo
+        titulo="Movimiento y punto de quiebre"
+        descripcion="Una sola curva para todo el sistema. Por debajo del punto escritorio, la barra lateral pasa a ser un cajón."
+      >
+        <div className="flex flex-col gap-5">
+          <dl className="grid gap-x-6 gap-y-3 text-meta escritorio:grid-cols-[auto_1fr]">
+            <dt className="font-mono text-neutro-700">ease-suave</dt>
+            <dd className="font-mono text-neutro-600">{valores['--ease-suave'] || '—'}</dd>
+            {ANIMACIONES.map((animacion) => (
+              <div key={animacion.variable} className="contents">
+                <dt className="font-mono text-neutro-700">{animacion.variable.slice(2)}</dt>
+                <dd className="text-neutro-600">
+                  <span className="font-mono">{valores[animacion.variable] || '—'}</span> ·{' '}
+                  {animacion.uso}
+                </dd>
+              </div>
+            ))}
+          </dl>
+
+          <div className="flex flex-wrap items-center gap-4">
+            <Boton
+              variante="secundario"
+              tamano="pequeno"
+              onClick={() => setRepeticiones((n) => n + 1)}
+            >
+              Repetir entrada de vista
+            </Boton>
+            <div
+              key={repeticiones}
+              className="animate-entrar-vista rounded-control bg-primario-50 px-4 py-2 text-control text-primario-800"
+            >
+              Contenido que entra
+            </div>
+          </div>
+
+          <p className="rounded-control bg-neutro-100 px-4 py-3 text-control text-neutro-800">
+            <span className="escritorio:hidden">
+              Esta ventana está por debajo de escritorio: la barra lateral funciona como cajón.
+            </span>
+            <span className="max-escritorio:hidden">
+              Esta ventana está en escritorio: la barra lateral queda fija.
+            </span>
+          </p>
+        </div>
       </SeccionDelCatalogo>
 
       <SeccionDelCatalogo
@@ -251,7 +353,7 @@ export function SistemaDisenoPage() {
         titulo="Campos de texto"
         descripcion="Etiqueta asociada por htmlFor, con ayuda y error anunciados por aria-describedby."
       >
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-5 escritorio:grid-cols-2">
           <CampoTexto
             etiqueta="Placa del vehículo"
             ayuda="Tres letras y tres números, sin guiones."

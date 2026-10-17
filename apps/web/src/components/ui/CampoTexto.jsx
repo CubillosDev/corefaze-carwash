@@ -1,14 +1,14 @@
 import { useId } from 'react';
 
 const ESTILOS_BASE = [
-  'h-10 w-full rounded-lg border bg-white px-3 text-sm text-neutro-900',
+  'h-10 w-full rounded-control border bg-white px-3 text-cuerpo text-neutro-900',
   'placeholder:text-neutro-400 transition-colors',
   'focus-visible:outline-2 focus-visible:outline-offset-2',
   'disabled:cursor-not-allowed disabled:bg-neutro-100 disabled:text-neutro-500',
 ].join(' ');
 
-const ESTILOS_NORMAL = 'border-neutro-300 hover:not-disabled:border-neutro-400 focus-visible:outline-primario-400';
-const ESTILOS_CON_ERROR = 'border-error-borde bg-error-suave focus-visible:outline-error';
+const ESTILOS_NORMAL = 'border-neutro-300 hover:not-disabled:border-neutro-400 focus-visible:outline-primario';
+const ESTILOS_CON_ERROR = 'border-error bg-error-suave focus-visible:outline-error';
 
 /**
  * Campo de texto con etiqueta asociada, texto de ayuda y mensaje de error.
@@ -44,10 +44,10 @@ export function CampoTexto({
 
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
-      <label htmlFor={idCampo} className="text-sm font-medium text-neutro-700">
+      <label htmlFor={idCampo} className="text-meta font-semibold text-neutro-700">
         {etiqueta}
         {requerido ? (
-          <span className="ml-0.5 text-acento" aria-hidden="true">
+          <span className="ml-0.5 text-error" aria-hidden="true">
             *
           </span>
         ) : null}
@@ -64,13 +64,13 @@ export function CampoTexto({
       />
 
       {ayuda ? (
-        <p id={idAyuda} className="text-xs text-neutro-500">
+        <p id={idAyuda} className="text-meta text-neutro-600">
           {ayuda}
         </p>
       ) : null}
 
       {error ? (
-        <p id={idError} className="text-xs font-medium text-error">
+        <p id={idError} className="text-meta font-medium text-error">
           {error}
         </p>
       ) : null}
