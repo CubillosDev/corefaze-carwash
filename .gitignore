@@ -1,0 +1,23 @@
+# Dependencias y builds
+node_modules/
+dist/
+coverage/
+
+# Secretos: nunca se suben; solo se versiona .env.example
+.env
+.env.*
+!.env.example
+apps/movil/config/*.json
+!apps/movil/config/*.example.json
+
+# Flutter
+apps/movil/build/
+apps/movil/.dart_tool/
+
+# Supabase local
+supabase/.temp/
+supabase/.branches/
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
