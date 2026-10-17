@@ -17,8 +17,10 @@ export function MuestraDeColor({ token, clase, valor }) {
         className={`size-10 shrink-0 rounded-control ring-1 ring-neutro-900/10 ring-inset ${clase}`}
       />
       <span className="min-w-0">
-        <span className="block truncate font-mono text-meta text-neutro-700">{token}</span>
-        <span className="block truncate font-mono text-meta text-neutro-500">{valor || '—'}</span>
+        <span className="block font-mono text-meta break-words text-neutro-700">{token}</span>
+        <span className="block font-mono text-meta break-words text-neutro-500">
+          {valor || '—'}
+        </span>
       </span>
     </div>
   );

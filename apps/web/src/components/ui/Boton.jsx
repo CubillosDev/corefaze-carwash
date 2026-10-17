@@ -2,36 +2,36 @@ import { IconoCargando } from '@/components/ui/iconos/IconoCargando';
 
 const ESTILOS_BASE = [
   'inline-flex items-center justify-center gap-2 font-medium whitespace-nowrap',
-  'transition-colors duration-150 select-none',
+  'transition-colors select-none',
   'focus-visible:outline-2 focus-visible:outline-offset-2',
   'disabled:cursor-not-allowed disabled:opacity-60',
 ].join(' ');
 
 const ESTILOS_POR_VARIANTE = {
   primario: [
-    'bg-primario text-white',
+    'bg-primario text-white duration-150',
     'hover:not-disabled:bg-primario-600 active:not-disabled:bg-primario-800',
     'focus-visible:outline-primario',
   ].join(' '),
   secundario: [
-    'bg-white text-primario ring-1 ring-neutro-300 ring-inset',
+    'bg-white text-primario ring-1 ring-neutro-300 ring-inset duration-150',
     'hover:not-disabled:bg-primario-50 hover:not-disabled:ring-primario-200',
     'active:not-disabled:bg-primario-100',
     'focus-visible:outline-primario',
   ].join(' '),
   peligro: [
-    'bg-error text-white',
+    'bg-error text-white duration-150',
     'hover:not-disabled:bg-error/90 active:not-disabled:bg-error/90',
     'focus-visible:outline-error',
   ].join(' '),
   fantasma: [
-    'bg-transparent text-primario',
+    'bg-transparent text-primario duration-150',
     'hover:not-disabled:bg-primario-50 active:not-disabled:bg-primario-100',
     'focus-visible:outline-primario',
   ].join(' '),
   // Sobre el fondo oscuro del marco (la cabecera).
   marco: [
-    'bg-transparent text-white',
+    'bg-transparent text-white duration-160 ease-estandar',
     'hover:not-disabled:bg-white/12 active:not-disabled:bg-white/12',
     'focus-visible:outline-white',
   ].join(' '),

@@ -131,8 +131,13 @@
   --shadow-cajon: 0 20px 50px rgba(10, 16, 32, 0.3);
   --shadow-modal: 0 24px 60px rgba(10, 16, 32, 0.28);
 
+  /* --- Medidas del marco ------------------------------------------------------ */
+  --spacing-encabezado: 58px;
+  --spacing-barra-lateral: 224px;
+
   /* --- Movimiento ------------------------------------------------------------ */
   --ease-suave: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-estandar: ease; /* Cambios de color en hover */
 
   --animate-aparecer: aparecer 200ms linear;
   --animate-aparecer-velo: aparecer 220ms linear;
