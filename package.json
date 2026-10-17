@@ -4,14 +4,19 @@
   "private": true,
   "description": "Monorepo del proyecto integrador Car Wash",
   "workspaces": [
-    "apps/web"
+    "apps/web",
+    "apps/api"
   ],
   "scripts": {
     "dev:web": "npm run dev --workspace apps/web",
     "build:web": "npm run build --workspace apps/web",
     "preview:web": "npm run preview --workspace apps/web",
     "lint:web": "npm run lint --workspace apps/web",
-    "test:web": "npm run test --workspace apps/web"
+    "test:web": "npm run test --workspace apps/web",
+    "dev:api": "npm run dev --workspace apps/api",
+    "start:api": "npm run start --workspace apps/api",
+    "lint:api": "npm run lint --workspace apps/api",
+    "test:api": "npm run test --workspace apps/api"
   },
   "engines": {
     "node": ">=20.19.0"
