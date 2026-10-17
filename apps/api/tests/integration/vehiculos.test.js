@@ -5,9 +5,11 @@ const vehiculos = require('../../src/data/vehiculos');
 const servicios = require('../../src/data/servicios');
 const colaboradores = require('../../src/data/colaboradores');
 const ordenesLavado = require('../../src/data/ordenesLavado');
+const jornadas = require('../../src/data/jornadas');
 const serviciosService = require('../../src/services/servicios.service');
 const colaboradoresService = require('../../src/services/colaboradores.service');
 const ordenesLavadoService = require('../../src/services/ordenesLavado.service');
+const jornadasService = require('../../src/services/jornadas.service');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -22,6 +24,7 @@ beforeEach(() => {
   servicios.length = 0;
   colaboradores.length = 0;
   ordenesLavado.length = 0;
+  jornadas.length = 0;
 });
 
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
@@ -220,9 +223,10 @@ describe('Integridad referencial: DELETE /api/vehiculos/:id con órdenes de lava
     });
     const vehiculo = vehiculoCreado.body.vehiculo;
 
-    // No existe todavía un endpoint HTTP para Órdenes de lavado, así que la
-    // orden de prueba se crea directamente contra el service, que opera
-    // sobre el mismo arreglo en memoria que usa la app.
+    // La orden de prueba se crea directamente contra los services (en vez
+    // de vía HTTP), que operan sobre los mismos arreglos en memoria que
+    // usa la app; evita repetir aquí todo el setup de los otros recursos.
+    jornadasService.abrirJornada();
     const servicio = serviciosService.crearServicio({
       numero: 1,
       nombre: 'Lavado básico',
@@ -239,7 +243,6 @@ describe('Integridad referencial: DELETE /api/vehiculos/:id con órdenes de lava
       tipoVinculacion: 'fijo',
     });
     ordenesLavadoService.crearOrden({
-      fecha: '2026-01-10',
       turno: 1,
       vehiculoId: vehiculo.id,
       servicioId: servicio.id,

@@ -46,6 +46,10 @@ const definicion = {
       description:
         'Registro auditable de lavados: une clientes, vehículos, colaboradores y servicios',
     },
+    {
+      name: 'Jornadas',
+      description: 'Apertura y cierre del día operativo del lavadero',
+    },
   ],
   components: {
     securitySchemes: {

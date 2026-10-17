@@ -37,5 +37,8 @@
 
   },
   "roles": ["superadmin", "administrador", "soporte", "pendiente"],
-  "tiposCliente": ["particular", "empresa"]
+  "tiposCliente": ["particular", "empresa"],
+  "tiposVinculacion": ["fijo", "ocasional"],
+  "diasGraciaCodigoColaborador": 15,
+  "estadosJornada": ["abierta", "cerrada"]
 }

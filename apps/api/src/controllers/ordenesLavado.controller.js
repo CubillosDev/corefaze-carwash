@@ -3,8 +3,19 @@ const ordenesLavadoService = require('../services/ordenesLavado.service');
 /** GET /api/ordenes-lavado */
 const listar = (req, res, next) => {
   try {
-    const { fecha } = req.datos.consulta;
-    return res.status(200).json({ ordenes: ordenesLavadoService.listarOrdenes({ fecha }) });
+    const { fecha, colaboradorId, servicioId, medioPago, jornadaId } = req.datos.consulta;
+    const ordenes = ordenesLavadoService.listarOrdenes({
+      fecha,
+      colaboradorId,
+      servicioId,
+      medioPago,
+      jornadaId,
+    });
+    // Los totales se calculan SIEMPRE sobre este mismo arreglo filtrado,
+    // para que coincidan exactamente con lo que el cliente ve en pantalla.
+    return res
+      .status(200)
+      .json({ ordenes, totales: ordenesLavadoService.calcularTotales(ordenes) });
   } catch (error) {
     return next(error);
   }
@@ -31,16 +42,27 @@ const crear = (req, res, next) => {
   }
 };
 
+/** PATCH /api/ordenes-lavado/:id */
+const editar = (req, res, next) => {
+  try {
+    const { id } = req.datos.parametros;
+    const orden = ordenesLavadoService.editarOrden(id, req.datos.cuerpo);
+    return res.status(200).json({ mensaje: 'Orden de lavado actualizada correctamente', orden });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 /** PATCH /api/ordenes-lavado/:id/estado */
 const cambiarEstado = (req, res, next) => {
   try {
     const { id } = req.datos.parametros;
-    const { estado } = req.datos.cuerpo;
-    const orden = ordenesLavadoService.cambiarEstadoOrden(id, estado);
+    const { estado, motivo } = req.datos.cuerpo;
+    const orden = ordenesLavadoService.cambiarEstadoOrden(id, estado, motivo);
     return res.status(200).json({ mensaje: 'Estado de la orden actualizado correctamente', orden });
   } catch (error) {
     return next(error);
   }
 };
 
-module.exports = { listar, obtenerPorId, crear, cambiarEstado };
+module.exports = { listar, obtenerPorId, crear, editar, cambiarEstado };

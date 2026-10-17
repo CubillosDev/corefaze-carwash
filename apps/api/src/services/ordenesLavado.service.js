@@ -3,6 +3,7 @@ const clientesService = require('./clientes.service');
 const vehiculosService = require('./vehiculos.service');
 const colaboradoresService = require('./colaboradores.service');
 const serviciosService = require('./servicios.service');
+const jornadasService = require('./jornadas.service');
 const {
   ESTADOS_ORDEN,
   ESTADOS_ORDEN_ABIERTOS,
@@ -12,19 +13,78 @@ const {
   TIPOS_CLIENTE,
   MEDIOS_PAGO,
 } = require('../constants/dominio');
-const { Conflicto, NoEncontrado } = require('../utils/errores');
+const { Conflicto, NoEncontrado, SolicitudInvalida } = require('../utils/errores');
 
 /**
- * Lista las órdenes de lavado. Si filtros.fecha viene definido, filtra
- * por ese campo exacto; si no, devuelve todas.
- * @param {{ fecha?: string }} [filtros]
+ * Lista las órdenes de lavado. Cada filtro es opcional y se aplica solo
+ * si viene definido; los que vengan se combinan con AND.
+ * @param {{ fecha?: string, colaboradorId?: number, servicioId?: number, medioPago?: string, jornadaId?: number }} [filtros]
  * @returns {object[]}
  */
 const listarOrdenes = (filtros = {}) => {
+  let resultado = ordenesLavado;
+
   if (filtros.fecha !== undefined) {
-    return ordenesLavado.filter((orden) => orden.fecha === filtros.fecha);
+    resultado = resultado.filter((orden) => orden.fecha === filtros.fecha);
   }
-  return ordenesLavado;
+  if (filtros.colaboradorId !== undefined) {
+    resultado = resultado.filter((orden) => orden.colaboradorId === Number(filtros.colaboradorId));
+  }
+  if (filtros.servicioId !== undefined) {
+    resultado = resultado.filter((orden) => orden.servicioId === Number(filtros.servicioId));
+  }
+  if (filtros.medioPago !== undefined) {
+    resultado = resultado.filter((orden) => orden.medioPago === filtros.medioPago);
+  }
+  if (filtros.jornadaId !== undefined) {
+    resultado = resultado.filter((orden) => orden.jornadaId === Number(filtros.jornadaId));
+  }
+
+  return resultado;
+};
+
+/**
+ * Totales de un conjunto de órdenes YA FILTRADO (no vuelve a tocar el
+ * arreglo global). Las órdenes canceladas nunca suman: ni a
+ * cantidadServicios, ni a totalGeneral, ni a su medioPago — aunque
+ * sigan apareciendo en el listado. Recorre el arreglo una sola vez.
+ *
+ * @param {object[]} ordenes
+ * @returns {{ cantidadServicios: number, totalGeneral: number, totalesPorMedioPago: Record<string, number> }}
+ */
+const calcularTotales = (ordenes) => {
+  const totalesPorMedioPago = Object.fromEntries(
+    Object.values(MEDIOS_PAGO).map((medioPago) => [medioPago, 0]),
+  );
+
+  let cantidadServicios = 0;
+  let totalGeneral = 0;
+
+  ordenes.forEach((orden) => {
+    if (orden.estado === ESTADOS_ORDEN.CANCELADA) {
+      return;
+    }
+    cantidadServicios += 1;
+    totalGeneral += orden.valor;
+    totalesPorMedioPago[orden.medioPago] += orden.valor;
+  });
+
+  return { cantidadServicios, totalGeneral, totalesPorMedioPago };
+};
+
+/**
+ * Agregados de una jornada sobre sus propias órdenes (SCRUM-38): unidades
+ * es siempre derivado, igual al número de servicios no anulados.
+ * Reutiliza listarOrdenes/calcularTotales en vez de reimplementar el
+ * filtro o la suma.
+ *
+ * @param {number|string} jornadaId
+ * @returns {{ unidades: number, ventaTotal: number }}
+ */
+const obtenerTotalesDeJornada = (jornadaId) => {
+  const ordenesDeLaJornada = listarOrdenes({ jornadaId });
+  const { cantidadServicios, totalGeneral } = calcularTotales(ordenesDeLaJornada);
+  return { unidades: cantidadServicios, ventaTotal: totalGeneral };
 };
 
 /**
@@ -78,80 +138,145 @@ const servicioTieneOrdenes = (servicioId) =>
 const vehiculoTieneOrdenes = (vehiculoId) =>
   ordenesLavado.some((orden) => orden.vehiculoId === Number(vehiculoId));
 
-/** R5: el turno es único por fecha. */
+/** R5: el turno es único por fecha (equivalente a "por jornada", ya que cada jornada tiene una sola fecha). */
 const existeTurnoOcupado = (fecha, turno) =>
   ordenesLavado.some((orden) => orden.fecha === fecha && orden.turno === Number(turno));
 
-/** R6: un vehículo no puede tener dos órdenes abiertas al mismo tiempo. */
-const vehiculoTieneOrdenAbierta = (vehiculoId) =>
-  ordenesLavado.some(
+/**
+ * R2: el colaborador asignado debe estar activo. La usan crearOrden y
+ * editarOrden cuando el colaborador cambia.
+ * @param {object} colaborador
+ * @throws {Conflicto}
+ */
+const validarColaboradorActivo = (colaborador) => {
+  if (colaborador.estado !== ESTADOS_ACTIVIDAD.ACTIVO) {
+    throw new Conflicto('No se puede asignar una orden a un colaborador inactivo');
+  }
+};
+
+/**
+ * R3: el servicio debe estar activo y tener tarifa para el tipo de
+ * vehículo (obtenerTarifaParaTipoVehiculo ya lanza Conflicto si falta).
+ * La usan crearOrden y editarOrden: esta última SIEMPRE la vuelve a
+ * llamar, porque el valor depende del tipo de vehículo final.
+ *
+ * @param {object} servicio
+ * @param {string} tipoVehiculo
+ * @returns {number} el valor de la tarifa
+ * @throws {Conflicto}
+ */
+const calcularValorServicio = (servicio, tipoVehiculo) => {
+  if (servicio.activo !== true) {
+    throw new Conflicto('El servicio no está activo');
+  }
+  return serviciosService.obtenerTarifaParaTipoVehiculo(servicio, tipoVehiculo);
+};
+
+/**
+ * R7: los servicios con lavado de motor exigen autorización explícita.
+ * @param {object} servicio
+ * @param {boolean|undefined} autorizaMotor
+ * @throws {Conflicto}
+ */
+const validarAutorizacionMotor = (servicio, autorizaMotor) => {
+  if (serviciosService.requiereAutorizacionMotor(servicio.numero) && autorizaMotor !== true) {
+    throw new Conflicto('Este servicio exige autorización explícita para lavado de motor');
+  }
+};
+
+/**
+ * R8: clienteId solo se procesa (y se exige) cuando el pago es a
+ * crédito. La usan crearOrden y editarOrden cuando medioPago o
+ * clienteId cambian.
+ *
+ * @param {string} medioPago
+ * @param {number|string|undefined} clienteId
+ * @returns {number|null} el clienteId final de la orden
+ * @throws {Conflicto} si falta clienteId, o el cliente no tiene crédito habilitado
+ * @throws {NoEncontrado} si el clienteId no existe
+ */
+const resolverClienteCredito = (medioPago, clienteId) => {
+  if (medioPago !== MEDIOS_PAGO.CREDITO) {
+    return null;
+  }
+
+  if (!clienteId) {
+    throw new Conflicto('El pago a crédito requiere un clienteId');
+  }
+
+  const cliente = clientesService.obtenerClienteOFallar(clienteId);
+  if (
+    cliente.estado !== ESTADOS_ACTIVIDAD.ACTIVO ||
+    cliente.tipo !== TIPOS_CLIENTE.EMPRESA ||
+    cliente.creditoHabilitado !== true
+  ) {
+    throw new Conflicto('El cliente no tiene crédito habilitado');
+  }
+
+  return Number(clienteId);
+};
+
+/**
+ * R6: un vehículo no puede tener más de una orden abierta a la vez.
+ * `idOrdenAExcluir` permite revalidar esta regla al editar una orden sin
+ * que choque contra sí misma; al crear, se le pasa null.
+ *
+ * @param {number|string} vehiculoId
+ * @param {number|null} idOrdenAExcluir
+ * @throws {Conflicto}
+ */
+const validarVehiculoSinOtraOrdenAbierta = (vehiculoId, idOrdenAExcluir) => {
+  const tieneOrdenAbierta = ordenesLavado.some(
     (orden) =>
-      orden.vehiculoId === Number(vehiculoId) && ESTADOS_ORDEN_ABIERTOS.includes(orden.estado),
+      orden.vehiculoId === Number(vehiculoId) &&
+      orden.id !== idOrdenAExcluir &&
+      ESTADOS_ORDEN_ABIERTOS.includes(orden.estado),
   );
+
+  if (tieneOrdenAbierta) {
+    throw new Conflicto('El vehículo ya tiene una orden abierta');
+  }
+};
 
 /**
  * Crea una orden de lavado nueva, aplicando en orden las reglas R1 a R8
  * del estándar del proyecto. Si alguna falla, lanza su error y no evalúa
- * las siguientes.
+ * las siguientes. La orden queda amarrada a la jornada abierta en ese
+ * momento; su fecha es siempre la de esa jornada.
  *
- * @param {{ fecha: string, turno: number, vehiculoId: number, servicioId: number, colaboradorId: number, medioPago: string, clienteId?: number, autorizaMotor?: boolean, observaciones?: string }} datos
+ * @param {{ turno: number, vehiculoId: number, servicioId: number, colaboradorId: number, medioPago: string, clienteId?: number, autorizaMotor?: boolean, observaciones?: string }} datos
  * @returns {object} la orden creada
+ * @throws {Conflicto} si no hay ninguna jornada abierta
  */
 const crearOrden = (datos) => {
+  const jornada = jornadasService.obtenerJornadaAbierta();
+  if (!jornada) {
+    throw new Conflicto('No hay una jornada abierta para registrar órdenes');
+  }
+
   // R1: vehículo, servicio y colaborador deben existir (404 si no).
   const vehiculo = vehiculosService.obtenerVehiculoOFallar(datos.vehiculoId);
   const servicio = serviciosService.obtenerServicioOFallar(datos.servicioId);
   const colaborador = colaboradoresService.obtenerColaboradorOFallar(datos.colaboradorId);
 
-  // R2: el colaborador debe estar activo.
-  if (colaborador.estado !== ESTADOS_ACTIVIDAD.ACTIVO) {
-    throw new Conflicto('No se puede asignar una orden a un colaborador inactivo');
-  }
-
-  // R3: el servicio debe estar activo y tener tarifa para el tipo de
-  // vehículo (obtenerTarifaParaTipoVehiculo ya lanza Conflicto si falta).
-  if (servicio.activo !== true) {
-    throw new Conflicto('El servicio no está activo');
-  }
-  const valor = serviciosService.obtenerTarifaParaTipoVehiculo(servicio, vehiculo.tipo);
-
-  // R7: los servicios con lavado de motor exigen autorización explícita.
-  if (serviciosService.requiereAutorizacionMotor(servicio.numero) && datos.autorizaMotor !== true) {
-    throw new Conflicto('Este servicio exige autorización explícita para lavado de motor');
-  }
-
-  // R8: clienteId solo se procesa (y se exige) cuando el pago es a crédito.
-  let clienteId = null;
-  if (datos.medioPago === MEDIOS_PAGO.CREDITO) {
-    if (!datos.clienteId) {
-      throw new Conflicto('El pago a crédito requiere un clienteId');
-    }
-    const cliente = clientesService.obtenerClienteOFallar(datos.clienteId);
-    if (
-      cliente.estado !== ESTADOS_ACTIVIDAD.ACTIVO ||
-      cliente.tipo !== TIPOS_CLIENTE.EMPRESA ||
-      cliente.creditoHabilitado !== true
-    ) {
-      throw new Conflicto('El cliente no tiene crédito habilitado');
-    }
-    clienteId = Number(datos.clienteId);
-  }
+  validarColaboradorActivo(colaborador); // R2
+  const valor = calcularValorServicio(servicio, vehiculo.tipo); // R3
+  validarAutorizacionMotor(servicio, datos.autorizaMotor); // R7
+  const clienteId = resolverClienteCredito(datos.medioPago, datos.clienteId); // R8
 
   // R5: un turno solo puede tener una orden por fecha.
-  if (existeTurnoOcupado(datos.fecha, datos.turno)) {
+  if (existeTurnoOcupado(jornada.fecha, datos.turno)) {
     throw new Conflicto('El turno ya está ocupado para esa fecha');
   }
 
-  // R6: un vehículo no puede tener más de una orden abierta a la vez.
-  if (vehiculoTieneOrdenAbierta(datos.vehiculoId)) {
-    throw new Conflicto('El vehículo ya tiene una orden abierta');
-  }
+  validarVehiculoSinOtraOrdenAbierta(datos.vehiculoId, null); // R6
 
   // R4 + allowlisting: el valor es siempre el calculado en R3, nunca el
   // que venga en datos; el objeto final se arma campo por campo.
   const nuevaOrden = {
     id: ordenesLavado.length > 0 ? Math.max(...ordenesLavado.map((orden) => orden.id)) + 1 : 1,
-    fecha: datos.fecha,
+    jornadaId: jornada.id,
+    fecha: jornada.fecha,
     turno: datos.turno,
     vehiculoId: Number(datos.vehiculoId),
     servicioId: Number(datos.servicioId),
@@ -161,11 +286,79 @@ const crearOrden = (datos) => {
     clienteId,
     autorizaMotor: Boolean(datos.autorizaMotor ?? false),
     observaciones: datos.observaciones ?? null,
+    motivo: null,
     estado: ESTADOS_ORDEN.REGISTRADA,
+    creadaEn: new Date().toISOString(),
   };
 
   ordenesLavado.push(nuevaOrden);
   return nuevaOrden;
+};
+
+/**
+ * Edita campos no financieros de una orden abierta: vehiculoId,
+ * colaboradorId, medioPago, clienteId, observaciones. NUNCA valor,
+ * servicioId, estado, fecha ni jornadaId — si vienen en datos, se
+ * ignoran (el validador de la capa anterior tampoco los acepta).
+ *
+ * Reutiliza las mismas reglas R2/R3/R6/R7/R8 que crearOrden, mediante
+ * las funciones privadas de este archivo, para no duplicar su lógica.
+ *
+ * @param {number|string} id
+ * @param {{ vehiculoId?: number, colaboradorId?: number, medioPago?: string, clienteId?: number, observaciones?: string }} datos
+ * @returns {object} la orden editada
+ * @throws {NoEncontrado} si el id no existe, o el nuevo vehiculoId/colaboradorId no existen
+ * @throws {Conflicto} si la orden está cerrada, su jornada ya no está abierta, o viola R2/R3/R6/R8
+ */
+const editarOrden = (id, datos) => {
+  const orden = obtenerOrdenOFallar(id);
+
+  if (ESTADOS_ORDEN_CERRADOS.includes(orden.estado)) {
+    throw new Conflicto('No se puede editar una orden entregada o cancelada');
+  }
+
+  if (!jornadasService.jornadaEstaAbierta(orden.jornadaId)) {
+    throw new Conflicto('No se puede editar una orden de una jornada que ya no está abierta');
+  }
+
+  const vehiculoIdFinal =
+    datos.vehiculoId !== undefined ? Number(datos.vehiculoId) : orden.vehiculoId;
+  const colaboradorIdFinal =
+    datos.colaboradorId !== undefined ? Number(datos.colaboradorId) : orden.colaboradorId;
+  const medioPagoFinal = datos.medioPago ?? orden.medioPago;
+  const clienteIdFinal = datos.clienteId !== undefined ? datos.clienteId : orden.clienteId;
+
+  let vehiculo = vehiculosService.obtenerVehiculoOFallar(orden.vehiculoId);
+  if (vehiculoIdFinal !== orden.vehiculoId) {
+    vehiculo = vehiculosService.obtenerVehiculoOFallar(vehiculoIdFinal); // R1
+    validarVehiculoSinOtraOrdenAbierta(vehiculoIdFinal, orden.id); // R6
+  }
+
+  if (colaboradorIdFinal !== orden.colaboradorId) {
+    const colaborador = colaboradoresService.obtenerColaboradorOFallar(colaboradorIdFinal); // R1
+    validarColaboradorActivo(colaborador); // R2
+  }
+
+  // servicioId no es editable: la tarifa se recalcula siempre con el
+  // servicio original, porque el tipo de vehículo final puede cambiar.
+  const servicio = serviciosService.obtenerServicioOFallar(orden.servicioId);
+  const valor = calcularValorServicio(servicio, vehiculo.tipo); // R3
+
+  let clienteIdResuelto = orden.clienteId;
+  if (medioPagoFinal !== orden.medioPago || clienteIdFinal !== orden.clienteId) {
+    clienteIdResuelto = resolverClienteCredito(medioPagoFinal, clienteIdFinal); // R8
+  }
+
+  Object.assign(orden, {
+    vehiculoId: vehiculoIdFinal,
+    colaboradorId: colaboradorIdFinal,
+    medioPago: medioPagoFinal,
+    clienteId: clienteIdResuelto,
+    observaciones: datos.observaciones !== undefined ? datos.observaciones : orden.observaciones,
+    valor,
+  });
+
+  return orden;
 };
 
 /**
@@ -174,15 +367,18 @@ const crearOrden = (datos) => {
  *
  * R10: una orden cerrada (entregada o cancelada) no puede cambiar de
  * estado nunca más. R9: cualquier otra transición debe estar listada en
- * TRANSICIONES_ORDEN[estado actual].
+ * TRANSICIONES_ORDEN[estado actual]. Cancelar exige motivo; para
+ * cualquier otro estado, motivo se ignora.
  *
  * @param {number|string} id
  * @param {string} nuevoEstado
+ * @param {string} [motivo] obligatorio solo si nuevoEstado es "cancelada"
  * @returns {object} la orden actualizada
  * @throws {NoEncontrado} si el id no existe
  * @throws {Conflicto} si la orden ya está cerrada o la transición no es válida
+ * @throws {SolicitudInvalida} si se cancela sin motivo
  */
-const cambiarEstadoOrden = (id, nuevoEstado) => {
+const cambiarEstadoOrden = (id, nuevoEstado, motivo) => {
   const orden = obtenerOrdenOFallar(id);
 
   if (ESTADOS_ORDEN_CERRADOS.includes(orden.estado)) {
@@ -192,6 +388,15 @@ const cambiarEstadoOrden = (id, nuevoEstado) => {
   const transicionesPermitidas = TRANSICIONES_ORDEN[orden.estado];
   if (!transicionesPermitidas.includes(nuevoEstado)) {
     throw new Conflicto(`Transición de estado no permitida: de ${orden.estado} a ${nuevoEstado}`);
+  }
+
+  if (nuevoEstado === ESTADOS_ORDEN.CANCELADA) {
+    if (!motivo) {
+      throw new SolicitudInvalida([
+        { campo: 'motivo', mensaje: 'El motivo es obligatorio para cancelar una orden' },
+      ]);
+    }
+    orden.motivo = motivo;
   }
 
   orden.estado = nuevoEstado;
@@ -206,5 +411,8 @@ module.exports = {
   servicioTieneOrdenes,
   vehiculoTieneOrdenes,
   crearOrden,
+  editarOrden,
   cambiarEstadoOrden,
+  calcularTotales,
+  obtenerTotalesDeJornada,
 };

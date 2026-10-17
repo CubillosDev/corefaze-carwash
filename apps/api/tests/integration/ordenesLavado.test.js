@@ -5,6 +5,7 @@ const vehiculos = require('../../src/data/vehiculos');
 const colaboradores = require('../../src/data/colaboradores');
 const servicios = require('../../src/data/servicios');
 const ordenesLavado = require('../../src/data/ordenesLavado');
+const jornadas = require('../../src/data/jornadas');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -19,11 +20,17 @@ beforeEach(() => {
   colaboradores.length = 0;
   servicios.length = 0;
   ordenesLavado.length = 0;
+  jornadas.length = 0;
 });
 
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
 
 // --- Helpers de setup: registran cada recurso vía sus propios endpoints HTTP ---
+
+const abrirJornada = async () => {
+  const respuesta = await conApiKey('post', '/api/jornadas/abrir');
+  return respuesta.body.jornada;
+};
 
 const registrarClienteParticular = async (overrides = {}) => {
   const respuesta = await conApiKey('post', '/api/clientes').send({
@@ -95,8 +102,9 @@ const registrarServicioParaMoto = async (overrides = {}) => {
   return respuesta.body.servicio;
 };
 
-/** Escenario base: cliente particular + vehículo + colaborador + servicio, todos compatibles entre sí. */
+/** Escenario base: jornada abierta + cliente particular + vehículo + colaborador + servicio, compatibles entre sí. */
 const construirEscenarioBase = async () => {
+  await abrirJornada();
   const cliente = await registrarClienteParticular();
   const vehiculo = await registrarVehiculo(cliente.id);
   const colaborador = await registrarColaborador();
@@ -105,7 +113,6 @@ const construirEscenarioBase = async () => {
 };
 
 const datosOrden = ({ vehiculo, colaborador, servicio }, overrides = {}) => ({
-  fecha: '2026-01-10',
   turno: 1,
   vehiculoId: vehiculo.id,
   servicioId: servicio.id,
@@ -134,6 +141,18 @@ describe('POST /api/ordenes-lavado', () => {
     expect(respuesta.status).toBe(201);
     expect(respuesta.body.orden.valor).toBe(15000);
     expect(respuesta.body.orden.estado).toBe('registrada');
+  });
+
+  it('rechaza crear una orden si no hay ninguna jornada abierta (409)', async () => {
+    const cliente = await registrarClienteParticular();
+    const vehiculo = await registrarVehiculo(cliente.id);
+    const colaborador = await registrarColaborador();
+    const servicio = await registrarServicioParaAutomovil();
+
+    const respuesta = await conApiKey('post', '/api/ordenes-lavado').send(
+      datosOrden({ vehiculo, colaborador, servicio }),
+    );
+    expect(respuesta.status).toBe(409);
   });
 
   describe('R1: el vehículo, servicio y colaborador deben existir', () => {
@@ -173,6 +192,7 @@ describe('POST /api/ordenes-lavado', () => {
   });
 
   it('R3 "Tarifa incompatible": rechaza un servicio sin tarifa para el tipo de vehículo (409)', async () => {
+    await abrirJornada();
     const cliente = await registrarClienteParticular();
     const vehiculo = await registrarVehiculo(cliente.id, { tipo: 'automovil' });
     const colaborador = await registrarColaborador();
@@ -184,10 +204,10 @@ describe('POST /api/ordenes-lavado', () => {
     expect(respuesta.status).toBe(409);
   });
 
-  it('R5 "Turno duplicado": rechaza un segundo turno igual en la misma fecha, con vehículos distintos (409)', async () => {
+  it('R5 "Turno duplicado": rechaza un segundo turno igual en la misma jornada, con vehículos distintos (409)', async () => {
     const escenario = await construirEscenarioBase();
     const primera = await conApiKey('post', '/api/ordenes-lavado').send(
-      datosOrden(escenario, { fecha: '2026-01-10', turno: 1 }),
+      datosOrden(escenario, { turno: 1 }),
     );
     expect(primera.status).toBe(201);
 
@@ -195,7 +215,7 @@ describe('POST /api/ordenes-lavado', () => {
     const otroVehiculo = await registrarVehiculo(otroCliente.id, { placa: 'XYZ789' });
 
     const respuesta = await conApiKey('post', '/api/ordenes-lavado').send(
-      datosOrden({ ...escenario, vehiculo: otroVehiculo }, { fecha: '2026-01-10', turno: 1 }),
+      datosOrden({ ...escenario, vehiculo: otroVehiculo }, { turno: 1 }),
     );
     expect(respuesta.status).toBe(409);
   });
@@ -227,6 +247,7 @@ describe('POST /api/ordenes-lavado', () => {
   });
 
   it('R7 "Motor sin autorización": rechaza un servicio con lavado de motor sin autorizaMotor, y acepta con autorizaMotor:true (409 → 201)', async () => {
+    await abrirJornada();
     const cliente = await registrarClienteParticular();
     const vehiculo = await registrarVehiculo(cliente.id);
     const colaborador = await registrarColaborador();
@@ -251,6 +272,7 @@ describe('POST /api/ordenes-lavado', () => {
 
   describe('R8 "Crédito sin convenio"', () => {
     it('rechaza medioPago credito con un cliente particular sin crédito habilitado (409)', async () => {
+      await abrirJornada();
       const clienteParticular = await registrarClienteParticular();
       const vehiculo = await registrarVehiculo(clienteParticular.id);
       const colaborador = await registrarColaborador();
@@ -266,6 +288,7 @@ describe('POST /api/ordenes-lavado', () => {
     });
 
     it('acepta medioPago credito con un cliente empresa con creditoHabilitado true (201)', async () => {
+      await abrirJornada();
       const clienteEmpresa = await registrarClienteEmpresaConCredito();
       const clienteDuenoVehiculo = await registrarClienteParticular();
       const vehiculo = await registrarVehiculo(clienteDuenoVehiculo.id);
@@ -298,6 +321,126 @@ describe('POST /api/ordenes-lavado', () => {
   });
 });
 
+describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
+  it('"Editar vehículo": edita vehiculoId y recalcula el valor según la nueva tarifa (200)', async () => {
+    const escenario = await construirEscenarioBase();
+    await conApiKey('put', `/api/servicios/${escenario.servicio.id}`).send({
+      tarifas: [
+        { tipoVehiculo: 'automovil', valor: 15000 },
+        { tipoVehiculo: 'camioneta', valor: 20000 },
+      ],
+    });
+    const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+
+    const nuevoVehiculo = await registrarVehiculo(escenario.cliente.id, {
+      placa: 'XYZ789',
+      tipo: 'camioneta',
+    });
+
+    const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
+      vehiculoId: nuevoVehiculo.id,
+    });
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body.orden.vehiculoId).toBe(nuevoVehiculo.id);
+    expect(respuesta.body.orden.valor).toBe(20000);
+  });
+
+  it('"Editar colaborador inactivo": rechaza editar a un colaborador inactivo (409)', async () => {
+    const escenario = await construirEscenarioBase();
+    const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+
+    const otroColaborador = await registrarColaborador({ codigo: 402, documento: '1020304099' });
+    await conApiKey('patch', `/api/colaboradores/${otroColaborador.id}/estado`).send({
+      estado: 'inactivo',
+    });
+
+    const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
+      colaboradorId: otroColaborador.id,
+    });
+    expect(respuesta.status).toBe(409);
+  });
+
+  it('"Editar vehículo con otra orden abierta": rechaza editar vehiculoId a uno que ya tiene otra orden abierta (409)', async () => {
+    const escenario = await construirEscenarioBase();
+    const creada = await conApiKey('post', '/api/ordenes-lavado').send(
+      datosOrden(escenario, { turno: 1 }),
+    );
+
+    const otroCliente = await registrarClienteParticular({ documento: '1010101098' });
+    const otroVehiculo = await registrarVehiculo(otroCliente.id, { placa: 'XYZ789' });
+    await conApiKey('post', '/api/ordenes-lavado').send(
+      datosOrden({ ...escenario, vehiculo: otroVehiculo }, { turno: 2 }),
+    );
+
+    const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
+      vehiculoId: otroVehiculo.id,
+    });
+    expect(respuesta.status).toBe(409);
+  });
+
+  it('"Editar orden cerrada": rechaza editar una orden entregada o cancelada (409)', async () => {
+    const escenario = await construirEscenarioBase();
+    const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+    const ordenId = creada.body.orden.id;
+
+    await conApiKey('patch', `/api/ordenes-lavado/${ordenId}/estado`).send({
+      estado: 'cancelada',
+      motivo: 'Cliente canceló',
+    });
+
+    const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${ordenId}`).send({
+      observaciones: 'tarde',
+    });
+    expect(respuesta.status).toBe(409);
+  });
+
+  it('"Editar con jornada cerrada": rechaza editar una orden cuya jornada ya no está abierta (409)', async () => {
+    const escenario = await construirEscenarioBase();
+    const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+
+    const jornadasRespuesta = await conApiKey('get', '/api/jornadas');
+    const jornadaAbierta = jornadasRespuesta.body.jornadas.find(
+      (jornada) => jornada.estado === 'abierta',
+    );
+    await conApiKey('patch', `/api/jornadas/${jornadaAbierta.id}/cerrar`);
+
+    const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
+      observaciones: 'tarde',
+    });
+    expect(respuesta.status).toBe(409);
+  });
+
+  it('"Editar a crédito sin convenio": rechaza editar medioPago a credito con un cliente sin crédito habilitado (409)', async () => {
+    const escenario = await construirEscenarioBase();
+    const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+
+    // El cliente del escenario es particular (sin creditoHabilitado): pasa
+    // el validador (clienteId sí viene), y el service lo rechaza (R8).
+    const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
+      medioPago: 'credito',
+      clienteId: escenario.cliente.id,
+    });
+    expect(respuesta.status).toBe(409);
+  });
+
+  it('"Editar mass assignment": ignora "valor" y "estado" enviados en la edición (200, sin cambios)', async () => {
+    const escenario = await construirEscenarioBase();
+    const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+
+    const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
+      valor: 1,
+      estado: 'entregada',
+      observaciones: 'actualizado',
+    });
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body.orden.valor).toBe(15000);
+    expect(respuesta.body.orden.estado).toBe('registrada');
+    expect(respuesta.body.orden.observaciones).toBe('actualizado');
+  });
+});
+
 describe('PATCH /api/ordenes-lavado/:id/estado', () => {
   it('"Saltar estados": rechaza ir de registrada directo a entregada (409)', async () => {
     const escenario = await construirEscenarioBase();
@@ -326,26 +469,161 @@ describe('PATCH /api/ordenes-lavado/:id/estado', () => {
     });
     expect(respuesta.status).toBe(409);
   });
+
+  describe('"Anular sin motivo" / "Anular con motivo"', () => {
+    it('rechaza cancelar sin motivo (400)', async () => {
+      const escenario = await construirEscenarioBase();
+      const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+
+      const respuesta = await conApiKey(
+        'patch',
+        `/api/ordenes-lavado/${creada.body.orden.id}/estado`,
+      ).send({ estado: 'cancelada' });
+      expect(respuesta.status).toBe(400);
+    });
+
+    it('cancela con motivo (200) y el motivo queda guardado', async () => {
+      const escenario = await construirEscenarioBase();
+      const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+
+      const respuesta = await conApiKey(
+        'patch',
+        `/api/ordenes-lavado/${creada.body.orden.id}/estado`,
+      ).send({ estado: 'cancelada', motivo: 'El cliente no llegó' });
+
+      expect(respuesta.status).toBe(200);
+      expect(respuesta.body.orden.estado).toBe('cancelada');
+      expect(respuesta.body.orden.motivo).toBe('El cliente no llegó');
+    });
+
+    it('cambiar a cualquier otro estado sin motivo sigue funcionando (200)', async () => {
+      const escenario = await construirEscenarioBase();
+      const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+
+      const respuesta = await conApiKey(
+        'patch',
+        `/api/ordenes-lavado/${creada.body.orden.id}/estado`,
+      ).send({ estado: 'en_proceso' });
+
+      expect(respuesta.status).toBe(200);
+      expect(respuesta.body.orden.estado).toBe('en_proceso');
+    });
+  });
 });
 
 describe('GET /api/ordenes-lavado', () => {
   it('filtra por fecha exacta cuando se envía ?fecha=', async () => {
     const escenario = await construirEscenarioBase();
-    await conApiKey('post', '/api/ordenes-lavado').send(
-      datosOrden(escenario, { fecha: '2026-01-10', turno: 1 }),
-    );
+    const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+    const fechaDeLaOrden = creada.body.orden.fecha;
 
-    const otroCliente = await registrarClienteParticular({ documento: '1010101098' });
-    const otroVehiculo = await registrarVehiculo(otroCliente.id, { placa: 'XYZ789' });
-    await conApiKey('post', '/api/ordenes-lavado').send(
-      datosOrden({ ...escenario, vehiculo: otroVehiculo }, { fecha: '2026-01-11', turno: 1 }),
-    );
-
-    const respuesta = await conApiKey('get', '/api/ordenes-lavado?fecha=2026-01-10');
+    const respuesta = await conApiKey('get', `/api/ordenes-lavado?fecha=${fechaDeLaOrden}`);
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.ordenes).toHaveLength(1);
-    expect(respuesta.body.ordenes[0].fecha).toBe('2026-01-10');
+    expect(respuesta.body.ordenes[0].fecha).toBe(fechaDeLaOrden);
+  });
+
+  it('SCRUM-36: "totales" coincide exactamente con la suma manual, y una orden anulada no suma', async () => {
+    const escenario = await construirEscenarioBase();
+
+    // Orden 1: efectivo, se queda registrada.
+    await conApiKey('post', '/api/ordenes-lavado').send(
+      datosOrden(escenario, { turno: 1, medioPago: 'efectivo' }),
+    );
+
+    // Orden 2: nequi (otro vehículo), se queda registrada.
+    const clienteB = await registrarClienteParticular({ documento: '1010101097' });
+    const vehiculoB = await registrarVehiculo(clienteB.id, { placa: 'XYZ789' });
+    await conApiKey('post', '/api/ordenes-lavado').send(
+      datosOrden({ ...escenario, vehiculo: vehiculoB }, { turno: 2, medioPago: 'nequi' }),
+    );
+
+    // Orden 3: efectivo (otro vehículo), pero se cancela: NO debe sumar a nada.
+    const clienteC = await registrarClienteParticular({ documento: '1010101096' });
+    const vehiculoC = await registrarVehiculo(clienteC.id, { placa: 'DEF456' });
+    const orden3 = await conApiKey('post', '/api/ordenes-lavado').send(
+      datosOrden({ ...escenario, vehiculo: vehiculoC }, { turno: 3, medioPago: 'efectivo' }),
+    );
+    await conApiKey('patch', `/api/ordenes-lavado/${orden3.body.orden.id}/estado`).send({
+      estado: 'cancelada',
+      motivo: 'Cliente canceló',
+    });
+
+    const respuesta = await conApiKey('get', '/api/ordenes-lavado');
+
+    expect(respuesta.status).toBe(200);
+    // Las 3 órdenes siguen apareciendo en el listado, incluida la anulada.
+    expect(respuesta.body.ordenes).toHaveLength(3);
+
+    // Suma manual sobre lo que el cliente realmente ve en "ordenes", para
+    // probar que "totales" coincide EXACTAMENTE con esa cuenta a mano.
+    const sumaManual = respuesta.body.ordenes
+      .filter((orden) => orden.estado !== 'cancelada')
+      .reduce(
+        (acumulado, orden) => {
+          acumulado.cantidadServicios += 1;
+          acumulado.totalGeneral += orden.valor;
+          acumulado.totalesPorMedioPago[orden.medioPago] =
+            (acumulado.totalesPorMedioPago[orden.medioPago] ?? 0) + orden.valor;
+          return acumulado;
+        },
+        { cantidadServicios: 0, totalGeneral: 0, totalesPorMedioPago: {} },
+      );
+
+    expect(respuesta.body.totales.cantidadServicios).toBe(sumaManual.cantidadServicios);
+    expect(respuesta.body.totales.totalGeneral).toBe(sumaManual.totalGeneral);
+    expect(respuesta.body.totales.totalesPorMedioPago.efectivo).toBe(
+      sumaManual.totalesPorMedioPago.efectivo,
+    );
+    expect(respuesta.body.totales.totalesPorMedioPago.nequi).toBe(
+      sumaManual.totalesPorMedioPago.nequi,
+    );
+
+    // Y en números concretos: la cancelada (efectivo) no cuenta para nada.
+    expect(respuesta.body.totales.cantidadServicios).toBe(2);
+    expect(respuesta.body.totales.totalGeneral).toBe(30000);
+    expect(respuesta.body.totales.totalesPorMedioPago.efectivo).toBe(15000);
+    expect(respuesta.body.totales.totalesPorMedioPago.nequi).toBe(15000);
+  });
+
+  it('filtra por colaboradorId, servicioId, medioPago y jornadaId vía HTTP', async () => {
+    const escenario = await construirEscenarioBase();
+    const orden1 = await conApiKey('post', '/api/ordenes-lavado').send(
+      datosOrden(escenario, { turno: 1, medioPago: 'efectivo' }),
+    );
+
+    const clienteB = await registrarClienteParticular({ documento: '1010101095' });
+    const vehiculoB = await registrarVehiculo(clienteB.id, { placa: 'GHI789' });
+    const colaboradorB = await registrarColaborador({ codigo: 402, documento: '1020304098' });
+    const servicioB = await registrarServicioParaAutomovil({ numero: 2 });
+    await conApiKey('post', '/api/ordenes-lavado').send(
+      datosOrden(
+        { vehiculo: vehiculoB, colaborador: colaboradorB, servicio: servicioB },
+        { turno: 2, medioPago: 'nequi' },
+      ),
+    );
+
+    const porColaborador = await conApiKey(
+      'get',
+      `/api/ordenes-lavado?colaboradorId=${escenario.colaborador.id}`,
+    );
+    expect(porColaborador.body.ordenes).toHaveLength(1);
+    expect(porColaborador.body.ordenes[0].colaboradorId).toBe(escenario.colaborador.id);
+
+    const porServicio = await conApiKey(
+      'get',
+      `/api/ordenes-lavado?servicioId=${escenario.servicio.id}`,
+    );
+    expect(porServicio.body.ordenes).toHaveLength(1);
+
+    const porMedioPago = await conApiKey('get', '/api/ordenes-lavado?medioPago=nequi');
+    expect(porMedioPago.body.ordenes).toHaveLength(1);
+    expect(porMedioPago.body.ordenes[0].medioPago).toBe('nequi');
+
+    const jornadaId = orden1.body.orden.jornadaId;
+    const porJornada = await conApiKey('get', `/api/ordenes-lavado?jornadaId=${jornadaId}`);
+    expect(porJornada.body.ordenes).toHaveLength(2);
   });
 });
 
