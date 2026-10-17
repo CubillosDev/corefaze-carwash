@@ -29,12 +29,20 @@ const ESTILOS_POR_VARIANTE = {
     'hover:not-disabled:bg-primario-50 active:not-disabled:bg-primario-100',
     'focus-visible:outline-primario',
   ].join(' '),
+  // Sobre el fondo oscuro del marco (la cabecera).
+  marco: [
+    'bg-transparent text-white',
+    'hover:not-disabled:bg-white/12 active:not-disabled:bg-white/12',
+    'focus-visible:outline-white',
+  ].join(' '),
 };
 
 const ESTILOS_POR_TAMANO = {
   pequeno: 'h-8 rounded-control px-3 text-detalle',
   mediano: 'h-10 rounded-control px-4 text-control',
   grande: 'h-12 rounded-control px-6 text-titulo-tarjeta',
+  // Solo un icono: exige aria-label.
+  icono: 'size-8.5 rounded-full',
 };
 
 /**
@@ -43,9 +51,12 @@ const ESTILOS_POR_TAMANO = {
  * Mientras `cargando` sea verdadero el botón queda deshabilitado y muestra un
  * indicador de progreso, para que no se pueda enviar dos veces la misma acción.
  *
+ * Con `tamano="icono"` el botón solo lleva un icono, así que necesita un
+ * `aria-label` que diga qué hace.
+ *
  * @param {object} props
- * @param {'primario'|'secundario'|'peligro'|'fantasma'} [props.variante]
- * @param {'pequeno'|'mediano'|'grande'} [props.tamano]
+ * @param {'primario'|'secundario'|'peligro'|'fantasma'|'marco'} [props.variante]
+ * @param {'pequeno'|'mediano'|'grande'|'icono'} [props.tamano]
  * @param {boolean} [props.cargando]
  * @param {boolean} [props.disabled]
  * @param {string} [props.className] Clases extra de posicionamiento o ancho.

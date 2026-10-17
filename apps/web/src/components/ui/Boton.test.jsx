@@ -73,6 +73,19 @@ describe('Boton', () => {
     expect(screen.getByRole('button')).toHaveClass('bg-primario');
   });
 
+  it('ofrece la variante marco en tamaño icono para la cabecera', () => {
+    render(
+      <Boton variante="marco" tamano="icono" aria-label="Abrir menú de navegación">
+        <svg aria-hidden="true" />
+      </Boton>,
+    );
+
+    const boton = screen.getByRole('button', { name: 'Abrir menú de navegación' });
+
+    expect(boton).toHaveClass('bg-transparent', 'text-white', 'size-8.5', 'rounded-full');
+    expect(boton).not.toHaveClass('rounded-control');
+  });
+
   it('aplica la altura de cada tamaño', () => {
     const { rerender } = render(<Boton tamano="pequeno">Pequeño</Boton>);
     expect(screen.getByRole('button')).toHaveClass('h-8');
