@@ -1,0 +1,195 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+ * Sistema de diseño Car Wash
+ *
+ * Todos los colores, la tipografía y las animaciones viven aquí como tokens.
+ * Los componentes los usan SIEMPRE por nombre (bg-primario, text-acento, ...)
+ * y nunca con un hex suelto.
+ *
+ * La paleta por defecto de Tailwind se borra a propósito (--color-*: initial)
+ * para que no se pueda escribir bg-blue-500 y saltarse el sistema.
+ * ------------------------------------------------------------------------- */
+
+@theme {
+  --color-*: initial;
+
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-inherit: inherit;
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* --- Marca: azul marino principal ------------------------------------- */
+  --color-primario-50: #eef2fa;
+  --color-primario-100: #d8e0f2;
+  --color-primario-200: #b0c0e4;
+  --color-primario-300: #7f96cf;
+  --color-primario-400: #4e6ab4;
+  --color-primario-500: #2a4790;
+  --color-primario-600: #1a3372;
+  --color-primario-700: #12275b;
+  --color-primario-800: #0b1f4f;
+  --color-primario-900: #071534;
+  --color-primario: #0b1f4f;
+
+  /* --- Marca: rojo de acento -------------------------------------------- */
+  --color-acento-50: #fdecee;
+  --color-acento-100: #fad3d7;
+  --color-acento-200: #f4a6ad;
+  --color-acento-300: #ec7480;
+  --color-acento-400: #e04a58;
+  --color-acento-500: #d0202e;
+  --color-acento-600: #b11a26;
+  --color-acento-700: #8d141e;
+  --color-acento-800: #6a0f17;
+  --color-acento: #d0202e;
+
+  /* --- Marca: amarillo de resalte ---------------------------------------
+   * Solo como fondo y acompañado de texto oscuro: sobre blanco no alcanza
+   * el contraste mínimo AA.
+   * --------------------------------------------------------------------- */
+  --color-resalte-50: #fff9e6;
+  --color-resalte-100: #ffefbf;
+  --color-resalte-200: #ffe180;
+  --color-resalte-300: #ffd24d;
+  --color-resalte-400: #f5b800;
+  --color-resalte-500: #d9a300;
+  --color-resalte-600: #b08400;
+  --color-resalte-700: #8a6700;
+  --color-resalte: #f5b800;
+
+  /* --- Neutros ----------------------------------------------------------- */
+  --color-neutro-50: #f7f8fa;
+  --color-neutro-100: #eef0f4;
+  --color-neutro-200: #dfe3ea;
+  --color-neutro-300: #c6ccd8;
+  --color-neutro-400: #98a1b3;
+  --color-neutro-500: #6b7488;
+  --color-neutro-600: #4c5468;
+  --color-neutro-700: #363d4d;
+  --color-neutro-800: #232936;
+  --color-neutro-900: #141821;
+  --color-neutro: #6b7488;
+
+  /* --- Estado ------------------------------------------------------------ */
+  --color-exito: #15803d;
+  --color-exito-suave: #dcfce7;
+  --color-exito-borde: #86efac;
+
+  --color-advertencia: #a15c07;
+  --color-advertencia-suave: #fef3c7;
+  --color-advertencia-borde: #fcd34d;
+
+  --color-error: #b3261e;
+  --color-error-suave: #fdecec;
+  --color-error-borde: #f5b5b1;
+
+  --color-info: #1d4ed8;
+  --color-info-suave: #e0e9fd;
+  --color-info-borde: #a9c2f8;
+
+  /* --- Tipografía --------------------------------------------------------
+   * Inter se carga desde @fontsource-variable/inter en main.jsx (sin CDN).
+   * --------------------------------------------------------------------- */
+  --font-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'Cascadia Mono', Menlo, Consolas, monospace;
+
+  /* Escala tipográfica del panel: de auxiliar (xs) a título de página (3xl). */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.3125rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.6875rem;
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.875rem;
+  --text-2xl: 1.75rem;
+  --text-2xl--line-height: 2.25rem;
+  --text-3xl: 2.25rem;
+  --text-3xl--line-height: 2.625rem;
+
+  /* --- Animaciones -------------------------------------------------------- */
+  --animate-aparecer: aparecer 150ms ease-out;
+  --animate-entrar-izquierda: entrar-izquierda 200ms ease-out;
+  --animate-subir: subir 180ms ease-out;
+
+  @keyframes aparecer {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes entrar-izquierda {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes subir {
+    from {
+      opacity: 0;
+      transform: translateY(0.75rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@layer base {
+  html {
+    /* Reserva el espacio de la barra de desplazamiento para que abrir un
+       modal (que bloquea el scroll) no mueva el contenido de lado. */
+    scrollbar-gutter: stable;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background-color: var(--color-neutro-50);
+    color: var(--color-neutro-800);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primario-400);
+    outline-offset: 2px;
+  }
+
+  /* Ningún texto largo (placas, correos, URL) debe desbordar en móvil. */
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  li,
+  td,
+  th {
+    overflow-wrap: break-word;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
