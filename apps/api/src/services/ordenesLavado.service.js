@@ -301,14 +301,22 @@ const crearOrden = (datos) => {
  * servicioId, estado, fecha ni jornadaId — si vienen en datos, se
  * ignoran (el validador de la capa anterior tampoco los acepta).
  *
- * Reutiliza las mismas reglas R2/R3/R6/R7/R8 que crearOrden, mediante
- * las funciones privadas de este archivo, para no duplicar su lógica.
+ * `valor` es inmutable desde la creación: se fija una sola vez en
+ * crearOrden y esta función nunca lo recalcula ni lo toca, sin importar
+ * si la tarifa del servicio cambió o el vehículo editado tiene un tipo
+ * distinto. Editar es para corregir datos operativos, nunca el monto
+ * cobrado. Como consecuencia, el 409 "El servicio no está activo" ya no
+ * puede dispararse desde aquí (solo desde crearOrden, que es quien sí
+ * calcula el valor).
+ *
+ * Reutiliza las mismas reglas R2/R6/R8 que crearOrden, mediante las
+ * funciones privadas de este archivo, para no duplicar su lógica.
  *
  * @param {number|string} id
  * @param {{ vehiculoId?: number, colaboradorId?: number, medioPago?: string, clienteId?: number, observaciones?: string }} datos
  * @returns {object} la orden editada
  * @throws {NoEncontrado} si el id no existe, o el nuevo vehiculoId/colaboradorId no existen
- * @throws {Conflicto} si la orden está cerrada, su jornada ya no está abierta, o viola R2/R3/R6/R8
+ * @throws {Conflicto} si la orden está cerrada, su jornada ya no está abierta, o viola R2/R6/R8
  */
 const editarOrden = (id, datos) => {
   const orden = obtenerOrdenOFallar(id);
@@ -328,9 +336,8 @@ const editarOrden = (id, datos) => {
   const medioPagoFinal = datos.medioPago ?? orden.medioPago;
   const clienteIdFinal = datos.clienteId !== undefined ? datos.clienteId : orden.clienteId;
 
-  let vehiculo = vehiculosService.obtenerVehiculoOFallar(orden.vehiculoId);
   if (vehiculoIdFinal !== orden.vehiculoId) {
-    vehiculo = vehiculosService.obtenerVehiculoOFallar(vehiculoIdFinal); // R1
+    vehiculosService.obtenerVehiculoOFallar(vehiculoIdFinal); // R1
     validarVehiculoSinOtraOrdenAbierta(vehiculoIdFinal, orden.id); // R6
   }
 
@@ -338,11 +345,6 @@ const editarOrden = (id, datos) => {
     const colaborador = colaboradoresService.obtenerColaboradorOFallar(colaboradorIdFinal); // R1
     validarColaboradorActivo(colaborador); // R2
   }
-
-  // servicioId no es editable: la tarifa se recalcula siempre con el
-  // servicio original, porque el tipo de vehículo final puede cambiar.
-  const servicio = serviciosService.obtenerServicioOFallar(orden.servicioId);
-  const valor = calcularValorServicio(servicio, vehiculo.tipo); // R3
 
   let clienteIdResuelto = orden.clienteId;
   if (medioPagoFinal !== orden.medioPago || clienteIdFinal !== orden.clienteId) {
@@ -355,7 +357,6 @@ const editarOrden = (id, datos) => {
     medioPago: medioPagoFinal,
     clienteId: clienteIdResuelto,
     observaciones: datos.observaciones !== undefined ? datos.observaciones : orden.observaciones,
-    valor,
   });
 
   return orden;

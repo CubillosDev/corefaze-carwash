@@ -84,8 +84,9 @@ const validarIdDeUrl = [
  *       description: >
  *         Solo campos no financieros. "servicioId", "valor", "estado",
  *         "fecha" y "jornadaId" no son editables: si se envían, se
- *         ignoran. El valor se recalcula siempre con la tarifa del
- *         servicio original para el tipo de vehículo final.
+ *         ignoran. "valor" es inmutable desde la creación de la orden y
+ *         nunca se recalcula al editar, aunque cambie la tarifa del
+ *         servicio o el tipo de vehículo.
  */
 
 /**
@@ -231,8 +232,11 @@ router.post('/', validarCrear, validar, crear);
  *     summary: Editar los campos no financieros de una orden abierta
  *     description: >
  *       Solo mientras la orden no esté cerrada (entregada/cancelada) y su
- *       jornada siga abierta. Reaplica las mismas reglas de negocio que
- *       la creación sobre los campos que cambien.
+ *       jornada siga abierta. Revalida colaborador activo, vehículo sin
+ *       otra orden abierta y crédito habilitado solo sobre los campos que
+ *       cambien. "valor" es inmutable desde la creación: nunca se
+ *       recalcula aquí, así que editar no puede rechazar por "servicio
+ *       inactivo" (esa regla solo aplica al crear).
  *     parameters:
  *       - in: path
  *         name: id

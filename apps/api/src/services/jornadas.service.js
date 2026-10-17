@@ -2,14 +2,15 @@ const jornadas = require('../data/jornadas');
 const { ESTADOS_JORNADA } = require('../constants/dominio');
 const { Conflicto, NoEncontrado } = require('../utils/errores');
 
-/** YYYY-MM-DD en hora local del servidor: la fecha de una jornada nunca viene del cliente. */
-const obtenerFechaDeHoy = () => {
-  const ahora = new Date();
-  const anio = ahora.getFullYear();
-  const mes = String(ahora.getMonth() + 1).padStart(2, '0');
-  const dia = String(ahora.getDate()).padStart(2, '0');
-  return `${anio}-${mes}-${dia}`;
-};
+/**
+ * YYYY-MM-DD en la zona horaria del negocio (America/Bogota), nunca en
+ * la del servidor: la fecha de una jornada nunca viene del cliente, y
+ * si el servidor corre en UTC (u otra zona), abrir a las 8 p.m. hora
+ * Bogotá no debe adelantar la fecha un día. El locale 'en-CA' da
+ * directamente el formato YYYY-MM-DD.
+ */
+const obtenerFechaDeHoy = () =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
 
 const buscarPorFecha = (fecha) => jornadas.find((jornada) => jornada.fecha === fecha);
 

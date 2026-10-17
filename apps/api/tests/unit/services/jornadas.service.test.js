@@ -15,13 +15,9 @@ beforeEach(() => {
   jornadas.length = 0;
 });
 
-const obtenerFechaDeHoy = () => {
-  const ahora = new Date();
-  const anio = ahora.getFullYear();
-  const mes = String(ahora.getMonth() + 1).padStart(2, '0');
-  const dia = String(ahora.getDate()).padStart(2, '0');
-  return `${anio}-${mes}-${dia}`;
-};
+/** Misma fórmula que usa el service: YYYY-MM-DD en America/Bogota, no en la TZ del sistema de pruebas. */
+const obtenerFechaDeHoy = () =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
 
 /** Jornada ya cerrada de otra fecha, insertada directo en los datos (abrirJornada siempre usa hoy). */
 const insertarJornadaCerradaDeOtraFecha = (id, fecha) => {
@@ -59,6 +55,26 @@ describe('jornadas.service', () => {
       cerrarJornada(primera.id);
 
       expect(() => abrirJornada()).toThrow(Conflicto);
+    });
+  });
+
+  describe('fecha de la jornada: zona horaria America/Bogota', () => {
+    const TZ_ORIGINAL = process.env.TZ;
+
+    afterEach(() => {
+      process.env.TZ = TZ_ORIGINAL;
+      jest.useRealTimers();
+    });
+
+    it('usa la fecha de Bogotá aunque el servidor corra en UTC: 8 p.m. en Bogotá no adelanta la fecha un día', () => {
+      // Las 8 p.m. del 15 de marzo en Bogotá (UTC-5, sin horario de verano)
+      // son la 1 a.m. del 16 de marzo en UTC.
+      process.env.TZ = 'UTC';
+      jest.useFakeTimers().setSystemTime(new Date('2026-03-16T01:00:00.000Z'));
+
+      const jornada = abrirJornada();
+
+      expect(jornada.fecha).toBe('2026-03-15');
     });
   });
 

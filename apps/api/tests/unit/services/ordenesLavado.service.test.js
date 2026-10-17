@@ -334,7 +334,22 @@ describe('ordenesLavado.service', () => {
   });
 
   describe('editarOrden', () => {
-    it('edita vehiculoId y recalcula el valor según la tarifa del nuevo vehículo', () => {
+    it('"valor" es inmutable: no se recalcula aunque suba la tarifa del servicio', () => {
+      abrirJornadaDePrueba();
+      const escenario = construirEscenarioValido();
+      const orden = crearOrden(datosOrdenValida(escenario));
+
+      // Sube la tarifa del servicio después de crear la orden.
+      serviciosService.actualizarServicio(escenario.servicio.id, {
+        tarifas: [{ tipoVehiculo: 'automovil', valor: 99999 }],
+      });
+
+      const editada = editarOrden(orden.id, { observaciones: 'actualizado' });
+
+      expect(editada.valor).toBe(15000);
+    });
+
+    it('"valor" es inmutable: editar vehiculoId a uno de otro tipo no lo recalcula', () => {
       abrirJornadaDePrueba();
       const escenario = construirEscenarioValido();
       serviciosService.actualizarServicio(escenario.servicio.id, {
@@ -349,7 +364,17 @@ describe('ordenesLavado.service', () => {
       const editada = editarOrden(orden.id, { vehiculoId: nuevoVehiculo.id });
 
       expect(editada.vehiculoId).toBe(nuevoVehiculo.id);
-      expect(editada.valor).toBe(20000);
+      expect(editada.valor).toBe(15000);
+    });
+
+    it('permite editar aunque el servicio original haya quedado inactivo (ya no se revalida al editar)', () => {
+      abrirJornadaDePrueba();
+      const escenario = construirEscenarioValido();
+      const orden = crearOrden(datosOrdenValida(escenario));
+
+      serviciosService.actualizarServicio(escenario.servicio.id, { activo: false });
+
+      expect(() => editarOrden(orden.id, { observaciones: 'actualizado' })).not.toThrow();
     });
 
     it('rechaza editar a un colaborador inactivo (409)', () => {

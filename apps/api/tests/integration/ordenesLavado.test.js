@@ -322,7 +322,7 @@ describe('POST /api/ordenes-lavado', () => {
 });
 
 describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
-  it('"Editar vehículo": edita vehiculoId y recalcula el valor según la nueva tarifa (200)', async () => {
+  it('"Editar vehículo": edita vehiculoId, y "valor" es inmutable (no se recalcula con la tarifa del nuevo tipo) (200)', async () => {
     const escenario = await construirEscenarioBase();
     await conApiKey('put', `/api/servicios/${escenario.servicio.id}`).send({
       tarifas: [
@@ -343,7 +343,21 @@ describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.orden.vehiculoId).toBe(nuevoVehiculo.id);
-    expect(respuesta.body.orden.valor).toBe(20000);
+    expect(respuesta.body.orden.valor).toBe(15000);
+  });
+
+  it('"Editar con servicio inactivo": permite editar aunque el servicio original haya quedado inactivo (200)', async () => {
+    const escenario = await construirEscenarioBase();
+    const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+
+    await conApiKey('put', `/api/servicios/${escenario.servicio.id}`).send({ activo: false });
+
+    const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
+      observaciones: 'actualizado',
+    });
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body.orden.valor).toBe(15000);
   });
 
   it('"Editar colaborador inactivo": rechaza editar a un colaborador inactivo (409)', async () => {
