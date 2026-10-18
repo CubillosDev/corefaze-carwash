@@ -12,6 +12,7 @@ import { SeccionDelCatalogo } from '@/features/sistema-diseno/components/Seccion
 import { useValoresDeTokens } from '@/features/sistema-diseno/hooks/useValoresDeTokens';
 import { formatoFecha, formatoFechaHora } from '@/utils/formatoFecha';
 import { formatoMoneda } from '@/utils/formatoMoneda';
+import { formatoPlaca } from '@/utils/formatoPlaca';
 
 const GRUPOS_DE_COLOR = [
   {
@@ -162,6 +163,8 @@ const EJEMPLOS_DE_FORMATO = [
     llamada: "formatoFechaHora('2026-08-03T14:30:00-05:00')",
     resultado: formatoFechaHora('2026-08-03T14:30:00-05:00'),
   },
+  { id: 7, llamada: "formatoPlaca('aaa-111')", resultado: formatoPlaca('aaa-111') },
+  { id: 8, llamada: "formatoPlaca('BBB22B')", resultado: formatoPlaca('BBB22B') },
 ];
 
 /**
@@ -460,7 +463,7 @@ export function SistemaDisenoPage() {
 
       <SeccionDelCatalogo
         titulo="Formatos"
-        descripcion="La moneda y las fechas se formatean en un solo lugar, siempre en la zona horaria de Bogotá."
+        descripcion="La moneda, las fechas y las placas se formatean en un solo lugar; las fechas, siempre en la zona horaria de Bogotá."
       >
         <Tabla
           columnas={COLUMNAS_DE_FORMATO}
