@@ -16,13 +16,24 @@ La aplicación queda en <http://localhost:5173>.
 
 ### Variables de entorno
 
-| Variable        | Para qué sirve                                                         |
-| --------------- | ---------------------------------------------------------------------- |
-| `VITE_API_URL`  | URL base de la API (`apps/api`), incluido el prefijo `/api`.           |
-| `VITE_API_KEY`  | Encabezado `X-API-Key`: el valor de `API_KEY_ADMIN` de `apps/api/.env`. |
+| Variable        | Para qué sirve                                                |
+| --------------- | ------------------------------------------------------------- |
+| `VITE_API_URL`  | URL base de la API (`apps/api`), incluido el prefijo `/api`.  |
+| `VITE_API_KEY`  | Llave del cliente web; viaja en el encabezado `X-API-Key`.    |
 
 Solo se versiona `.env.example`. El archivo `.env` está en `.gitignore`. Toda variable `VITE_*`
-queda dentro del JavaScript que descarga el navegador, así que es pública: nunca lleva secretos.
+queda dentro del JavaScript que descarga el navegador, así que es **pública**: nunca lleva
+secretos.
+
+Sobre `VITE_API_KEY`:
+
+- Es la llave del cliente web y **cualquiera puede verla** en el navegador. Identifica a la
+  aplicación ante la API; no protege datos.
+- En desarrollo local, cada persona usa una de las llaves que tiene configuradas en **su propio**
+  `apps/api/.env`, generadas con `crypto` como explica
+  [`apps/api/README.md`](../api/README.md). Esas llaves no se comparten ni se suben al repositorio.
+- Pendiente en el backend: crear una `API_KEY_WEB` propia para este cliente y proteger los
+  recursos con JWT y roles. Hasta entonces, la llave no debe tratarse como control de acceso.
 
 ## Comandos
 
