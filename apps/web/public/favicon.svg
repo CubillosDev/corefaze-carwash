@@ -1,13 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Car Wash">
-  <rect width="32" height="32" rx="7" fill="#0b1f4f" />
-  <path
-    d="M16 3.5c2.7 3.1 4.1 5.4 4.1 7.2a4.1 4.1 0 1 1-8.2 0c0-1.8 1.4-4.1 4.1-7.2Z"
-    fill="#f5b800"
-  />
-  <path
-    d="M6.6 22.2 8.4 18a2.6 2.6 0 0 1 2.4-1.6h10.4a2.6 2.6 0 0 1 2.4 1.6l1.8 4.2v3.4a1 1 0 0 1-1 1h-1.6a1 1 0 0 1-1-1v-.8H10.2v.8a1 1 0 0 1-1 1H7.6a1 1 0 0 1-1-1v-3.4Z"
-    fill="#ffffff"
-  />
-  <circle cx="11" cy="22.4" r="1.5" fill="#d0202e" />
-  <circle cx="21" cy="22.4" r="1.5" fill="#d0202e" />
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0e1730"/><path fill="#1268e8" d="M12 8.5 20 4l8 4.5-8 4.5zm0 15 8-4.5 8 4.5-8 4.5zM4 12l6-2.5v13L4 20z"/></svg>
