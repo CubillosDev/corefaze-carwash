@@ -1,0 +1,23 @@
+# Integración continua de la app móvil (apps/movil).
+# Pendiente: se activa cuando exista código. Mientras tanto solo se ejecuta a
+# mano, para que GitHub no registre un fallo en cada push.
+name: CI móvil
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pendiente:
+    name: Pendiente
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Aviso
+        run: echo "Pendiente; el flujo de apps/movil se activa cuando exista código."

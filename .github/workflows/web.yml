@@ -1,0 +1,59 @@
+# Integración continua del panel web (apps/web).
+# Corre lint, pruebas y build cuando cambian el web, los contratos compartidos o
+# las dependencias de la raíz (workspaces de npm).
+name: CI web
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - "apps/web/**"
+      - "packages/contratos/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/web.yml"
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - "apps/web/**"
+      - "packages/contratos/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/web.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: Lint, pruebas y build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Vitest y jsdom exigen Node 22.12 o superior.
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint:web
+
+      - name: Pruebas
+        run: npm run test:web
+
+      - name: Build
+        run: npm run build:web
