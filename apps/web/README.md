@@ -139,12 +139,14 @@ JSDoc sobre cada componente.
 ## Formatos
 
 El dinero viaja como **entero de pesos** por toda la aplicación y solo se convierte a texto al
-mostrarlo. Las fechas se muestran siempre en la zona horaria de Bogotá.
+mostrarlo. Las fechas se muestran siempre en la zona horaria de Bogotá. Las placas se normalizan
+(mayúsculas, sin espacios ni guiones) y se separan según los patrones de `dominio.json`.
 
 ```js
 formatoMoneda(28000);                            // "$ 28.000"
 formatoFecha('2026-08-03');                      // "03/08/2026"
 formatoFechaHora('2026-08-03T14:30:00-05:00');   // "03/08/2026 2:30 p. m."
+formatoPlaca('aaa-111');                         // "AAA 111"
 ```
 
 `formatoFecha` descompone las fechas ISO sin hora por partes en lugar de pasarlas por `new Date()`:
