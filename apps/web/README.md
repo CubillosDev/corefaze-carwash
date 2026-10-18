@@ -74,6 +74,22 @@ Con la aplicación en desarrollo, <http://localhost:5173/sistema-diseno> muestra
 completo: paleta, tipografía, componentes y ejemplos de formato. Esa ruta **solo existe en
 desarrollo**; en la compilación de producción desaparece del paquete.
 
+### Reglas del sistema de diseño
+
+1. **El catálogo es la guía.** Antes de construir algo, revisa `src/components/ui` y
+   `/sistema-diseno`, y sigue este orden: **usar** lo que ya existe → **extenderlo** con una
+   variante → **crear** un componente nuevo, solo si no queda otra.
+2. **Todo lo nuevo aparece en el catálogo.** Cada componente, variante o token nuevo se agrega a
+   `/sistema-diseno` en el mismo commit que lo crea.
+3. **El diseño manda en lo visual; el dominio, en el negocio.** Del diseño aprobado se copian
+   exactos los colores, medidas, tipografía, sombras, animaciones y la disposición. Los estados,
+   medios de pago, tipos de vehículo, campos, validaciones y reglas salen de
+   `packages/contratos/dominio.json` (vía `@/constants/dominio`) y de la API. Si el diseño
+   contradice el dominio, esa parte no se implementa y se reporta.
+4. **Los tokens viven solo en `src/styles/global.css`.** En los componentes no van hex, px sueltos
+   ni sombras escritas a mano. Un valor puntual del diseño puede ir como clase arbitraria de
+   Tailwind, justificada en el PR.
+
 ### Tokens
 
 Los valores vienen del diseño aprobado (handoff en `docs/diseno/`, que es solo referencia y no
