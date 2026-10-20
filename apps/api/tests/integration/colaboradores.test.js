@@ -1,6 +1,7 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const colaboradores = require('../../src/data/colaboradores');
+const { generarToken } = require('../../src/utils/jwt.util');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -15,6 +16,17 @@ beforeEach(() => {
 
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
 
+// RBAC (Bloque 6): todo el recurso exige API Key + JWT con rol autorizado.
+// Un token por rol, generados una sola vez para todo el archivo.
+const tokenDe = (rol) => generarToken({ id: 1, email: `${rol}@lavadero.com`, rol });
+const TOKEN_SUPERADMIN = tokenDe('superadmin');
+const TOKEN_ADMINISTRADOR = tokenDe('administrador');
+const TOKEN_SOPORTE = tokenDe('soporte');
+const TOKEN_PENDIENTE = tokenDe('pendiente');
+
+const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
+  conApiKey(metodo, ruta).set('Authorization', `Bearer ${token}`);
+
 const colaboradorValido = {
   codigo: 401,
   nombre: 'Juan Pérez',
@@ -25,13 +37,13 @@ const colaboradorValido = {
 };
 
 const registrarColaborador = async (datos = colaboradorValido) => {
-  const respuesta = await conApiKey('post', '/api/colaboradores').send(datos);
+  const respuesta = await conToken('post', '/api/colaboradores').send(datos);
   return respuesta.body.colaborador;
 };
 
 describe('POST /api/colaboradores', () => {
   it('caso válido: registra un colaborador (201)', async () => {
-    const respuesta = await conApiKey('post', '/api/colaboradores').send(colaboradorValido);
+    const respuesta = await conToken('post', '/api/colaboradores').send(colaboradorValido);
 
     expect(respuesta.status).toBe(201);
     expect(respuesta.body.colaborador).toMatchObject({ codigo: 401, nombre: 'Juan Pérez' });
@@ -40,7 +52,7 @@ describe('POST /api/colaboradores', () => {
   it('duplicado: un código repetido responde 409', async () => {
     await registrarColaborador();
 
-    const respuesta = await conApiKey('post', '/api/colaboradores').send({
+    const respuesta = await conToken('post', '/api/colaboradores').send({
       ...colaboradorValido,
       documento: '9999999999',
     });
@@ -51,7 +63,7 @@ describe('POST /api/colaboradores', () => {
   it('duplicado: un documento repetido responde 409', async () => {
     await registrarColaborador();
 
-    const respuesta = await conApiKey('post', '/api/colaboradores').send({
+    const respuesta = await conToken('post', '/api/colaboradores').send({
       ...colaboradorValido,
       codigo: 402,
     });
@@ -63,13 +75,13 @@ describe('POST /api/colaboradores', () => {
     const sinNombre = { ...colaboradorValido };
     delete sinNombre.nombre;
 
-    const respuesta = await conApiKey('post', '/api/colaboradores').send(sinNombre);
+    const respuesta = await conToken('post', '/api/colaboradores').send(sinNombre);
 
     expect(respuesta.status).toBe(400);
   });
 
   it('código fuera de rango: 400', async () => {
-    const respuesta = await conApiKey('post', '/api/colaboradores').send({
+    const respuesta = await conToken('post', '/api/colaboradores').send({
       ...colaboradorValido,
       codigo: 99,
     });
@@ -78,7 +90,7 @@ describe('POST /api/colaboradores', () => {
   });
 
   it('mass assignment: el cliente no puede fijar id al crear', async () => {
-    const respuesta = await conApiKey('post', '/api/colaboradores').send({
+    const respuesta = await conToken('post', '/api/colaboradores').send({
       ...colaboradorValido,
       id: 9999,
     });
@@ -88,7 +100,7 @@ describe('POST /api/colaboradores', () => {
   });
 
   it('mass assignment: el cliente no puede fijar el estado al crear', async () => {
-    const respuesta = await conApiKey('post', '/api/colaboradores').send({
+    const respuesta = await conToken('post', '/api/colaboradores').send({
       ...colaboradorValido,
       estado: 'inactivo',
     });
@@ -98,7 +110,57 @@ describe('POST /api/colaboradores', () => {
   });
 
   it('requiere API Key', async () => {
-    const respuesta = await request(app).post('/api/colaboradores').send(colaboradorValido);
+    const respuesta = await request(app)
+      .post('/api/colaboradores')
+      .set('Authorization', `Bearer ${TOKEN_ADMINISTRADOR}`)
+      .send(colaboradorValido);
+    expect(respuesta.status).toBe(401);
+  });
+
+  it('requiere JWT (401 sin Authorization, aunque la API Key sea válida)', async () => {
+    const respuesta = await conApiKey('post', '/api/colaboradores').send(colaboradorValido);
+    expect(respuesta.status).toBe(401);
+  });
+
+  it('un superadmin también puede crear (200/201)', async () => {
+    const respuesta = await conToken('post', '/api/colaboradores', TOKEN_SUPERADMIN).send(
+      colaboradorValido,
+    );
+    expect(respuesta.status).toBe(201);
+  });
+
+  it('RBAC: soporte no puede crear colaboradores (403)', async () => {
+    const respuesta = await conToken('post', '/api/colaboradores', TOKEN_SOPORTE).send(
+      colaboradorValido,
+    );
+    expect(respuesta.status).toBe(403);
+  });
+
+  it('RBAC: un usuario "pendiente" no puede crear colaboradores (403)', async () => {
+    const respuesta = await conToken('post', '/api/colaboradores', TOKEN_PENDIENTE).send(
+      colaboradorValido,
+    );
+    expect(respuesta.status).toBe(403);
+  });
+});
+
+describe('GET /api/colaboradores', () => {
+  it('superadmin, administrador y soporte pueden listar (200)', async () => {
+    await registrarColaborador();
+
+    for (const token of [TOKEN_SUPERADMIN, TOKEN_ADMINISTRADOR, TOKEN_SOPORTE]) {
+      const respuesta = await conToken('get', '/api/colaboradores', token);
+      expect(respuesta.status).toBe(200);
+    }
+  });
+
+  it('RBAC: un usuario "pendiente" no puede listar (403)', async () => {
+    const respuesta = await conToken('get', '/api/colaboradores', TOKEN_PENDIENTE);
+    expect(respuesta.status).toBe(403);
+  });
+
+  it('requiere JWT (401 sin Authorization)', async () => {
+    const respuesta = await conApiKey('get', '/api/colaboradores');
     expect(respuesta.status).toBe(401);
   });
 });
@@ -107,20 +169,32 @@ describe('GET /api/colaboradores/:id', () => {
   it('caso válido: devuelve el colaborador (200)', async () => {
     const creado = await registrarColaborador();
 
-    const respuesta = await conApiKey('get', `/api/colaboradores/${creado.id}`);
+    const respuesta = await conToken('get', `/api/colaboradores/${creado.id}`);
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.colaborador).toMatchObject({ id: creado.id, codigo: 401 });
   });
 
   it('id inexistente: 404', async () => {
-    const respuesta = await conApiKey('get', '/api/colaboradores/9999');
+    const respuesta = await conToken('get', '/api/colaboradores/9999');
     expect(respuesta.status).toBe(404);
   });
 
   it('id inválido: 400', async () => {
-    const respuesta = await conApiKey('get', '/api/colaboradores/abc');
+    const respuesta = await conToken('get', '/api/colaboradores/abc');
     expect(respuesta.status).toBe(400);
+  });
+
+  it('soporte puede consultar un colaborador puntual (200)', async () => {
+    const creado = await registrarColaborador();
+    const respuesta = await conToken('get', `/api/colaboradores/${creado.id}`, TOKEN_SOPORTE);
+    expect(respuesta.status).toBe(200);
+  });
+
+  it('RBAC: un usuario "pendiente" no puede consultar (403)', async () => {
+    const creado = await registrarColaborador();
+    const respuesta = await conToken('get', `/api/colaboradores/${creado.id}`, TOKEN_PENDIENTE);
+    expect(respuesta.status).toBe(403);
   });
 });
 
@@ -128,7 +202,7 @@ describe('PUT /api/colaboradores/:id', () => {
   it('actualiza el teléfono (200)', async () => {
     const creado = await registrarColaborador();
 
-    const respuesta = await conApiKey('put', `/api/colaboradores/${creado.id}`).send({
+    const respuesta = await conToken('put', `/api/colaboradores/${creado.id}`).send({
       telefono: '3009999999',
     });
 
@@ -137,11 +211,21 @@ describe('PUT /api/colaboradores/:id', () => {
   });
 
   it('id inexistente: 404', async () => {
-    const respuesta = await conApiKey('put', '/api/colaboradores/9999').send({
+    const respuesta = await conToken('put', '/api/colaboradores/9999').send({
       telefono: '3009999999',
     });
 
     expect(respuesta.status).toBe(404);
+  });
+
+  it('RBAC: soporte no puede actualizar (403)', async () => {
+    const creado = await registrarColaborador();
+
+    const respuesta = await conToken('put', `/api/colaboradores/${creado.id}`, TOKEN_SOPORTE).send({
+      telefono: '3009999999',
+    });
+
+    expect(respuesta.status).toBe(403);
   });
 });
 
@@ -149,25 +233,37 @@ describe('PATCH /api/colaboradores/:id/estado', () => {
   it('cambia el estado a inactivo (200) y el GET posterior lo confirma', async () => {
     const creado = await registrarColaborador();
 
-    const respuesta = await conApiKey('patch', `/api/colaboradores/${creado.id}/estado`).send({
+    const respuesta = await conToken('patch', `/api/colaboradores/${creado.id}/estado`).send({
       estado: 'inactivo',
     });
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.colaborador.estado).toBe('inactivo');
 
-    const consulta = await conApiKey('get', `/api/colaboradores/${creado.id}`);
+    const consulta = await conToken('get', `/api/colaboradores/${creado.id}`);
     expect(consulta.body.colaborador.estado).toBe('inactivo');
   });
 
   it('estado inválido en el body: 400', async () => {
     const creado = await registrarColaborador();
 
-    const respuesta = await conApiKey('patch', `/api/colaboradores/${creado.id}/estado`).send({
+    const respuesta = await conToken('patch', `/api/colaboradores/${creado.id}/estado`).send({
       estado: 'suspendido',
     });
 
     expect(respuesta.status).toBe(400);
+  });
+
+  it('RBAC: soporte no puede cambiar el estado (403)', async () => {
+    const creado = await registrarColaborador();
+
+    const respuesta = await conToken(
+      'patch',
+      `/api/colaboradores/${creado.id}/estado`,
+      TOKEN_SOPORTE,
+    ).send({ estado: 'inactivo' });
+
+    expect(respuesta.status).toBe(403);
   });
 });
 
@@ -175,13 +271,29 @@ describe('DELETE /api/colaboradores/:id', () => {
   it('sin relaciones: elimina correctamente (200)', async () => {
     const creado = await registrarColaborador();
 
-    const respuesta = await conApiKey('delete', `/api/colaboradores/${creado.id}`);
+    const respuesta = await conToken('delete', `/api/colaboradores/${creado.id}`);
 
     expect(respuesta.status).toBe(200);
   });
 
   it('id inexistente: 404', async () => {
-    const respuesta = await conApiKey('delete', '/api/colaboradores/9999');
+    const respuesta = await conToken('delete', '/api/colaboradores/9999');
     expect(respuesta.status).toBe(404);
+  });
+
+  it('RBAC: soporte no puede eliminar (403)', async () => {
+    const creado = await registrarColaborador();
+
+    const respuesta = await conToken('delete', `/api/colaboradores/${creado.id}`, TOKEN_SOPORTE);
+
+    expect(respuesta.status).toBe(403);
+  });
+
+  it('RBAC: un usuario "pendiente" no puede eliminar (403)', async () => {
+    const creado = await registrarColaborador();
+
+    const respuesta = await conToken('delete', `/api/colaboradores/${creado.id}`, TOKEN_PENDIENTE);
+
+    expect(respuesta.status).toBe(403);
   });
 });

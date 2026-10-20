@@ -13,8 +13,16 @@ const {
   validarCambioDeEstado,
 } = require('../middlewares/colaboradores.validator');
 const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
+const { autenticarJWT } = require('../middlewares/auth.middleware');
+const { autorizarRoles } = require('../middlewares/roles.middleware');
 
 const router = Router();
+
+// RBAC (Bloque 6): la gestión de personal es el recurso más sensible de la
+// API — solo superadmin/administrador pueden crear, modificar o eliminar
+// colaboradores; soporte puede consultarlos (lectura) pero no mutarlos.
+const PUEDEN_CONSULTAR = autorizarRoles('superadmin', 'administrador', 'soporte');
+const PUEDEN_GESTIONAR = autorizarRoles('superadmin', 'administrador');
 
 /**
  * @swagger
@@ -75,11 +83,19 @@ const router = Router();
  *   get:
  *     tags: [Colaboradores]
  *     summary: Listar colaboradores
+ *     description: Disponible para superadmin, administrador y soporte.
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Lista de colaboradores
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Rol sin permiso para consultar colaboradores
  */
-router.get('/', listar);
+router.get('/', autenticarJWT, PUEDEN_CONSULTAR, listar);
 
 /**
  * @swagger
@@ -93,15 +109,22 @@ router.get('/', listar);
  *         required: true
  *         schema:
  *           type: integer
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Colaborador encontrado
  *       400:
  *         description: Id inválido
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Rol sin permiso para consultar colaboradores
  *       404:
  *         description: Colaborador no encontrado
  */
-router.get('/:id', validarIdDeUrl, validar, obtenerPorId);
+router.get('/:id', autenticarJWT, PUEDEN_CONSULTAR, validarIdDeUrl, validar, obtenerPorId);
 
 /**
  * @swagger
@@ -118,15 +141,22 @@ router.get('/:id', validarIdDeUrl, validar, obtenerPorId);
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/ColaboradorCrear'
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       201:
  *         description: Colaborador registrado correctamente
  *       400:
  *         description: Datos inválidos
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Operación permitida únicamente a superadmin o administrador
  *       409:
  *         description: El código o el documento ya pertenecen a otro colaborador
  */
-router.post('/', validarCrear, validar, crear);
+router.post('/', autenticarJWT, PUEDEN_GESTIONAR, validarCrear, validar, crear);
 
 /**
  * @swagger
@@ -146,17 +176,32 @@ router.post('/', validarCrear, validar, crear);
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/ColaboradorActualizar'
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Colaborador actualizado correctamente
  *       400:
  *         description: Datos o id inválidos
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Operación permitida únicamente a superadmin o administrador
  *       404:
  *         description: Colaborador no encontrado
  *       409:
  *         description: El código o el documento ya pertenecen a otro colaborador
  */
-router.put('/:id', validarIdDeUrl, validarActualizar, validar, actualizar);
+router.put(
+  '/:id',
+  autenticarJWT,
+  PUEDEN_GESTIONAR,
+  validarIdDeUrl,
+  validarActualizar,
+  validar,
+  actualizar,
+);
 
 /**
  * @swagger
@@ -186,15 +231,30 @@ router.put('/:id', validarIdDeUrl, validarActualizar, validar, actualizar);
  *                 type: string
  *                 enum: [activo, inactivo]
  *                 example: inactivo
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Estado del colaborador actualizado correctamente
  *       400:
  *         description: Estado o id inválidos
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Operación permitida únicamente a superadmin o administrador
  *       404:
  *         description: Colaborador no encontrado
  */
-router.patch('/:id/estado', validarIdDeUrl, validarCambioDeEstado, validar, cambiarEstado);
+router.patch(
+  '/:id/estado',
+  autenticarJWT,
+  PUEDEN_GESTIONAR,
+  validarIdDeUrl,
+  validarCambioDeEstado,
+  validar,
+  cambiarEstado,
+);
 
 /**
  * @swagger
@@ -209,16 +269,23 @@ router.patch('/:id/estado', validarIdDeUrl, validarCambioDeEstado, validar, camb
  *         required: true
  *         schema:
  *           type: integer
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Colaborador eliminado correctamente
  *       400:
  *         description: Id inválido
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Operación permitida únicamente a superadmin o administrador
  *       404:
  *         description: Colaborador no encontrado
  *       409:
  *         description: El colaborador tiene órdenes de lavado asociadas
  */
-router.delete('/:id', validarIdDeUrl, validar, eliminar);
+router.delete('/:id', autenticarJWT, PUEDEN_GESTIONAR, validarIdDeUrl, validar, eliminar);
 
 module.exports = router;

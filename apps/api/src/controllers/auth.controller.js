@@ -1,4 +1,4 @@
-const { Conflicto, NoAutenticado, AccesoDenegado } = require('../utils/errores');
+const { Conflicto, NoAutenticado, AccesoDenegado, NoEncontrado } = require('../utils/errores');
 const usuariosService = require('../services/usuarios.service');
 const { generarToken } = require('../utils/jwt.util');
 
@@ -73,4 +73,29 @@ const perfil = (req, res) => {
   });
 };
 
-module.exports = { registrar, login, perfil };
+/**
+ * PATCH /api/auth/usuarios/:id/rol
+ * Única vía para que un usuario deje de ser "pendiente" (RBAC, Bloque 6).
+ * Protegida por autenticarJWT + autorizarRoles('superadmin') en la ruta.
+ */
+const asignarRol = (req, res, next) => {
+  try {
+    const { id } = req.datos.parametros;
+    const { rol } = req.datos.cuerpo;
+
+    const usuario = usuariosService.asignarRol(id, rol);
+
+    if (!usuario) {
+      throw new NoEncontrado('Usuario no encontrado');
+    }
+
+    return res.status(200).json({
+      mensaje: 'Rol asignado correctamente',
+      usuario,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+module.exports = { registrar, login, perfil, asignarRol };

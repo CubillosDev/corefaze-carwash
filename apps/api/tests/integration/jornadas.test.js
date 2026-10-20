@@ -1,5 +1,6 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
+const { generarToken } = require('../../src/utils/jwt.util');
 const jornadas = require('../../src/data/jornadas');
 const clientes = require('../../src/data/clientes');
 const vehiculos = require('../../src/data/vehiculos');
@@ -24,6 +25,15 @@ beforeEach(() => {
 });
 
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
+
+// RBAC (Bloque 6): /api/colaboradores ya exige JWT con rol autorizado; este
+// token de prueba se usa SOLO para crear el colaborador que necesitan los
+// fixtures de este archivo, no es parte de lo que se está probando aquí.
+const TOKEN_ADMINISTRADOR_DE_PRUEBA = generarToken({
+  id: 1,
+  email: 'administrador@lavadero.com',
+  rol: 'administrador',
+});
 
 const abrirJornada = () => conApiKey('post', '/api/jornadas');
 const cerrarJornada = (id) =>
@@ -53,15 +63,17 @@ const registrarVehiculoDePrueba = async (overrides = {}) => {
 };
 
 const registrarColaboradorDePrueba = async (overrides = {}) => {
-  const respuesta = await conApiKey('post', '/api/colaboradores').send({
-    codigo: 401,
-    nombre: 'Juan Pérez',
-    documento: '1020304050',
-    telefono: '3001234567',
-    porcentajeComision: 0.15,
-    tipoVinculacion: 'fijo',
-    ...overrides,
-  });
+  const respuesta = await conApiKey('post', '/api/colaboradores')
+    .set('Authorization', `Bearer ${TOKEN_ADMINISTRADOR_DE_PRUEBA}`)
+    .send({
+      codigo: 401,
+      nombre: 'Juan Pérez',
+      documento: '1020304050',
+      telefono: '3001234567',
+      porcentajeComision: 0.15,
+      tipoVinculacion: 'fijo',
+      ...overrides,
+    });
   return respuesta.body.colaborador;
 };
 

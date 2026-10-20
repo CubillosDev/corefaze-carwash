@@ -4,6 +4,8 @@ const {
   obtenerUsuarioPorId,
   crearUsuario,
   verificarCredenciales,
+  asignarRol,
+  crearSuperAdministradorInicial,
 } = require('../../../src/services/usuarios.service');
 
 jest.setTimeout(10000);
@@ -128,6 +130,56 @@ describe('usuarios.service', () => {
       await crearUsuario(datosDeEjemplo);
       const usuario = await verificarCredenciales(datosDeEjemplo.email, datosDeEjemplo.password);
       expect(usuario.passwordHash).toBeUndefined();
+    });
+  });
+
+  describe('asignarRol', () => {
+    it('cambia el rol de un usuario existente', async () => {
+      await crearUsuario(datosDeEjemplo);
+      const actualizado = asignarRol(1, 'administrador');
+      expect(actualizado.rol).toBe('administrador');
+    });
+
+    it('el cambio queda reflejado al volver a consultar al usuario', async () => {
+      await crearUsuario(datosDeEjemplo);
+      asignarRol(1, 'soporte');
+      expect(obtenerUsuarioPorId(1).rol).toBe('soporte');
+    });
+
+    it('devuelve null si el id no existe', () => {
+      expect(asignarRol(999, 'administrador')).toBeNull();
+    });
+
+    it('nunca devuelve passwordHash', async () => {
+      await crearUsuario(datosDeEjemplo);
+      expect(asignarRol(1, 'soporte').passwordHash).toBeUndefined();
+    });
+  });
+
+  describe('crearSuperAdministradorInicial', () => {
+    const datosSuperAdmin = {
+      nombre: 'Super Administrador',
+      email: 'superadmin@lavadero.com',
+      password: 'ClaveSuperSegura2026!',
+    };
+
+    it('crea el usuario con rol "superadmin"', async () => {
+      const creado = await crearSuperAdministradorInicial(datosSuperAdmin);
+      expect(creado.rol).toBe('superadmin');
+      expect(creado.activo).toBe(true);
+    });
+
+    it('es idempotente: si el email ya existe, no crea un duplicado y devuelve null', async () => {
+      await crearSuperAdministradorInicial(datosSuperAdmin);
+      const segundoIntento = await crearSuperAdministradorInicial(datosSuperAdmin);
+
+      expect(segundoIntento).toBeNull();
+      expect(usuarios).toHaveLength(1);
+    });
+
+    it('nunca devuelve passwordHash', async () => {
+      const creado = await crearSuperAdministradorInicial(datosSuperAdmin);
+      expect(creado.passwordHash).toBeUndefined();
     });
   });
 });

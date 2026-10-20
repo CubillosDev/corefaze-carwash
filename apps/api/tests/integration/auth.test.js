@@ -250,3 +250,71 @@ describe('POST /api/auth/login', () => {
     });
   });
 });
+
+describe('PATCH /api/auth/usuarios/:id/rol', () => {
+  const registrarYObtenerToken = async (email, rol) => {
+    await conApiKey('post', '/api/auth/registro').send({ ...datosDeRegistro, email });
+    const usuario = usuarios.find((candidato) => candidato.email === email);
+    usuario.rol = rol;
+
+    const login = await conApiKey('post', '/api/auth/login').send({
+      email,
+      password: datosDeRegistro.password,
+    });
+    return login.body.token;
+  };
+
+  it('superadmin asigna un rol a un usuario "pendiente" (200)', async () => {
+    const tokenSuperAdmin = await registrarYObtenerToken('super@lavadero.com', 'superadmin');
+    await conApiKey('post', '/api/auth/registro').send({
+      ...datosDeRegistro,
+      email: 'nuevo@lavadero.com',
+    });
+    const nuevo = usuarios.find((candidato) => candidato.email === 'nuevo@lavadero.com');
+
+    const respuesta = await conApiKey('patch', `/api/auth/usuarios/${nuevo.id}/rol`)
+      .set('Authorization', `Bearer ${tokenSuperAdmin}`)
+      .send({ rol: 'administrador' });
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body.usuario.rol).toBe('administrador');
+  });
+
+  it('un rol fuera del catálogo del dominio responde 400', async () => {
+    const tokenSuperAdmin = await registrarYObtenerToken('super2@lavadero.com', 'superadmin');
+
+    const respuesta = await conApiKey('patch', '/api/auth/usuarios/1/rol')
+      .set('Authorization', `Bearer ${tokenSuperAdmin}`)
+      .send({ rol: 'medico' });
+
+    expect(respuesta.status).toBe(400);
+  });
+
+  it('un usuario inexistente responde 404', async () => {
+    const tokenSuperAdmin = await registrarYObtenerToken('super3@lavadero.com', 'superadmin');
+
+    const respuesta = await conApiKey('patch', '/api/auth/usuarios/9999/rol')
+      .set('Authorization', `Bearer ${tokenSuperAdmin}`)
+      .send({ rol: 'administrador' });
+
+    expect(respuesta.status).toBe(404);
+  });
+
+  it('un administrador (no superadmin) no puede asignar roles (403)', async () => {
+    const tokenAdministrador = await registrarYObtenerToken('admin2@lavadero.com', 'administrador');
+
+    const respuesta = await conApiKey('patch', '/api/auth/usuarios/1/rol')
+      .set('Authorization', `Bearer ${tokenAdministrador}`)
+      .send({ rol: 'soporte' });
+
+    expect(respuesta.status).toBe(403);
+  });
+
+  it('sin JWT responde 401', async () => {
+    const respuesta = await conApiKey('patch', '/api/auth/usuarios/1/rol').send({
+      rol: 'administrador',
+    });
+
+    expect(respuesta.status).toBe(401);
+  });
+});

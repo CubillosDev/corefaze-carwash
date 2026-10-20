@@ -1,5 +1,6 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
+const { generarToken } = require('../../src/utils/jwt.util');
 const clientes = require('../../src/data/clientes');
 const vehiculos = require('../../src/data/vehiculos');
 const colaboradores = require('../../src/data/colaboradores');
@@ -24,6 +25,15 @@ beforeEach(() => {
 });
 
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
+
+// RBAC (Bloque 6): /api/colaboradores ya exige JWT con rol autorizado; este
+// token de prueba se usa SOLO para crear el colaborador que necesitan los
+// fixtures de este archivo, no es parte de lo que se está probando aquí.
+const TOKEN_ADMINISTRADOR_DE_PRUEBA = generarToken({
+  id: 1,
+  email: 'administrador@lavadero.com',
+  rol: 'administrador',
+});
 
 // --- Helpers de setup: registran cada recurso vía sus propios endpoints HTTP ---
 
@@ -66,15 +76,17 @@ const registrarVehiculo = async (clienteId, overrides = {}) => {
 };
 
 const registrarColaborador = async (overrides = {}) => {
-  const respuesta = await conApiKey('post', '/api/colaboradores').send({
-    codigo: 401,
-    nombre: 'Juan Pérez',
-    documento: '1020304050',
-    telefono: '3001234567',
-    porcentajeComision: 0.15,
-    tipoVinculacion: 'fijo',
-    ...overrides,
-  });
+  const respuesta = await conApiKey('post', '/api/colaboradores')
+    .set('Authorization', `Bearer ${TOKEN_ADMINISTRADOR_DE_PRUEBA}`)
+    .send({
+      codigo: 401,
+      nombre: 'Juan Pérez',
+      documento: '1020304050',
+      telefono: '3001234567',
+      porcentajeComision: 0.15,
+      tipoVinculacion: 'fijo',
+      ...overrides,
+    });
   return respuesta.body.colaborador;
 };
 
@@ -183,9 +195,11 @@ describe('POST /api/ordenes-lavado', () => {
 
   it('R2 "Colaborador inactivo": rechaza asignar una orden a un colaborador inactivo (409)', async () => {
     const escenario = await construirEscenarioBase();
-    await conApiKey('patch', `/api/colaboradores/${escenario.colaborador.id}/estado`).send({
-      estado: 'inactivo',
-    });
+    await conApiKey('patch', `/api/colaboradores/${escenario.colaborador.id}/estado`)
+      .set('Authorization', `Bearer ${TOKEN_ADMINISTRADOR_DE_PRUEBA}`)
+      .send({
+        estado: 'inactivo',
+      });
 
     const respuesta = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
     expect(respuesta.status).toBe(409);
@@ -365,9 +379,11 @@ describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
     const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
 
     const otroColaborador = await registrarColaborador({ codigo: 402, documento: '1020304099' });
-    await conApiKey('patch', `/api/colaboradores/${otroColaborador.id}/estado`).send({
-      estado: 'inactivo',
-    });
+    await conApiKey('patch', `/api/colaboradores/${otroColaborador.id}/estado`)
+      .set('Authorization', `Bearer ${TOKEN_ADMINISTRADOR_DE_PRUEBA}`)
+      .send({
+        estado: 'inactivo',
+      });
 
     const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
       colaboradorId: otroColaborador.id,

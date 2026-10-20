@@ -113,8 +113,10 @@ Cambios de contrato recientes que todo el equipo debe tener en cuenta (sección 
 - **Órdenes de lavado**: el campo `valor` se fija una sola vez al crear la orden (según la tarifa del servicio para el tipo de vehículo) y es **inmutable**: editar una orden (`PATCH /api/ordenes-lavado/:id`) nunca lo recalcula, aunque cambie la tarifa del servicio o el vehículo tenga un tipo distinto.
 - **Jornadas**: las URLs no llevan verbos (el verbo va en el método HTTP). Se abre con `POST /api/jornadas` (sin body) y se cierra o reabre con un único endpoint, `PATCH /api/jornadas/:id/estado`, enviando `{ "estado": "cerrada" | "abierta" }`. Los antiguos `POST /api/jornadas/abrir`, `PATCH /api/jornadas/:id/cerrar` y `PATCH /api/jornadas/:id/reabrir` ya no existen.
 - **Vehículos**: el atributo se llama `tipoVehiculo`, no `tipo`, tanto en el body de `POST`/`PUT /api/vehiculos` como en el objeto que devuelve la API.
+- **RBAC (Bloque 6)**: el registro público (`POST /api/auth/registro`) sigue naciendo siempre `"pendiente"`. La única forma de obtener un rol operativo es `PATCH /api/auth/usuarios/:id/rol`, protegida para `superadmin`. El primer `superadmin` se crea al arrancar el servidor (`server.js`), solo si `SUPERADMIN_EMAIL`/`SUPERADMIN_PASSWORD` están definidas en el entorno (ver `.env.example`); es idempotente y nunca se ejecuta en los tests. El recurso **Colaboradores** ya exige API Key + JWT + rol en todos sus endpoints: `superadmin`/`administrador` pueden crear, modificar, cambiar estado y eliminar; `soporte` solo puede consultar (`GET`); `pendiente` no tiene acceso a ninguna operación. Los demás recursos (`clientes`, `vehículos`, `servicios`, `órdenes de lavado`, `jornadas`) quedan pendientes de la misma protección — es el alcance restante de SCRUM-139.
 
 ## Pendiente
 
 - Persistencia con Supabase/PostgreSQL (Bloque 10) — actualmente los datos viven en memoria.
 - Pipeline de CI (`api.yml`) para automatizar lint, formato y pruebas en cada Pull Request.
+- RBAC en el resto de recursos de negocio (`clientes`, `vehículos`, `servicios`, `órdenes de lavado`, `jornadas`) — SCRUM-139, iniciado con `colaboradores` en este cambio.
