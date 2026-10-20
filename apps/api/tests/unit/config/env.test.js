@@ -6,6 +6,7 @@ const variablesValidas = Object.freeze({
   API_KEY_POSTMAN: 'a'.repeat(32),
   API_KEY_ADMIN: 'b'.repeat(32),
   API_KEY_MOVIL: 'c'.repeat(32),
+  API_KEY_WEB: 'e'.repeat(32),
   JWT_SECRET: 'd'.repeat(32),
   ALLOWED_ORIGIN: 'http://localhost:5173',
 });
@@ -19,7 +20,12 @@ describe('cargarConfiguracion', () => {
       expect(cargarConfiguracion(variablesValidas)).toEqual({
         entorno: 'development',
         puerto: 3000,
-        apiKeys: { postman: 'a'.repeat(32), admin: 'b'.repeat(32), movil: 'c'.repeat(32) },
+        apiKeys: {
+          postman: 'a'.repeat(32),
+          admin: 'b'.repeat(32),
+          movil: 'c'.repeat(32),
+          web: 'e'.repeat(32),
+        },
         jwt: { secret: 'd'.repeat(32), expiresIn: '1h' },
         origenPermitido: 'http://localhost:5173',
       });
@@ -62,6 +68,7 @@ describe('cargarConfiguracion', () => {
       ['API_KEY_POSTMAN ausente', { API_KEY_POSTMAN: undefined }, /API_KEY_POSTMAN es obligatoria/],
       ['API_KEY_ADMIN ausente', { API_KEY_ADMIN: undefined }, /API_KEY_ADMIN es obligatoria/],
       ['API_KEY_MOVIL ausente', { API_KEY_MOVIL: undefined }, /API_KEY_MOVIL es obligatoria/],
+      ['API_KEY_WEB ausente', { API_KEY_WEB: undefined }, /API_KEY_WEB es obligatoria/],
       ['JWT_SECRET ausente', { JWT_SECRET: undefined }, /JWT_SECRET es obligatoria/],
       ['JWT_SECRET demasiado corto', { JWT_SECRET: 'corto' }, /JWT_SECRET.*al menos 32 caracteres/],
       [

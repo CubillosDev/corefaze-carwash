@@ -10,7 +10,7 @@ const ordenesLavado = require('../../src/data/ordenesLavado');
 const LLAVE = 'k'.repeat(40);
 
 const app = crearApp({
-  apiKeys: { postman: LLAVE, admin: 'a'.repeat(40), movil: 'm'.repeat(40) },
+  apiKeys: { postman: LLAVE, admin: 'a'.repeat(40), movil: 'm'.repeat(40), web: 'w'.repeat(40) },
   origenPermitido: 'http://localhost:5173',
 });
 
