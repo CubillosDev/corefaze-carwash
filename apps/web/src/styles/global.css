@@ -1,0 +1,250 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+ * Sistema de diseño Car Wash
+ *
+ * Fuente: diseño aprobado (docs/diseno/). Los valores
+ * se copian exactos del código del prototipo, sin redondear.
+ *
+ * Todos los colores, la tipografía, los radios, las sombras, las curvas y el
+ * punto de quiebre viven aquí como tokens. Los componentes los usan SIEMPRE por
+ * nombre (bg-primario, rounded-control, shadow-modal) y nunca con un valor
+ * suelto. Los valores por defecto de Tailwind se borran a propósito
+ * (--color-*: initial, etc.) para que no se pueda saltar el sistema.
+ * ------------------------------------------------------------------------- */
+
+@theme {
+  --color-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --font-*: initial;
+  --text-*: initial;
+  --breakpoint-*: initial;
+
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-inherit: inherit;
+  --color-white: #ffffff;
+
+  /* --- Marco de la aplicación ---------------------------------------------
+   * Fondo de la cabecera y del borde que rodea el panel.
+   * --------------------------------------------------------------------- */
+  --color-marco: #0e1730;
+
+  /* Capa oscura detrás del cajón de navegación y de los modales. */
+  --color-velo: rgba(10, 16, 32, 0.42);
+
+  /* --- Primario: Electric Blue ---------------------------------------------
+   * Botones primarios, foco y selección. Solo existen los tonos que usa el
+   * diseño.
+   * --------------------------------------------------------------------- */
+  --color-primario-50: #f1f6fe; /* Fondo de opción seleccionada */
+  --color-primario-100: #e7effd; /* Fondo de insignia azul */
+  --color-primario-200: #c9daf8; /* Barras secundarias de gráficos */
+  --color-primario-500: #1268e8;
+  --color-primario-600: #0f5bcc; /* Hover del botón primario */
+  --color-primario-800: #0b3d91; /* Deep Blue: texto sobre selección */
+  --color-primario: #1268e8;
+
+  /* --- Resalte: amarillo de placa física ----------------------------------
+   * Solo como fondo, con texto oscuro encima.
+   * --------------------------------------------------------------------- */
+  --color-resalte: #f2c230;
+
+  /* --- Neutros ------------------------------------------------------------- */
+  --color-neutro-50: #f5f5f6; /* Fondo del área de contenido */
+  --color-neutro-100: #f1f2f4; /* Fondo de chip y de placa */
+  --color-neutro-150: #eef0f2; /* Divisores */
+  --color-neutro-200: #e9eaed; /* Borde de tarjeta */
+  --color-neutro-250: #e9e9ec; /* Barra lateral y control segmentado */
+  --color-neutro-300: #dfe1e6; /* Borde de campos y botón secundario */
+  --color-neutro-350: #d6d7dc; /* Barra de desplazamiento */
+  --color-neutro-400: #a3a7b3; /* Texto de ejemplo en campos */
+  --color-neutro-500: #8c909c; /* Etiquetas de sección */
+  --color-neutro-600: #6b7080; /* Texto secundario */
+  --color-neutro-700: #4a4f5c; /* Iconos y etiquetas de campo */
+  --color-neutro-800: #2f3340; /* Navegación inactiva */
+  --color-neutro-900: #171b24; /* Texto principal (Graphite) */
+
+  /* --- Estado ---------------------------------------------------------------
+   * Cada estado trae el tono de texto, uno sólido (puntos e iconos) y uno
+   * suave de fondo.
+   * --------------------------------------------------------------------- */
+  --color-exito: #15803d;
+  --color-exito-solido: #16a34a;
+  --color-exito-suave: #e8f6ee;
+
+  --color-advertencia: #a76507;
+  --color-advertencia-solido: #e59a0b;
+  --color-advertencia-suave: #fdf3e1;
+
+  --color-error: #c2410c;
+  --color-error-suave: #fdecec;
+
+  --color-info: #0b3d91;
+  --color-info-suave: #e7effd;
+
+  /* --- Tipografía -----------------------------------------------------------
+   * DM Sans (con eje de tamaño óptico) y JetBrains Mono 600, cargadas desde
+   * @fontsource en main.jsx: sin CDN.
+   * --------------------------------------------------------------------- */
+  --font-sans: 'DM Sans Variable', 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Escala por rol. El interlineado es el normal de la fuente, como en el
+     diseño, salvo donde el rol fija peso o espaciado. */
+  --text-micro: 11px;
+  --text-etiqueta: 11px;
+  --text-etiqueta--font-weight: 600;
+  --text-etiqueta--letter-spacing: 0.08em;
+  --text-meta: 12px;
+  --text-detalle: 12.5px;
+  --text-control: 13px;
+  --text-cuerpo: 13.5px;
+  --text-titulo-tarjeta: 14px;
+  --text-titulo-tarjeta--font-weight: 600;
+  --text-marca: 15px;
+  --text-marca--font-weight: 500;
+  --text-marca--letter-spacing: 0.01em;
+  --text-titulo-modal: 16px;
+  --text-titulo-modal--font-weight: 600;
+  --text-total: 18px;
+  --text-total--font-weight: 600;
+  --text-total--letter-spacing: -0.01em;
+  --text-titulo: 20px;
+  --text-titulo--font-weight: 600;
+  --text-titulo--letter-spacing: -0.01em;
+  --text-indicador: 22px;
+  --text-indicador--font-weight: 600;
+
+  /* --- Radios --------------------------------------------------------------- */
+  --radius-placa: 6px;
+  --radius-opcion: 8px; /* Opciones de menú y botón de cerrar */
+  --radius-control: 9px; /* Botones, campos y píldora del menú */
+  --radius-tarjeta: 14px; /* Tarjetas y tablas */
+  --radius-modal: 16px; /* Modal; también el panel y el cajón en móvil */
+  --radius-panel: 18px; /* Panel principal y hoja inferior en móvil */
+
+  /* --- Sombras -------------------------------------------------------------- */
+  --shadow-pildora: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 1px rgba(16, 24, 40, 0.04);
+  --shadow-barra-lateral: inset -12px 0 14px -12px rgba(0, 0, 0, 0.05);
+  --shadow-cajon: 0 20px 50px rgba(10, 16, 32, 0.3);
+  --shadow-modal: 0 24px 60px rgba(10, 16, 32, 0.28);
+
+  /* --- Medidas del marco ------------------------------------------------------ */
+  --spacing-encabezado: 58px;
+  --spacing-barra-lateral: 224px;
+
+  /* --- Movimiento ------------------------------------------------------------ */
+  --ease-suave: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-estandar: ease; /* Cambios de color en hover */
+
+  --animate-aparecer: aparecer 200ms linear;
+  --animate-aparecer-velo: aparecer 220ms linear;
+  --animate-entrar-vista: entrar-vista 260ms var(--ease-suave);
+  --animate-entrar-modal: entrar-modal 260ms var(--ease-suave);
+
+  @keyframes aparecer {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes entrar-vista {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes entrar-modal {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* --- Punto de quiebre ------------------------------------------------------
+   * Por debajo de 760 px la barra lateral pasa a ser un cajón. Si cambia,
+   * cambia también CONSULTA_PANTALLA_ANGOSTA (una prueba lo verifica).
+   * --------------------------------------------------------------------- */
+  --breakpoint-escritorio: 47.5rem;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    line-height: normal;
+    background-color: var(--color-marco);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background-color: var(--color-marco);
+    color: var(--color-neutro-900);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  a {
+    color: var(--color-primario);
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: var(--color-primario-800);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primario);
+    outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-neutro-350);
+    border-radius: 10px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+
+  /* Ningún texto largo (placas, correos, URL) debe desbordar en móvil. */
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  li,
+  td,
+  th {
+    overflow-wrap: break-word;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
