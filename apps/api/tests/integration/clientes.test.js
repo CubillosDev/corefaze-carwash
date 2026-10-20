@@ -1,6 +1,7 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const clientes = require('../../src/data/clientes');
+const { generarToken } = require('../../src/utils/jwt.util');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -14,6 +15,16 @@ beforeEach(() => {
 });
 
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
+
+// RBAC (SCRUM-139): todo el recurso exige API Key + JWT con rol autorizado.
+const tokenDe = (rol) => generarToken({ id: 1, email: `${rol}@lavadero.com`, rol });
+const TOKEN_SUPERADMIN = tokenDe('superadmin');
+const TOKEN_ADMINISTRADOR = tokenDe('administrador');
+const TOKEN_SOPORTE = tokenDe('soporte');
+const TOKEN_PENDIENTE = tokenDe('pendiente');
+
+const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
+  conApiKey(metodo, ruta).set('Authorization', `Bearer ${token}`);
 
 const clienteParticular = {
   nombre: 'Ana María Torres',
@@ -32,7 +43,7 @@ const clienteEmpresa = {
 
 describe('POST /api/clientes', () => {
   it('caso válido: registra un cliente particular (201)', async () => {
-    const respuesta = await conApiKey('post', '/api/clientes').send(clienteParticular);
+    const respuesta = await conToken('post', '/api/clientes').send(clienteParticular);
 
     expect(respuesta.status).toBe(201);
     expect(respuesta.body.cliente).toMatchObject({
@@ -44,14 +55,14 @@ describe('POST /api/clientes', () => {
   });
 
   it('regla de negocio: una empresa puede tener creditoHabilitado true', async () => {
-    const respuesta = await conApiKey('post', '/api/clientes').send(clienteEmpresa);
+    const respuesta = await conToken('post', '/api/clientes').send(clienteEmpresa);
 
     expect(respuesta.status).toBe(201);
     expect(respuesta.body.cliente.creditoHabilitado).toBe(true);
   });
 
   it('regla de negocio: un particular nunca tiene creditoHabilitado, aunque lo pida', async () => {
-    const respuesta = await conApiKey('post', '/api/clientes').send({
+    const respuesta = await conToken('post', '/api/clientes').send({
       ...clienteParticular,
       creditoHabilitado: true,
     });
@@ -61,7 +72,7 @@ describe('POST /api/clientes', () => {
   });
 
   it('caso inválido: teléfono con formato incorrecto (400)', async () => {
-    const respuesta = await conApiKey('post', '/api/clientes').send({
+    const respuesta = await conToken('post', '/api/clientes').send({
       ...clienteParticular,
       telefono: '123',
     });
@@ -73,13 +84,13 @@ describe('POST /api/clientes', () => {
     const sinDocumento = { ...clienteParticular };
     delete sinDocumento.documento;
 
-    const respuesta = await conApiKey('post', '/api/clientes').send(sinDocumento);
+    const respuesta = await conToken('post', '/api/clientes').send(sinDocumento);
 
     expect(respuesta.status).toBe(400);
   });
 
   it('tipo de dato incorrecto: telefono como número en vez de texto (400)', async () => {
-    const respuesta = await conApiKey('post', '/api/clientes').send({
+    const respuesta = await conToken('post', '/api/clientes').send({
       ...clienteParticular,
       telefono: 3001234567,
     });
@@ -88,7 +99,7 @@ describe('POST /api/clientes', () => {
   });
 
   it('valor fuera de rango: nombre de un solo carácter (400)', async () => {
-    const respuesta = await conApiKey('post', '/api/clientes').send({
+    const respuesta = await conToken('post', '/api/clientes').send({
       ...clienteParticular,
       nombre: 'A',
     });
@@ -97,8 +108,8 @@ describe('POST /api/clientes', () => {
   });
 
   it('duplicado: un documento repetido responde 409', async () => {
-    await conApiKey('post', '/api/clientes').send(clienteParticular);
-    const respuesta = await conApiKey('post', '/api/clientes').send({
+    await conToken('post', '/api/clientes').send(clienteParticular);
+    const respuesta = await conToken('post', '/api/clientes').send({
       ...clienteEmpresa,
       documento: clienteParticular.documento,
     });
@@ -108,7 +119,7 @@ describe('POST /api/clientes', () => {
   });
 
   it('mass assignment: id y estado enviados por el cliente se ignoran', async () => {
-    const respuesta = await conApiKey('post', '/api/clientes').send({
+    const respuesta = await conToken('post', '/api/clientes').send({
       ...clienteParticular,
       id: 9999,
       estado: 'inactivo',
@@ -120,49 +131,93 @@ describe('POST /api/clientes', () => {
   });
 
   it('requiere API Key, igual que el resto de /api', async () => {
-    const respuesta = await request(app).post('/api/clientes').send(clienteParticular);
+    const respuesta = await request(app)
+      .post('/api/clientes')
+      .set('Authorization', `Bearer ${TOKEN_ADMINISTRADOR}`)
+      .send(clienteParticular);
     expect(respuesta.status).toBe(401);
+  });
+
+  it('requiere JWT (401 sin Authorization, aunque la API Key sea válida)', async () => {
+    const respuesta = await conApiKey('post', '/api/clientes').send(clienteParticular);
+    expect(respuesta.status).toBe(401);
+  });
+
+  it('un superadmin también puede crear (201)', async () => {
+    const respuesta = await conToken('post', '/api/clientes', TOKEN_SUPERADMIN).send(
+      clienteParticular,
+    );
+    expect(respuesta.status).toBe(201);
+  });
+
+  it('RBAC: soporte no puede crear clientes (403)', async () => {
+    const respuesta = await conToken('post', '/api/clientes', TOKEN_SOPORTE).send(
+      clienteParticular,
+    );
+    expect(respuesta.status).toBe(403);
+  });
+
+  it('RBAC: un usuario "pendiente" no puede crear clientes (403)', async () => {
+    const respuesta = await conToken('post', '/api/clientes', TOKEN_PENDIENTE).send(
+      clienteParticular,
+    );
+    expect(respuesta.status).toBe(403);
   });
 });
 
 describe('GET /api/clientes', () => {
   it('lista los clientes creados', async () => {
-    await conApiKey('post', '/api/clientes').send(clienteParticular);
-    await conApiKey('post', '/api/clientes').send(clienteEmpresa);
+    await conToken('post', '/api/clientes').send(clienteParticular);
+    await conToken('post', '/api/clientes').send(clienteEmpresa);
 
-    const respuesta = await conApiKey('get', '/api/clientes');
+    const respuesta = await conToken('get', '/api/clientes');
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.clientes).toHaveLength(2);
+  });
+
+  it('soporte puede listar clientes (200)', async () => {
+    const respuesta = await conToken('get', '/api/clientes', TOKEN_SOPORTE);
+    expect(respuesta.status).toBe(200);
+  });
+
+  it('RBAC: un usuario "pendiente" no puede listar (403)', async () => {
+    const respuesta = await conToken('get', '/api/clientes', TOKEN_PENDIENTE);
+    expect(respuesta.status).toBe(403);
+  });
+
+  it('requiere JWT (401 sin Authorization)', async () => {
+    const respuesta = await conApiKey('get', '/api/clientes');
+    expect(respuesta.status).toBe(401);
   });
 });
 
 describe('GET /api/clientes/:id', () => {
   it('caso válido: obtiene el cliente creado (200)', async () => {
-    const creado = await conApiKey('post', '/api/clientes').send(clienteParticular);
+    const creado = await conToken('post', '/api/clientes').send(clienteParticular);
 
-    const respuesta = await conApiKey('get', `/api/clientes/${creado.body.cliente.id}`);
+    const respuesta = await conToken('get', `/api/clientes/${creado.body.cliente.id}`);
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.cliente.documento).toBe(clienteParticular.documento);
   });
 
   it('id inexistente: 404', async () => {
-    const respuesta = await conApiKey('get', '/api/clientes/9999');
+    const respuesta = await conToken('get', '/api/clientes/9999');
     expect(respuesta.status).toBe(404);
   });
 
   it('id inválido: 400', async () => {
-    const respuesta = await conApiKey('get', '/api/clientes/abc');
+    const respuesta = await conToken('get', '/api/clientes/abc');
     expect(respuesta.status).toBe(400);
   });
 });
 
 describe('PUT /api/clientes/:id', () => {
   it('caso válido: actualiza el teléfono (200)', async () => {
-    const creado = await conApiKey('post', '/api/clientes').send(clienteParticular);
+    const creado = await conToken('post', '/api/clientes').send(clienteParticular);
 
-    const respuesta = await conApiKey('put', `/api/clientes/${creado.body.cliente.id}`).send({
+    const respuesta = await conToken('put', `/api/clientes/${creado.body.cliente.id}`).send({
       telefono: '3009999999',
     });
 
@@ -171,14 +226,16 @@ describe('PUT /api/clientes/:id', () => {
   });
 
   it('id inexistente: 404', async () => {
-    const respuesta = await conApiKey('put', '/api/clientes/9999').send({ telefono: '3009999999' });
+    const respuesta = await conToken('put', '/api/clientes/9999').send({
+      telefono: '3009999999',
+    });
     expect(respuesta.status).toBe(404);
   });
 
   it('regla de negocio: activar creditoHabilitado a la vez que se cambia a empresa', async () => {
-    const creado = await conApiKey('post', '/api/clientes').send(clienteParticular);
+    const creado = await conToken('post', '/api/clientes').send(clienteParticular);
 
-    const respuesta = await conApiKey('put', `/api/clientes/${creado.body.cliente.id}`).send({
+    const respuesta = await conToken('put', `/api/clientes/${creado.body.cliente.id}`).send({
       tipo: 'empresa',
       creditoHabilitado: true,
     });
@@ -186,25 +243,49 @@ describe('PUT /api/clientes/:id', () => {
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.cliente.creditoHabilitado).toBe(true);
   });
+
+  it('RBAC: soporte no puede actualizar (403)', async () => {
+    const creado = await conToken('post', '/api/clientes').send(clienteParticular);
+
+    const respuesta = await conToken(
+      'put',
+      `/api/clientes/${creado.body.cliente.id}`,
+      TOKEN_SOPORTE,
+    ).send({ telefono: '3009999999' });
+
+    expect(respuesta.status).toBe(403);
+  });
 });
 
 describe('DELETE /api/clientes/:id', () => {
   it('sin relaciones: elimina correctamente (200)', async () => {
-    const creado = await conApiKey('post', '/api/clientes').send(clienteParticular);
+    const creado = await conToken('post', '/api/clientes').send(clienteParticular);
 
-    const respuesta = await conApiKey('delete', `/api/clientes/${creado.body.cliente.id}`);
+    const respuesta = await conToken('delete', `/api/clientes/${creado.body.cliente.id}`);
 
     expect(respuesta.status).toBe(200);
     expect(clientes).toHaveLength(0);
   });
 
   it('id inexistente: 404', async () => {
-    const respuesta = await conApiKey('delete', '/api/clientes/9999');
+    const respuesta = await conToken('delete', '/api/clientes/9999');
     expect(respuesta.status).toBe(404);
   });
 
   it('id inválido: 400', async () => {
-    const respuesta = await conApiKey('delete', '/api/clientes/abc');
+    const respuesta = await conToken('delete', '/api/clientes/abc');
     expect(respuesta.status).toBe(400);
+  });
+
+  it('RBAC: soporte no puede eliminar (403)', async () => {
+    const creado = await conToken('post', '/api/clientes').send(clienteParticular);
+
+    const respuesta = await conToken(
+      'delete',
+      `/api/clientes/${creado.body.cliente.id}`,
+      TOKEN_SOPORTE,
+    );
+
+    expect(respuesta.status).toBe(403);
   });
 });

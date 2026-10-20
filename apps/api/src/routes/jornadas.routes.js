@@ -7,8 +7,32 @@ const {
 } = require('../controllers/jornadas.controller');
 const { validarFiltroListar, validarCambioDeEstado } = require('../middlewares/jornadas.validator');
 const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
+const { autenticarJWT } = require('../middlewares/auth.middleware');
+const { autorizarRoles } = require('../middlewares/roles.middleware');
+const { AccesoDenegado } = require('../utils/errores');
+const { ESTADOS_JORNADA } = require('../constants/dominio');
 
 const router = Router();
+
+// RBAC (SCRUM-139): abrir/cerrar la jornada es la operación central del
+// día a día y queda disponible para superadmin/administrador/soporte.
+const PUEDEN_CONSULTAR = autorizarRoles('superadmin', 'administrador', 'soporte');
+const PUEDEN_GESTIONAR = autorizarRoles('superadmin', 'administrador', 'soporte');
+
+/**
+ * Reabrir una jornada cerrada queda reservado a superadmin (criterio de
+ * aceptación explícito de SCRUM-139). Abrir/cerrar y reabrir comparten el
+ * mismo endpoint PATCH /:id/estado (el verbo va en el valor de "estado",
+ * no en la URL), así que esta restricción no se puede expresar como un
+ * autorizarRoles(...) estático por ruta: depende del body ya validado por
+ * `validar`, de ahí que corra después en la cadena.
+ */
+const exigirSuperadminParaReabrir = (req, _res, next) => {
+  if (req.datos.cuerpo.estado === ESTADOS_JORNADA.ABIERTA && req.usuario.rol !== 'superadmin') {
+    return next(new AccesoDenegado('Solo superadmin puede reabrir una jornada'));
+  }
+  return next();
+};
 
 /**
  * @swagger
@@ -33,16 +57,19 @@ const router = Router();
  *           type: string
  *           format: date-time
  *         abiertaPor:
- *           type: integer
+ *           type: string
  *           nullable: true
- *           description: Null por ahora; esta ruta solo exige API Key, todavía no JWT.
+ *           description: Email del usuario autenticado que abrió la jornada (SCRUM-139).
+ *           example: administrador@lavadero.com
  *         cerradaEn:
  *           type: string
  *           format: date-time
  *           nullable: true
  *         cerradaPor:
- *           type: integer
+ *           type: string
  *           nullable: true
+ *           description: Email del usuario autenticado que cerró la jornada (SCRUM-139).
+ *           example: administrador@lavadero.com
  *         reaperturas:
  *           type: array
  *           description: Una entrada por cada vez que la jornada se reabre (auditoría mínima).
@@ -88,13 +115,20 @@ const router = Router();
  *           type: string
  *           format: date
  *         description: Filtra jornadas con fecha menor o igual a esta.
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Lista de jornadas
  *       400:
  *         description: desde/hasta con formato inválido
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Rol sin permiso para consultar jornadas
  */
-router.get('/', validarFiltroListar, validar, listar);
+router.get('/', autenticarJWT, PUEDEN_CONSULTAR, validarFiltroListar, validar, listar);
 
 /**
  * @swagger
@@ -108,15 +142,22 @@ router.get('/', validarFiltroListar, validar, listar);
  *         required: true
  *         schema:
  *           type: integer
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Jornada encontrada
  *       400:
  *         description: Id inválido
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Rol sin permiso para consultar jornadas
  *       404:
  *         description: Jornada no encontrada
  */
-router.get('/:id', validarIdDeUrl, validar, obtenerPorId);
+router.get('/:id', autenticarJWT, PUEDEN_CONSULTAR, validarIdDeUrl, validar, obtenerPorId);
 
 /**
  * @swagger
@@ -130,13 +171,21 @@ router.get('/:id', validarIdDeUrl, validar, obtenerPorId);
  *       (la de hoy); el cliente no la envía y este endpoint no recibe
  *       body. Solo puede existir una jornada abierta a la vez en todo el
  *       sistema, y solo puede existir una jornada por fecha calendario.
+ *       Queda registrado el email del usuario autenticado en "abiertaPor".
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       201:
  *         description: Jornada abierta correctamente
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Rol sin permiso para abrir una jornada
  *       409:
  *         description: Ya existe una jornada abierta, o ya existe una jornada registrada para hoy
  */
-router.post('/', abrir);
+router.post('/', autenticarJWT, PUEDEN_GESTIONAR, abrir);
 
 /**
  * @swagger
@@ -147,12 +196,13 @@ router.post('/', abrir);
  *     description: >
  *       Único endpoint de cambio de estado (reemplaza los antiguos
  *       PATCH /:id/cerrar y PATCH /:id/reabrir: el verbo va en el método
- *       HTTP, no en la URL). estado="cerrada" cierra una jornada
- *       abierta; estado="abierta" reabre una jornada cerrada (pensado
- *       para rol DUEÑO; el RBAC por rol todavía no existe en el
- *       proyecto, así que este endpoint no lo exige todavía). Cada
- *       reapertura queda registrada en el arreglo "reaperturas" de la
- *       jornada como auditoría mínima.
+ *       HTTP, no en la URL). estado="cerrada" cierra una jornada abierta
+ *       (disponible para superadmin/administrador/soporte);
+ *       estado="abierta" reabre una jornada cerrada y está reservado
+ *       únicamente a superadmin (SCRUM-139). Queda registrado el email
+ *       del usuario autenticado en "cerradaPor". Cada reapertura además
+ *       queda registrada en el arreglo "reaperturas" de la jornada como
+ *       auditoría mínima.
  *     parameters:
  *       - in: path
  *         name: id
@@ -171,11 +221,18 @@ router.post('/', abrir);
  *                 type: string
  *                 enum: [cerrada, abierta]
  *                 example: cerrada
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Jornada cerrada o reabierta correctamente, según el estado enviado
  *       400:
  *         description: Estado o id inválidos
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Rol sin permiso para esta operación (reabrir exige superadmin)
  *       404:
  *         description: Jornada no encontrada
  *       409:
@@ -184,6 +241,15 @@ router.post('/', abrir);
  *           reabrir una jornada cerrada; o ya hay otra jornada abierta
  *           (al reabrir)
  */
-router.patch('/:id/estado', validarIdDeUrl, validarCambioDeEstado, validar, cambiarEstado);
+router.patch(
+  '/:id/estado',
+  autenticarJWT,
+  PUEDEN_GESTIONAR,
+  validarIdDeUrl,
+  validarCambioDeEstado,
+  validar,
+  exigirSuperadminParaReabrir,
+  cambiarEstado,
+);
 
 module.exports = router;

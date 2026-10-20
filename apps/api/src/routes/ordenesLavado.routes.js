@@ -13,8 +13,33 @@ const {
   validarFiltroListar,
 } = require('../middlewares/ordenesLavado.validator');
 const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
+const { autenticarJWT } = require('../middlewares/auth.middleware');
+const { autorizarRoles } = require('../middlewares/roles.middleware');
+const { AccesoDenegado } = require('../utils/errores');
+const { ESTADOS_ORDEN } = require('../constants/dominio');
 
 const router = Router();
+
+// RBAC (SCRUM-139): registrar y editar una orden es el trabajo central
+// del operador (soporte), igual que consultarlas y avanzar su estado.
+const PUEDEN_CONSULTAR = autorizarRoles('superadmin', 'administrador', 'soporte');
+const PUEDEN_GESTIONAR = autorizarRoles('superadmin', 'administrador', 'soporte');
+
+/**
+ * Anular (cancelar) una orden queda reservado a superadmin/administrador;
+ * cualquier otra transición de estado sigue abierta a soporte. Como todas
+ * las transiciones comparten el mismo endpoint PATCH /:id/estado (el
+ * verbo va en el valor de "estado", no en la URL), esta restricción no se
+ * puede expresar como un autorizarRoles(...) estático por ruta: depende
+ * del body ya validado por `validar`, de ahí que corra después en la
+ * cadena.
+ */
+const exigirPermisoParaCancelar = (req, _res, next) => {
+  if (req.datos.cuerpo.estado === ESTADOS_ORDEN.CANCELADA && req.usuario.rol === 'soporte') {
+    return next(new AccesoDenegado('Solo superadmin o administrador pueden anular una orden'));
+  }
+  return next();
+};
 
 /**
  * @swagger
@@ -123,6 +148,9 @@ const router = Router();
  *         schema:
  *           type: integer
  *         description: Filtra las órdenes de esa jornada.
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: >
@@ -160,8 +188,12 @@ const router = Router();
  *                         credito: 30000
  *       400:
  *         description: Algún filtro tiene formato inválido
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Rol sin permiso para consultar órdenes de lavado
  */
-router.get('/', validarFiltroListar, validar, listar);
+router.get('/', autenticarJWT, PUEDEN_CONSULTAR, validarFiltroListar, validar, listar);
 
 /**
  * @swagger
@@ -175,15 +207,22 @@ router.get('/', validarFiltroListar, validar, listar);
  *         required: true
  *         schema:
  *           type: integer
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Orden de lavado encontrada
  *       400:
  *         description: Id inválido
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Rol sin permiso para consultar órdenes de lavado
  *       404:
  *         description: Orden de lavado no encontrada
  */
-router.get('/:id', validarIdDeUrl, validar, obtenerPorId);
+router.get('/:id', autenticarJWT, PUEDEN_CONSULTAR, validarIdDeUrl, validar, obtenerPorId);
 
 /**
  * @swagger
@@ -202,11 +241,18 @@ router.get('/:id', validarIdDeUrl, validar, obtenerPorId);
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/OrdenCrear'
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       201:
  *         description: Orden de lavado registrada correctamente
  *       400:
  *         description: Datos inválidos
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Rol sin permiso para registrar órdenes de lavado
  *       404:
  *         description: El vehículo, servicio, colaborador o cliente indicado no existe
  *       409:
@@ -217,7 +263,7 @@ router.get('/:id', validarIdDeUrl, validar, obtenerPorId);
  *           sin crédito habilitado, turno ya ocupado para esa fecha, o el
  *           vehículo ya tiene una orden abierta)
  */
-router.post('/', validarCrear, validar, crear);
+router.post('/', autenticarJWT, PUEDEN_GESTIONAR, validarCrear, validar, crear);
 
 /**
  * @swagger
@@ -244,11 +290,18 @@ router.post('/', validarCrear, validar, crear);
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/OrdenEditar'
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Orden de lavado actualizada correctamente
  *       400:
  *         description: Datos o id inválidos
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Rol sin permiso para editar órdenes de lavado
  *       404:
  *         description: Orden, vehículo, colaborador o cliente no encontrado
  *       409:
@@ -257,7 +310,15 @@ router.post('/', validarCrear, validar, crear);
  *           colaborador nuevo está inactivo, el vehículo nuevo ya tiene
  *           otra orden abierta, o el cliente no tiene crédito habilitado
  */
-router.patch('/:id', validarIdDeUrl, validarEditar, validar, editar);
+router.patch(
+  '/:id',
+  autenticarJWT,
+  PUEDEN_GESTIONAR,
+  validarIdDeUrl,
+  validarEditar,
+  validar,
+  editar,
+);
 
 /**
  * @swagger
@@ -268,8 +329,9 @@ router.patch('/:id', validarIdDeUrl, validarEditar, validar, editar);
  *     description: >
  *       Sigue la máquina de estados del dominio: una orden entregada o
  *       cancelada no puede volver a cambiar de estado, y no se pueden
- *       saltar ni retroceder estados. Cancelar exige un "motivo"; para
- *       cualquier otro estado, "motivo" se ignora.
+ *       saltar ni retroceder estados. Cancelar (anular) exige un
+ *       "motivo" y está reservado a superadmin/administrador; el resto
+ *       de transiciones también están disponibles para soporte.
  *     parameters:
  *       - in: path
  *         name: id
@@ -292,16 +354,32 @@ router.patch('/:id', validarIdDeUrl, validarEditar, validar, editar);
  *                 type: string
  *                 description: Obligatorio cuando estado es "cancelada"; se ignora en cualquier otro caso.
  *                 example: El cliente no llegó
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Estado de la orden actualizado correctamente
  *       400:
  *         description: Estado o id inválidos, o falta el motivo al cancelar
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Rol sin permiso para esta operación (anular exige superadmin o administrador)
  *       404:
  *         description: Orden de lavado no encontrada
  *       409:
  *         description: La orden ya está cerrada, o la transición de estado no es válida
  */
-router.patch('/:id/estado', validarIdDeUrl, validarCambioDeEstado, validar, cambiarEstado);
+router.patch(
+  '/:id/estado',
+  autenticarJWT,
+  PUEDEN_GESTIONAR,
+  validarIdDeUrl,
+  validarCambioDeEstado,
+  validar,
+  exigirPermisoParaCancelar,
+  cambiarEstado,
+);
 
 module.exports = router;

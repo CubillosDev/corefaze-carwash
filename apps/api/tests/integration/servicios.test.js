@@ -1,6 +1,7 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const servicios = require('../../src/data/servicios');
+const { generarToken } = require('../../src/utils/jwt.util');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -15,6 +16,16 @@ beforeEach(() => {
 
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
 
+// RBAC (SCRUM-139): todo el recurso exige API Key + JWT con rol autorizado.
+const tokenDe = (rol) => generarToken({ id: 1, email: `${rol}@lavadero.com`, rol });
+const TOKEN_SUPERADMIN = tokenDe('superadmin');
+const TOKEN_ADMINISTRADOR = tokenDe('administrador');
+const TOKEN_SOPORTE = tokenDe('soporte');
+const TOKEN_PENDIENTE = tokenDe('pendiente');
+
+const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
+  conApiKey(metodo, ruta).set('Authorization', `Bearer ${token}`);
+
 const servicioValido = {
   numero: 1,
   nombre: 'Lavado básico',
@@ -24,20 +35,20 @@ const servicioValido = {
 };
 
 const registrarServicio = async (datos = servicioValido) => {
-  const respuesta = await conApiKey('post', '/api/servicios').send(datos);
+  const respuesta = await conToken('post', '/api/servicios').send(datos);
   return respuesta.body.servicio;
 };
 
 describe('POST /api/servicios', () => {
   it('caso válido: registra un servicio con una tarifa (201)', async () => {
-    const respuesta = await conApiKey('post', '/api/servicios').send(servicioValido);
+    const respuesta = await conToken('post', '/api/servicios').send(servicioValido);
 
     expect(respuesta.status).toBe(201);
     expect(respuesta.body.servicio).toMatchObject({ numero: 1, nombre: 'Lavado básico' });
   });
 
   it('caso válido: registra un servicio con tarifas para dos tipos de vehículo (201)', async () => {
-    const respuesta = await conApiKey('post', '/api/servicios').send({
+    const respuesta = await conToken('post', '/api/servicios').send({
       ...servicioValido,
       tarifas: [
         { tipoVehiculo: 'automovil', valor: 15000 },
@@ -52,7 +63,7 @@ describe('POST /api/servicios', () => {
   it('duplicado: un número repetido responde 409', async () => {
     await registrarServicio();
 
-    const respuesta = await conApiKey('post', '/api/servicios').send({
+    const respuesta = await conToken('post', '/api/servicios').send({
       ...servicioValido,
       nombre: 'Otro lavado',
     });
@@ -64,13 +75,13 @@ describe('POST /api/servicios', () => {
     const sinNombre = { ...servicioValido };
     delete sinNombre.nombre;
 
-    const respuesta = await conApiKey('post', '/api/servicios').send(sinNombre);
+    const respuesta = await conToken('post', '/api/servicios').send(sinNombre);
 
     expect(respuesta.status).toBe(400);
   });
 
   it('tarifas vacío: 400', async () => {
-    const respuesta = await conApiKey('post', '/api/servicios').send({
+    const respuesta = await conToken('post', '/api/servicios').send({
       ...servicioValido,
       tarifas: [],
     });
@@ -79,7 +90,7 @@ describe('POST /api/servicios', () => {
   });
 
   it('tarifas con tipoVehiculo duplicado: 400', async () => {
-    const respuesta = await conApiKey('post', '/api/servicios').send({
+    const respuesta = await conToken('post', '/api/servicios').send({
       ...servicioValido,
       tarifas: [
         { tipoVehiculo: 'automovil', valor: 15000 },
@@ -91,7 +102,7 @@ describe('POST /api/servicios', () => {
   });
 
   it('mass assignment: el cliente no puede fijar id al crear', async () => {
-    const respuesta = await conApiKey('post', '/api/servicios').send({
+    const respuesta = await conToken('post', '/api/servicios').send({
       ...servicioValido,
       id: 9999,
     });
@@ -101,7 +112,7 @@ describe('POST /api/servicios', () => {
   });
 
   it('mass assignment: el cliente no puede fijar activo al crear (siempre nace true)', async () => {
-    const respuesta = await conApiKey('post', '/api/servicios').send({
+    const respuesta = await conToken('post', '/api/servicios').send({
       ...servicioValido,
       activo: false,
     });
@@ -111,8 +122,35 @@ describe('POST /api/servicios', () => {
   });
 
   it('requiere API Key', async () => {
-    const respuesta = await request(app).post('/api/servicios').send(servicioValido);
+    const respuesta = await request(app)
+      .post('/api/servicios')
+      .set('Authorization', `Bearer ${TOKEN_ADMINISTRADOR}`)
+      .send(servicioValido);
     expect(respuesta.status).toBe(401);
+  });
+
+  it('requiere JWT (401 sin Authorization, aunque la API Key sea válida)', async () => {
+    const respuesta = await conApiKey('post', '/api/servicios').send(servicioValido);
+    expect(respuesta.status).toBe(401);
+  });
+
+  it('un superadmin también puede crear (201)', async () => {
+    const respuesta = await conToken('post', '/api/servicios', TOKEN_SUPERADMIN).send(
+      servicioValido,
+    );
+    expect(respuesta.status).toBe(201);
+  });
+
+  it('RBAC: soporte no puede crear servicios (403)', async () => {
+    const respuesta = await conToken('post', '/api/servicios', TOKEN_SOPORTE).send(servicioValido);
+    expect(respuesta.status).toBe(403);
+  });
+
+  it('RBAC: un usuario "pendiente" no puede crear servicios (403)', async () => {
+    const respuesta = await conToken('post', '/api/servicios', TOKEN_PENDIENTE).send(
+      servicioValido,
+    );
+    expect(respuesta.status).toBe(403);
   });
 });
 
@@ -120,20 +158,31 @@ describe('GET /api/servicios/:id', () => {
   it('caso válido: devuelve el servicio (200)', async () => {
     const creado = await registrarServicio();
 
-    const respuesta = await conApiKey('get', `/api/servicios/${creado.id}`);
+    const respuesta = await conToken('get', `/api/servicios/${creado.id}`);
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.servicio).toMatchObject({ id: creado.id, numero: 1 });
   });
 
   it('id inexistente: 404', async () => {
-    const respuesta = await conApiKey('get', '/api/servicios/9999');
+    const respuesta = await conToken('get', '/api/servicios/9999');
     expect(respuesta.status).toBe(404);
   });
 
   it('id inválido: 400', async () => {
-    const respuesta = await conApiKey('get', '/api/servicios/abc');
+    const respuesta = await conToken('get', '/api/servicios/abc');
     expect(respuesta.status).toBe(400);
+  });
+
+  it('soporte puede consultar el catálogo (200)', async () => {
+    const creado = await registrarServicio();
+    const respuesta = await conToken('get', `/api/servicios/${creado.id}`, TOKEN_SOPORTE);
+    expect(respuesta.status).toBe(200);
+  });
+
+  it('RBAC: un usuario "pendiente" no puede consultar (403)', async () => {
+    const respuesta = await conToken('get', '/api/servicios/9999', TOKEN_PENDIENTE);
+    expect(respuesta.status).toBe(403);
   });
 });
 
@@ -141,7 +190,7 @@ describe('PUT /api/servicios/:id', () => {
   it('actualiza el nombre (200)', async () => {
     const creado = await registrarServicio();
 
-    const respuesta = await conApiKey('put', `/api/servicios/${creado.id}`).send({
+    const respuesta = await conToken('put', `/api/servicios/${creado.id}`).send({
       nombre: 'Lavado premium',
     });
 
@@ -156,7 +205,7 @@ describe('PUT /api/servicios/:id', () => {
       { tipoVehiculo: 'moto_desde_150cc', valor: 10000 },
     ];
 
-    const respuesta = await conApiKey('put', `/api/servicios/${creado.id}`).send({
+    const respuesta = await conToken('put', `/api/servicios/${creado.id}`).send({
       tarifas: nuevasTarifas,
     });
 
@@ -167,7 +216,7 @@ describe('PUT /api/servicios/:id', () => {
   it('cambia activo a false (200)', async () => {
     const creado = await registrarServicio();
 
-    const respuesta = await conApiKey('put', `/api/servicios/${creado.id}`).send({
+    const respuesta = await conToken('put', `/api/servicios/${creado.id}`).send({
       activo: false,
     });
 
@@ -176,11 +225,21 @@ describe('PUT /api/servicios/:id', () => {
   });
 
   it('id inexistente: 404', async () => {
-    const respuesta = await conApiKey('put', '/api/servicios/9999').send({
+    const respuesta = await conToken('put', '/api/servicios/9999').send({
       nombre: 'Lavado premium',
     });
 
     expect(respuesta.status).toBe(404);
+  });
+
+  it('RBAC: soporte no puede actualizar (403)', async () => {
+    const creado = await registrarServicio();
+
+    const respuesta = await conToken('put', `/api/servicios/${creado.id}`, TOKEN_SOPORTE).send({
+      nombre: 'Lavado premium',
+    });
+
+    expect(respuesta.status).toBe(403);
   });
 });
 
@@ -188,13 +247,21 @@ describe('DELETE /api/servicios/:id', () => {
   it('sin relaciones: elimina correctamente (200)', async () => {
     const creado = await registrarServicio();
 
-    const respuesta = await conApiKey('delete', `/api/servicios/${creado.id}`);
+    const respuesta = await conToken('delete', `/api/servicios/${creado.id}`);
 
     expect(respuesta.status).toBe(200);
   });
 
   it('id inexistente: 404', async () => {
-    const respuesta = await conApiKey('delete', '/api/servicios/9999');
+    const respuesta = await conToken('delete', '/api/servicios/9999');
     expect(respuesta.status).toBe(404);
+  });
+
+  it('RBAC: soporte no puede eliminar (403)', async () => {
+    const creado = await registrarServicio();
+
+    const respuesta = await conToken('delete', `/api/servicios/${creado.id}`, TOKEN_SOPORTE);
+
+    expect(respuesta.status).toBe(403);
   });
 });

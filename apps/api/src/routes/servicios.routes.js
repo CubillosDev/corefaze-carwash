@@ -8,8 +8,16 @@ const {
 } = require('../controllers/servicios.controller');
 const { validarCrear, validarActualizar } = require('../middlewares/servicios.validator');
 const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
+const { autenticarJWT } = require('../middlewares/auth.middleware');
+const { autorizarRoles } = require('../middlewares/roles.middleware');
 
 const router = Router();
+
+// RBAC (SCRUM-139): las tarifas se tratan como "operación", no como
+// "configuración" del negocio (ver ADR 0003) — soporte consulta el
+// catálogo, pero no lo gestiona.
+const PUEDEN_CONSULTAR = autorizarRoles('superadmin', 'administrador', 'soporte');
+const PUEDEN_GESTIONAR = autorizarRoles('superadmin', 'administrador');
 
 /**
  * @swagger
@@ -92,11 +100,18 @@ const router = Router();
  *   get:
  *     tags: [Servicios]
  *     summary: Listar servicios
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Lista de servicios
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Rol sin permiso para consultar servicios
  */
-router.get('/', listar);
+router.get('/', autenticarJWT, PUEDEN_CONSULTAR, listar);
 
 /**
  * @swagger
@@ -110,15 +125,22 @@ router.get('/', listar);
  *         required: true
  *         schema:
  *           type: integer
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Servicio encontrado
  *       400:
  *         description: Id inválido
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Rol sin permiso para consultar servicios
  *       404:
  *         description: Servicio no encontrado
  */
-router.get('/:id', validarIdDeUrl, validar, obtenerPorId);
+router.get('/:id', autenticarJWT, PUEDEN_CONSULTAR, validarIdDeUrl, validar, obtenerPorId);
 
 /**
  * @swagger
@@ -135,15 +157,22 @@ router.get('/:id', validarIdDeUrl, validar, obtenerPorId);
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/ServicioCrear'
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       201:
  *         description: Servicio registrado correctamente
  *       400:
  *         description: Datos inválidos (incluida una tarifa repetida para el mismo tipo de vehículo)
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Operación permitida únicamente a superadmin o administrador
  *       409:
  *         description: Ya existe un servicio con ese número
  */
-router.post('/', validarCrear, validar, crear);
+router.post('/', autenticarJWT, PUEDEN_GESTIONAR, validarCrear, validar, crear);
 
 /**
  * @swagger
@@ -163,17 +192,32 @@ router.post('/', validarCrear, validar, crear);
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/ServicioActualizar'
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Servicio actualizado correctamente
  *       400:
  *         description: Datos o id inválidos (incluida una tarifa repetida para el mismo tipo de vehículo)
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Operación permitida únicamente a superadmin o administrador
  *       404:
  *         description: Servicio no encontrado
  *       409:
  *         description: El número ya pertenece a otro servicio
  */
-router.put('/:id', validarIdDeUrl, validarActualizar, validar, actualizar);
+router.put(
+  '/:id',
+  autenticarJWT,
+  PUEDEN_GESTIONAR,
+  validarIdDeUrl,
+  validarActualizar,
+  validar,
+  actualizar,
+);
 
 /**
  * @swagger
@@ -188,16 +232,23 @@ router.put('/:id', validarIdDeUrl, validarActualizar, validar, actualizar);
  *         required: true
  *         schema:
  *           type: integer
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Servicio eliminado correctamente
  *       400:
  *         description: Id inválido
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Operación permitida únicamente a superadmin o administrador
  *       404:
  *         description: Servicio no encontrado
  *       409:
  *         description: El servicio tiene órdenes de lavado asociadas
  */
-router.delete('/:id', validarIdDeUrl, validar, eliminar);
+router.delete('/:id', autenticarJWT, PUEDEN_GESTIONAR, validarIdDeUrl, validar, eliminar);
 
 module.exports = router;

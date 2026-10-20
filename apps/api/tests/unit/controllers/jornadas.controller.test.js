@@ -17,8 +17,14 @@ const crearRespuesta = () => {
   return res;
 };
 
-const crearPeticion = ({ cuerpo = {}, parametros = {}, consulta = {} } = {}) => ({
+const crearPeticion = ({
+  cuerpo = {},
+  parametros = {},
+  consulta = {},
+  usuario = { id: 1, email: 'administrador@lavadero.com', rol: 'administrador' },
+} = {}) => ({
   datos: { cuerpo, parametros, consulta },
+  usuario,
 });
 
 describe('jornadas.controller', () => {
@@ -137,6 +143,18 @@ describe('jornadas.controller', () => {
       );
     });
 
+    it('abre la jornada con el email del usuario autenticado (SCRUM-139)', () => {
+      jornadasService.abrirJornada.mockReturnValue({ id: 1, estado: 'abierta' });
+
+      abrir(
+        crearPeticion({ usuario: { id: 7, email: 'soporte@lavadero.com', rol: 'soporte' } }),
+        crearRespuesta(),
+        jest.fn(),
+      );
+
+      expect(jornadasService.abrirJornada).toHaveBeenCalledWith('soporte@lavadero.com');
+    });
+
     it('pasa el error al siguiente manejador si ya hay una jornada abierta (409)', () => {
       const error = new Error('conflicto');
       jornadasService.abrirJornada.mockImplementation(() => {
@@ -156,12 +174,16 @@ describe('jornadas.controller', () => {
 
       const res = crearRespuesta();
       cambiarEstado(
-        crearPeticion({ parametros: { id: 1 }, cuerpo: { estado: 'cerrada' } }),
+        crearPeticion({
+          parametros: { id: 1 },
+          cuerpo: { estado: 'cerrada' },
+          usuario: { id: 1, email: 'administrador@lavadero.com', rol: 'administrador' },
+        }),
         res,
         jest.fn(),
       );
 
-      expect(jornadasService.cerrarJornada).toHaveBeenCalledWith(1);
+      expect(jornadasService.cerrarJornada).toHaveBeenCalledWith(1, 'administrador@lavadero.com');
       expect(jornadasService.reabrirJornada).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(
