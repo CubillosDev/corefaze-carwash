@@ -5,6 +5,10 @@
  *
  * Contrato de la API (apps/api):
  * - Todo /api/* exige el encabezado X-API-Key, salvo /api/salud.
+ * - Cuando hay sesión, se agrega Authorization: Bearer <token>. El token no se
+ *   guarda aquí: lo entrega la sesión (ver `vincularSesion`).
+ * - Un 401 en una solicitud que llevaba token significa sesión vencida o
+ *   inválida: se avisa a la sesión para que se cierre.
  * - Los errores llegan como { mensaje } y, en 400, como
  *   { mensaje, errores: [{ campo, mensaje }] }.
  *
@@ -129,12 +133,18 @@ function construirUrl(urlBase, ruta, consulta) {
  * @param {string} [configuracion.llaveApi] Valor del encabezado X-API-Key.
  * @param {number} [configuracion.tiempoMaximoMs]
  * @param {typeof fetch} [configuracion.hacerPeticion] Implementación de fetch.
+ * @param {() => (string|null)} [configuracion.obtenerToken] Token de la sesión
+ *   actual, o null si no hay sesión.
+ * @param {() => void} [configuracion.alSesionExpirada] Se llama cuando la API
+ *   responde 401 a una solicitud que llevaba token.
  */
 export function crearHttpCliente({
   urlBase,
   llaveApi = '',
   tiempoMaximoMs = TIEMPO_MAXIMO_POR_DEFECTO_MS,
   hacerPeticion = (...argumentos) => fetch(...argumentos),
+  obtenerToken = () => null,
+  alSesionExpirada = () => {},
 }) {
   /**
    * @param {string} ruta Camino relativo a la URL base, por ejemplo 'servicios'.
@@ -167,6 +177,10 @@ export function crearHttpCliente({
     if (datos !== undefined) {
       encabezados['Content-Type'] = 'application/json';
     }
+    const token = obtenerToken();
+    if (token) {
+      encabezados.Authorization = `Bearer ${token}`;
+    }
 
     // Si quien llama ya canceló, no se envía nada.
     signal?.throwIfAborted();
@@ -188,6 +202,11 @@ export function crearHttpCliente({
       const cuerpo = await leerCuerpo(respuesta);
 
       if (!respuesta.ok) {
+        // Sin token no hay sesión que cerrar: un 401 al iniciar sesión es solo
+        // "credenciales incorrectas" y lo resuelve quien llama.
+        if (respuesta.status === 401 && token) {
+          alSesionExpirada();
+        }
         throw new ErrorHttp(mensajeDeEstado(respuesta.status, cuerpo), {
           estado: respuesta.status,
           erroresPorCampo: erroresPorCampoDe(cuerpo),
@@ -216,7 +235,29 @@ export function crearHttpCliente({
   });
 }
 
+const SIN_SESION = Object.freeze({ obtenerToken: () => null, alSesionExpirada: () => {} });
+let enlaceSesion = SIN_SESION;
+
+/**
+ * Conecta la sesión con el cliente HTTP de la aplicación. Lo llama una sola vez
+ * el proveedor de sesión; el token se pide en cada solicitud, así que nunca se
+ * copia ni se guarda fuera de la sesión.
+ *
+ * @param {{ obtenerToken: () => (string|null), alSesionExpirada: () => void }} enlace
+ * @returns {() => void} Desconecta la sesión.
+ */
+export function vincularSesion(enlace) {
+  enlaceSesion = enlace;
+  return () => {
+    if (enlaceSesion === enlace) {
+      enlaceSesion = SIN_SESION;
+    }
+  };
+}
+
 export const httpCliente = crearHttpCliente({
   urlBase: import.meta.env.VITE_API_URL ?? '',
   llaveApi: import.meta.env.VITE_API_KEY ?? '',
+  obtenerToken: () => enlaceSesion.obtenerToken(),
+  alSesionExpirada: () => enlaceSesion.alSesionExpirada(),
 });

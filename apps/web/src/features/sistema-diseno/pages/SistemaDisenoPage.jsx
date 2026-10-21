@@ -2,10 +2,12 @@ import { useState } from 'react';
 
 import { Alerta } from '@/components/ui/Alerta';
 import { Boton } from '@/components/ui/Boton';
+import { CampoSeleccion } from '@/components/ui/CampoSeleccion';
 import { CampoTexto } from '@/components/ui/CampoTexto';
 import { IconoMenu } from '@/components/ui/iconos/IconoMenu';
 import { Modal } from '@/components/ui/Modal';
 import { Tabla } from '@/components/ui/Tabla';
+import { MenuPerfil } from '@/features/autenticacion';
 import { MuestraDeColor } from '@/features/sistema-diseno/components/MuestraDeColor';
 import { MuestraDeForma } from '@/features/sistema-diseno/components/MuestraDeForma';
 import { SeccionDelCatalogo } from '@/features/sistema-diseno/components/SeccionDelCatalogo';
@@ -386,6 +388,40 @@ export function SistemaDisenoPage() {
       </SeccionDelCatalogo>
 
       <SeccionDelCatalogo
+        titulo="Listas desplegables"
+        descripcion="Mismo molde que el campo de texto, para elegir una opción de una lista cerrada. Usa el select nativo: funciona con teclado, lectores de pantalla y en el móvil."
+      >
+        <div className="grid gap-5 escritorio:grid-cols-2">
+          <CampoSeleccion
+            etiqueta="Tipo de vehículo"
+            marcador="Selecciona un tipo"
+            ayuda="Define la tarifa del servicio."
+            opciones={[
+              { valor: 'automovil', texto: 'Automóvil' },
+              { valor: 'camioneta', texto: 'Camioneta' },
+              { valor: 'moto_hasta_150cc', texto: 'Moto hasta 150 cc' },
+            ]}
+            requerido
+          />
+          <CampoSeleccion
+            etiqueta="Cliente"
+            marcador="Selecciona un cliente"
+            error="Elige el cliente dueño del vehículo."
+            opciones={[{ valor: 1, texto: 'Cliente de ejemplo' }]}
+          />
+          <CampoSeleccion
+            etiqueta="Medio de pago"
+            defaultValue="efectivo"
+            opciones={[
+              { valor: 'efectivo', texto: 'Efectivo' },
+              { valor: 'nequi', texto: 'Nequi' },
+            ]}
+            disabled
+          />
+        </div>
+      </SeccionDelCatalogo>
+
+      <SeccionDelCatalogo
         titulo="Alertas"
         descripcion="Los errores y advertencias se anuncian como alert; el éxito y la información, como status."
       >
@@ -470,6 +506,15 @@ export function SistemaDisenoPage() {
           filas={EJEMPLOS_DE_FORMATO}
           descripcion="Ejemplos de las funciones de formato con su resultado"
         />
+      </SeccionDelCatalogo>
+
+      <SeccionDelCatalogo
+        titulo="Menú de perfil"
+        descripcion="Va en la cabecera, sobre el marco oscuro: el botón con las iniciales abre un panel con el nombre, el correo, el rol y «Cerrar sesión». Se cierra con Escape o al hacer clic por fuera. Aquí usa la sesión actual."
+      >
+        <div className="flex h-24 items-start justify-end rounded-tarjeta bg-marco p-3">
+          <MenuPerfil />
+        </div>
       </SeccionDelCatalogo>
     </div>
   );
