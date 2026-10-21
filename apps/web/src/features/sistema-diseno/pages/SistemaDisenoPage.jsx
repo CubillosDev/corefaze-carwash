@@ -6,6 +6,7 @@ import { CampoTexto } from '@/components/ui/CampoTexto';
 import { IconoMenu } from '@/components/ui/iconos/IconoMenu';
 import { Modal } from '@/components/ui/Modal';
 import { Tabla } from '@/components/ui/Tabla';
+import { MenuPerfil } from '@/features/autenticacion';
 import { MuestraDeColor } from '@/features/sistema-diseno/components/MuestraDeColor';
 import { MuestraDeForma } from '@/features/sistema-diseno/components/MuestraDeForma';
 import { SeccionDelCatalogo } from '@/features/sistema-diseno/components/SeccionDelCatalogo';
@@ -470,6 +471,15 @@ export function SistemaDisenoPage() {
           filas={EJEMPLOS_DE_FORMATO}
           descripcion="Ejemplos de las funciones de formato con su resultado"
         />
+      </SeccionDelCatalogo>
+
+      <SeccionDelCatalogo
+        titulo="Menú de perfil"
+        descripcion="Va en la cabecera, sobre el marco oscuro: el botón con las iniciales abre un panel con el nombre, el correo, el rol y «Cerrar sesión». Se cierra con Escape o al hacer clic por fuera. Aquí usa la sesión actual."
+      >
+        <div className="flex h-24 items-start justify-end rounded-tarjeta bg-marco p-3">
+          <MenuPerfil />
+        </div>
       </SeccionDelCatalogo>
     </div>
   );
