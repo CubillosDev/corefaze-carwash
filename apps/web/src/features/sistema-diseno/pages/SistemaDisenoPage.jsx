@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { Alerta } from '@/components/ui/Alerta';
 import { Boton } from '@/components/ui/Boton';
+import { CampoSeleccion } from '@/components/ui/CampoSeleccion';
 import { CampoTexto } from '@/components/ui/CampoTexto';
 import { IconoMenu } from '@/components/ui/iconos/IconoMenu';
 import { Modal } from '@/components/ui/Modal';
@@ -383,6 +384,40 @@ export function SistemaDisenoPage() {
           />
           <CampoTexto etiqueta="Observaciones" placeholder="Opcional" />
           <CampoTexto etiqueta="Código interno" defaultValue="CW-0001" disabled />
+        </div>
+      </SeccionDelCatalogo>
+
+      <SeccionDelCatalogo
+        titulo="Listas desplegables"
+        descripcion="Mismo molde que el campo de texto, para elegir una opción de una lista cerrada. Usa el select nativo: funciona con teclado, lectores de pantalla y en el móvil."
+      >
+        <div className="grid gap-5 escritorio:grid-cols-2">
+          <CampoSeleccion
+            etiqueta="Tipo de vehículo"
+            marcador="Selecciona un tipo"
+            ayuda="Define la tarifa del servicio."
+            opciones={[
+              { valor: 'automovil', texto: 'Automóvil' },
+              { valor: 'camioneta', texto: 'Camioneta' },
+              { valor: 'moto_hasta_150cc', texto: 'Moto hasta 150 cc' },
+            ]}
+            requerido
+          />
+          <CampoSeleccion
+            etiqueta="Cliente"
+            marcador="Selecciona un cliente"
+            error="Elige el cliente dueño del vehículo."
+            opciones={[{ valor: 1, texto: 'Cliente de ejemplo' }]}
+          />
+          <CampoSeleccion
+            etiqueta="Medio de pago"
+            defaultValue="efectivo"
+            opciones={[
+              { valor: 'efectivo', texto: 'Efectivo' },
+              { valor: 'nequi', texto: 'Nequi' },
+            ]}
+            disabled
+          />
         </div>
       </SeccionDelCatalogo>
 

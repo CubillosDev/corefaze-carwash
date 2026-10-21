@@ -49,6 +49,10 @@ export const rutas = [
             Component: RutaConPermiso,
             children: [
               { index: true, Component: paginaDiferida(cargarInicio, 'InicioPage') },
+              {
+                path: RUTAS.VEHICULOS,
+                Component: paginaDiferida(() => import('@/features/vehiculos'), 'VehiculosPage'),
+              },
               ...rutasDeDesarrollo,
               { path: '*', Component: paginaDiferida(cargarInicio, 'NoEncontradaPage') },
             ],
