@@ -317,4 +317,30 @@ describe('PATCH /api/auth/usuarios/:id/rol', () => {
 
     expect(respuesta.status).toBe(401);
   });
+
+  describe('no puede quedar el sistema sin ningún superadmin activo (hallazgo de revisión del PR #7)', () => {
+    it('rechaza degradar al único superadmin activo (409)', async () => {
+      const tokenSuperAdmin = await registrarYObtenerToken('unico@lavadero.com', 'superadmin');
+      const unico = usuarios.find((candidato) => candidato.email === 'unico@lavadero.com');
+
+      const respuesta = await conApiKey('patch', `/api/auth/usuarios/${unico.id}/rol`)
+        .set('Authorization', `Bearer ${tokenSuperAdmin}`)
+        .send({ rol: 'administrador' });
+
+      expect(respuesta.status).toBe(409);
+    });
+
+    it('permite degradar a un superadmin si queda otro superadmin activo (200)', async () => {
+      const tokenSuperAdmin = await registrarYObtenerToken('primero@lavadero.com', 'superadmin');
+      await registrarYObtenerToken('segundo@lavadero.com', 'superadmin');
+      const primero = usuarios.find((candidato) => candidato.email === 'primero@lavadero.com');
+
+      const respuesta = await conApiKey('patch', `/api/auth/usuarios/${primero.id}/rol`)
+        .set('Authorization', `Bearer ${tokenSuperAdmin}`)
+        .send({ rol: 'administrador' });
+
+      expect(respuesta.status).toBe(200);
+      expect(respuesta.body.usuario.rol).toBe('administrador');
+    });
+  });
 });

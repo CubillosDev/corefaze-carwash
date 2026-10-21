@@ -1,5 +1,6 @@
 const usuarios = require('../data/usuarios');
 const { generarPasswordHash, verificarPassword } = require('../utils/password.util');
+const { Conflicto } = require('../utils/errores');
 
 /** Quita el hash de la contraseña antes de que el usuario salga del service. */
 const sinPasswordHash = ({ passwordHash: _passwordHash, ...resto }) => resto;
@@ -103,15 +104,35 @@ const verificarCredenciales = async (email, password) => {
  * función ya debe haber verificado que quien la invoca es "superadmin"
  * (responsabilidad del middleware `autorizarRoles`, no de este service).
  *
+ * Regla de negocio (hallazgo de revisión del PR #7): el sistema nunca
+ * puede quedar sin ningún superadmin activo. Si el usuario objetivo es
+ * superadmin y el rol nuevo es distinto, se exige que quede AL MENOS otro
+ * superadmin activo además de él. La regla aplica sin importar quién hace
+ * la petición — no es "no te quites tu propio rol a ti mismo", es "que
+ * siempre quede alguien que pueda volver a asignar roles"; eso cubre
+ * también el caso de quitarle el rol a OTRO superadmin si es el último.
+ *
  * @param {number|string} id
  * @param {string} rol uno de los roles del dominio (ver constants/dominio.js ROLES)
  * @returns {object | null} el usuario actualizado (sin passwordHash), o null si no existe
+ * @throws {Conflicto} si degradar a este usuario deja el sistema sin ningún superadmin activo
  */
 const asignarRol = (id, rol) => {
   const usuario = usuarios.find((candidato) => candidato.id === Number(id));
 
   if (!usuario) {
     return null;
+  }
+
+  if (usuario.rol === 'superadmin' && rol !== 'superadmin') {
+    const quedaOtroSuperadminActivo = usuarios.some(
+      (candidato) =>
+        candidato.id !== usuario.id && candidato.rol === 'superadmin' && candidato.activo === true,
+    );
+
+    if (!quedaOtroSuperadminActivo) {
+      throw new Conflicto('No puede quedar el sistema sin ningún superadmin activo');
+    }
   }
 
   usuario.rol = rol;

@@ -7,6 +7,7 @@ const {
   asignarRol,
   crearSuperAdministradorInicial,
 } = require('../../../src/services/usuarios.service');
+const { Conflicto } = require('../../../src/utils/errores');
 
 jest.setTimeout(10000);
 
@@ -153,6 +154,50 @@ describe('usuarios.service', () => {
     it('nunca devuelve passwordHash', async () => {
       await crearUsuario(datosDeEjemplo);
       expect(asignarRol(1, 'soporte').passwordHash).toBeUndefined();
+    });
+
+    describe('no puede quedar el sistema sin ningún superadmin activo (hallazgo de revisión del PR #7)', () => {
+      it('rechaza degradar al único superadmin activo (409 Conflicto)', async () => {
+        await crearUsuario(datosDeEjemplo);
+        asignarRol(1, 'superadmin');
+
+        expect(() => asignarRol(1, 'administrador')).toThrow(Conflicto);
+        expect(obtenerUsuarioPorId(1).rol).toBe('superadmin'); // no se degradó
+      });
+
+      it('permite degradar a un superadmin si queda otro superadmin activo', async () => {
+        await crearUsuario(datosDeEjemplo);
+        await crearUsuario({ ...datosDeEjemplo, email: 'otro@lavadero.com' });
+        asignarRol(1, 'superadmin');
+        asignarRol(2, 'superadmin');
+
+        expect(() => asignarRol(1, 'administrador')).not.toThrow();
+        expect(obtenerUsuarioPorId(1).rol).toBe('administrador');
+      });
+
+      it('rechaza si el único otro superadmin está inactivo (inactivo no cuenta)', async () => {
+        await crearUsuario(datosDeEjemplo);
+        await crearUsuario({ ...datosDeEjemplo, email: 'otro@lavadero.com' });
+        asignarRol(1, 'superadmin');
+        asignarRol(2, 'superadmin');
+        usuarios[1].activo = false;
+
+        expect(() => asignarRol(1, 'administrador')).toThrow(Conflicto);
+      });
+
+      it('la regla no aplica al reasignar un usuario que no es superadmin', async () => {
+        await crearUsuario(datosDeEjemplo);
+        asignarRol(1, 'soporte');
+
+        expect(() => asignarRol(1, 'administrador')).not.toThrow();
+      });
+
+      it('la regla no aplica si el rol nuevo también es superadmin', async () => {
+        await crearUsuario(datosDeEjemplo);
+        asignarRol(1, 'superadmin');
+
+        expect(() => asignarRol(1, 'superadmin')).not.toThrow();
+      });
     });
   });
 
