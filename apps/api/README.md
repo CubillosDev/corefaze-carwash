@@ -31,18 +31,19 @@ Luego reemplaza los valores de ejemplo en `.env`:
 | `PORT`            | Puerto donde escucha la API (por defecto `3000`)                      |
 | `ALLOWED_ORIGIN`  | Origen permitido por CORS (el panel web, ej. `http://localhost:5173`) |
 | `API_KEY_POSTMAN` | Llave del cliente "Postman / Laboratorio"                             |
-| `API_KEY_ADMIN`   | Llave del cliente "Panel administrativo (web)"                        |
+| `API_KEY_ADMIN`   | Llave del cliente "Administración"                                    |
 | `API_KEY_MOVIL`   | Llave del cliente "Aplicación móvil"                                  |
+| `API_KEY_WEB`     | Llave del cliente "Panel web" (`apps/web`, variable `VITE_API_KEY`)   |
 
 ### Generar una API Key local
 
-Cada una de las tres `API_KEY_*` debe ser un valor aleatorio y único. Genera cada una por separado:
+Cada una de las cuatro `API_KEY_*` debe ser un valor aleatorio y único. Genera cada una por separado:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Ejecuta el comando tres veces (una por cada variable) y pega cada resultado en su línea correspondiente de `.env`. La API se niega a arrancar si alguna de las tres falta, es demasiado corta, o conserva el valor de ejemplo de `.env.example`.
+Ejecuta el comando cuatro veces (una por cada variable) y pega cada resultado en su línea correspondiente de `.env`. La API se niega a arrancar si alguna de las cuatro falta, es demasiado corta, o conserva el valor de ejemplo de `.env.example`.
 
 ## Ejecutar
 
@@ -57,12 +58,12 @@ Arranca el servidor con recarga automática y carga las variables de `.env` (usa
 Con el servidor corriendo:
 
 - `GET /api/salud` — ruta pública, no requiere autenticación.
-- El resto de `/api/*` requiere el header `X-API-Key` con una de las tres llaves configuradas.
+- El resto de `/api/*` requiere el header `X-API-Key` con una de las cuatro llaves configuradas.
 - Documentación interactiva (Swagger UI): `http://localhost:3000/api-docs`.
 
 ## Autenticación
 
-Cada cliente (Postman, panel web, app móvil) tiene su propia API Key. La API nunca almacena las llaves en texto plano, solo su hash SHA-256, y las compara en tiempo constante para prevenir ataques de temporización.
+Cada cliente (Postman, administración, app móvil, panel web) tiene su propia API Key, para poder revocarla (rotando su valor) sin afectar a las demás. La API nunca almacena las llaves en texto plano, solo su hash SHA-256, y las compara en tiempo constante para prevenir ataques de temporización.
 
 | Situación                     | Respuesta                       |
 | ----------------------------- | ------------------------------- |
@@ -70,6 +71,8 @@ Cada cliente (Postman, panel web, app móvil) tiene su propia API Key. La API nu
 | Llave que no existe           | `401` — `API Key inválida`      |
 | Llave válida pero desactivada | `403` — `API Key deshabilitada` |
 | Llave válida y activa         | Continúa a la ruta solicitada   |
+
+**La API Key del panel web identifica a la aplicación, no protege los datos — la protección real es JWT + RBAC (ver SCRUM-139).** Cualquier variable `VITE_*` del panel web queda visible en el JavaScript que descarga el navegador, así que `API_KEY_WEB` nunca debe tratarse como un control de acceso por sí sola.
 
 ## Pruebas, lint y formato
 

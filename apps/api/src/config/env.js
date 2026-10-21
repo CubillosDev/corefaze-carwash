@@ -101,6 +101,7 @@ const cargarConfiguracion = (variables = process.env) => {
       postman: validarClaveApi('API_KEY_POSTMAN', variables, errores),
       admin: validarClaveApi('API_KEY_ADMIN', variables, errores),
       movil: validarClaveApi('API_KEY_MOVIL', variables, errores),
+      web: validarClaveApi('API_KEY_WEB', variables, errores),
     },
     jwt: {
       // Reutilizamos validarClaveApi: un secreto JWT tiene las mismas
