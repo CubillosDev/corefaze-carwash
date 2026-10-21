@@ -5,6 +5,12 @@ const PUERTO_MINIMO = 1;
 const PUERTO_MAXIMO = 65535;
 const LONGITUD_MINIMA_API_KEY = 32;
 const PREFIJO_API_KEY_DE_EJEMPLO = 'REEMPLAZAR_CON';
+// Más corta que una API Key (32): una API Key es un secreto generado por
+// máquina que nadie necesita recordar; SUPERADMIN_PASSWORD la escribe y
+// recuerda una persona, así que 32 sería un umbral poco realista. 12 ya
+// descarta las contraseñas triviales más comunes sin exigir lo mismo que
+// un secreto de máquina.
+const LONGITUD_MINIMA_PASSWORD_SUPERADMIN = 12;
 const JWT_EXPIRES_IN_POR_DEFECTO = '1h';
 
 /**
@@ -37,20 +43,77 @@ const leerPuerto = (variables, errores) => {
   return puerto;
 };
 
+/**
+ * Valida un valor ya presente contra las dos reglas que comparten las API
+ * Keys y SUPERADMIN_PASSWORD: longitud mínima y "no es el valor de
+ * ejemplo de .env.example". La presencia (obligatoria o no) la decide
+ * quien llama, antes de invocar esto.
+ */
+const validarValorSeguro = (nombreVariable, valor, longitudMinima, errores) => {
+  if (valor.length < longitudMinima) {
+    errores.push(`${nombreVariable} debe tener al menos ${longitudMinima} caracteres`);
+  } else if (valor.startsWith(PREFIJO_API_KEY_DE_EJEMPLO)) {
+    errores.push(`${nombreVariable} conserva el valor de ejemplo de .env.example; genera uno propio`);
+  }
+};
+
 const validarClaveApi = (nombreVariable, variables, errores) => {
   const clave = variables[nombreVariable];
 
   if (!clave) {
     errores.push(`${nombreVariable} es obligatoria`);
-  } else if (clave.length < LONGITUD_MINIMA_API_KEY) {
-    errores.push(`${nombreVariable} debe tener al menos ${LONGITUD_MINIMA_API_KEY} caracteres`);
-  } else if (clave.startsWith(PREFIJO_API_KEY_DE_EJEMPLO)) {
-    errores.push(
-      `${nombreVariable} conserva el valor de ejemplo de .env.example; genera una propia`,
-    );
+  } else {
+    validarValorSeguro(nombreVariable, clave, LONGITUD_MINIMA_API_KEY, errores);
   }
 
   return clave;
+};
+
+/**
+ * Lee y valida las variables SUPERADMIN_* (bootstrap opcional del primer
+ * superadmin del sistema, ver server.js).
+ *
+ * Son opcionales EN CONJUNTO: si ninguna de las tres está definida, no hay
+ * bootstrap — comportamiento válido, no es un error. Pero si se define
+ * cualquiera de las tres, el arranque exige que email y password sean
+ * válidos (ni vacíos, ni el valor de ejemplo de .env.example, ni una
+ * password demasiado corta), igual que una API Key mal puesta: nunca debe
+ * poder crearse silenciosamente una cuenta con privilegios usando una
+ * credencial insegura o de ejemplo.
+ *
+ * @param {Record<string, string|undefined>} variables
+ * @param {string[]} errores
+ * @returns {{ nombre: string, email: string, password: string } | null} null si el bootstrap está deshabilitado
+ */
+const leerSuperadmin = (variables, errores) => {
+  const { SUPERADMIN_NOMBRE, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD } = variables;
+
+  if (!SUPERADMIN_NOMBRE && !SUPERADMIN_EMAIL && !SUPERADMIN_PASSWORD) {
+    return null;
+  }
+
+  if (!SUPERADMIN_EMAIL) {
+    errores.push('SUPERADMIN_EMAIL es obligatoria si se define alguna variable SUPERADMIN_*');
+  } else {
+    validarValorSeguro('SUPERADMIN_EMAIL', SUPERADMIN_EMAIL, 1, errores);
+  }
+
+  if (!SUPERADMIN_PASSWORD) {
+    errores.push('SUPERADMIN_PASSWORD es obligatoria si se define alguna variable SUPERADMIN_*');
+  } else {
+    validarValorSeguro(
+      'SUPERADMIN_PASSWORD',
+      SUPERADMIN_PASSWORD,
+      LONGITUD_MINIMA_PASSWORD_SUPERADMIN,
+      errores,
+    );
+  }
+
+  return {
+    nombre: SUPERADMIN_NOMBRE || 'Super Administrador',
+    email: SUPERADMIN_EMAIL,
+    password: SUPERADMIN_PASSWORD,
+  };
 };
 
 const leerJwtExpiresIn = (variables) => variables.JWT_EXPIRES_IN || JWT_EXPIRES_IN_POR_DEFECTO;
@@ -110,6 +173,7 @@ const cargarConfiguracion = (variables = process.env) => {
       expiresIn: leerJwtExpiresIn(variables),
     },
     origenPermitido: leerOrigenPermitido(variables, errores),
+    superadmin: leerSuperadmin(variables, errores),
   };
 
   if (errores.length > 0) {

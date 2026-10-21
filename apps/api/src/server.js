@@ -12,19 +12,18 @@ const app = crearApp(env);
  * usuarios.service.js) y asignar un rol requiere YA ser superadmin. Por
  * eso este bootstrap vive solo aquí (nunca en `crearApp`/los tests) y solo
  * se ejecuta si el entorno trae credenciales explícitas para ello.
+ *
+ * Lee `env.superadmin` (ya validado por `cargarConfiguracion`), nunca
+ * `process.env` directo: si alguien define solo una parte de las
+ * SUPERADMIN_*, o deja el valor de ejemplo de `.env.example`, la API ya
+ * se negó a arrancar — este bootstrap nunca ve una credencial insegura.
  */
 const arrancarSuperAdministradorInicial = async () => {
-  const { SUPERADMIN_NOMBRE, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD } = process.env;
-
-  if (!SUPERADMIN_EMAIL || !SUPERADMIN_PASSWORD) {
+  if (!env.superadmin) {
     return;
   }
 
-  const creado = await crearSuperAdministradorInicial({
-    nombre: SUPERADMIN_NOMBRE || 'Super Administrador',
-    email: SUPERADMIN_EMAIL,
-    password: SUPERADMIN_PASSWORD,
-  });
+  const creado = await crearSuperAdministradorInicial(env.superadmin);
 
   if (creado) {
     // eslint-disable-next-line no-console
