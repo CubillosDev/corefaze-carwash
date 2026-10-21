@@ -318,6 +318,46 @@ describe('PATCH /api/auth/usuarios/:id/rol', () => {
     expect(respuesta.status).toBe(401);
   });
 
+  describe('el rol se revoca de inmediato, sin esperar a que el token expire (hallazgo de revisión del PR #7)', () => {
+    it('un token viejo responde según el rol NUEVO tras una reasignación, no el rol con el que se emitió', async () => {
+      const tokenSuperAdmin = await registrarYObtenerToken(
+        'superadmin4@lavadero.com',
+        'superadmin',
+      );
+
+      await conApiKey('post', '/api/auth/registro').send({
+        ...datosDeRegistro,
+        email: 'cambia@lavadero.com',
+      });
+      const loginOriginal = await conApiKey('post', '/api/auth/login').send({
+        email: 'cambia@lavadero.com',
+        password: datosDeRegistro.password,
+      });
+      const tokenViejo = loginOriginal.body.token;
+      const usuarioACambiar = usuarios.find(
+        (candidato) => candidato.email === 'cambia@lavadero.com',
+      );
+
+      // Antes de la reasignación: el token viejo todavía ve su rol original.
+      const perfilAntes = await conApiKey('get', '/api/auth/perfil').set(
+        'Authorization',
+        `Bearer ${tokenViejo}`,
+      );
+      expect(perfilAntes.body.usuario.rol).toBe('pendiente');
+
+      await conApiKey('patch', `/api/auth/usuarios/${usuarioACambiar.id}/rol`)
+        .set('Authorization', `Bearer ${tokenSuperAdmin}`)
+        .send({ rol: 'administrador' });
+
+      // Mismo token viejo, misma firma, sin reloguear: ya refleja el rol nuevo.
+      const perfilDespues = await conApiKey('get', '/api/auth/perfil').set(
+        'Authorization',
+        `Bearer ${tokenViejo}`,
+      );
+      expect(perfilDespues.body.usuario.rol).toBe('administrador');
+    });
+  });
+
   describe('no puede quedar el sistema sin ningún superadmin activo (hallazgo de revisión del PR #7)', () => {
     it('rechaza degradar al único superadmin activo (409)', async () => {
       const tokenSuperAdmin = await registrarYObtenerToken('unico@lavadero.com', 'superadmin');

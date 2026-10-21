@@ -1,6 +1,7 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const colaboradores = require('../../src/data/colaboradores');
+const usuarios = require('../../src/data/usuarios');
 const { generarToken } = require('../../src/utils/jwt.util');
 
 const LLAVE = 'k'.repeat(40);
@@ -10,19 +11,36 @@ const app = crearApp({
   origenPermitido: 'http://localhost:5173',
 });
 
-beforeEach(() => {
-  colaboradores.length = 0;
-});
-
-const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
-
 // RBAC (Bloque 6): todo el recurso exige API Key + JWT con rol autorizado.
-// Un token por rol, generados una sola vez para todo el archivo.
-const tokenDe = (rol) => generarToken({ id: 1, email: `${rol}@lavadero.com`, rol });
+// autenticarJWT ya no toma el rol del payload del token: vuelve a
+// consultar al usuario actual (hallazgo de revisión del PR #7), así que
+// cada rol de prueba necesita también su propio registro en la "tabla"
+// de usuarios, re-sembrado en cada beforeEach.
+const ROLES_DE_PRUEBA = ['superadmin', 'administrador', 'soporte', 'pendiente'];
+const idDeRolDePrueba = (rol) => ROLES_DE_PRUEBA.indexOf(rol) + 1;
+const tokenDe = (rol) =>
+  generarToken({ id: idDeRolDePrueba(rol), email: `${rol}@lavadero.com`, rol });
 const TOKEN_SUPERADMIN = tokenDe('superadmin');
 const TOKEN_ADMINISTRADOR = tokenDe('administrador');
 const TOKEN_SOPORTE = tokenDe('soporte');
 const TOKEN_PENDIENTE = tokenDe('pendiente');
+
+beforeEach(() => {
+  colaboradores.length = 0;
+  usuarios.length = 0;
+  ROLES_DE_PRUEBA.forEach((rol) => {
+    usuarios.push({
+      id: idDeRolDePrueba(rol),
+      nombre: rol,
+      email: `${rol}@lavadero.com`,
+      passwordHash: 'irrelevante-para-estas-pruebas',
+      rol,
+      activo: true,
+    });
+  });
+});
+
+const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
 
 const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
   conApiKey(metodo, ruta).set('Authorization', `Bearer ${token}`);

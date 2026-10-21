@@ -7,6 +7,7 @@ const colaboradores = require('../../src/data/colaboradores');
 const servicios = require('../../src/data/servicios');
 const ordenesLavado = require('../../src/data/ordenesLavado');
 const jornadas = require('../../src/data/jornadas');
+const usuarios = require('../../src/data/usuarios');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -15,6 +16,26 @@ const app = crearApp({
   origenPermitido: 'http://localhost:5173',
 });
 
+// RBAC (SCRUM-139): todo el recurso exige API Key + JWT con rol autorizado.
+// `conToken` es el helper por defecto de este archivo: la mayoría de estas
+// pruebas verifican reglas de negocio (R1-R10), no RBAC —RBAC por rol ya
+// se prueba a fondo en el archivo de integración de cada recurso—, así que
+// basta un único token (administrador, que tiene permiso sobre todo) para
+// autenticar el setup y los casos bajo prueba.
+//
+// autenticarJWT ya no toma el rol del payload del token: vuelve a
+// consultar al usuario actual (hallazgo de revisión del PR #7), así que
+// cada rol de prueba necesita también su propio registro en la "tabla"
+// de usuarios, re-sembrado en cada beforeEach.
+const ROLES_DE_PRUEBA = ['superadmin', 'administrador', 'soporte', 'pendiente'];
+const idDeRolDePrueba = (rol) => ROLES_DE_PRUEBA.indexOf(rol) + 1;
+const tokenDe = (rol) =>
+  generarToken({ id: idDeRolDePrueba(rol), email: `${rol}@lavadero.com`, rol });
+const TOKEN_SUPERADMIN = tokenDe('superadmin');
+const TOKEN_ADMINISTRADOR = tokenDe('administrador');
+const TOKEN_SOPORTE = tokenDe('soporte');
+const TOKEN_PENDIENTE = tokenDe('pendiente');
+
 beforeEach(() => {
   clientes.length = 0;
   vehiculos.length = 0;
@@ -22,21 +43,20 @@ beforeEach(() => {
   servicios.length = 0;
   ordenesLavado.length = 0;
   jornadas.length = 0;
+  usuarios.length = 0;
+  ROLES_DE_PRUEBA.forEach((rol) => {
+    usuarios.push({
+      id: idDeRolDePrueba(rol),
+      nombre: rol,
+      email: `${rol}@lavadero.com`,
+      passwordHash: 'irrelevante-para-estas-pruebas',
+      rol,
+      activo: true,
+    });
+  });
 });
 
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
-
-// RBAC (SCRUM-139): todo el recurso exige API Key + JWT con rol autorizado.
-// `conToken` es el helper por defecto de este archivo: la mayoría de estas
-// pruebas verifican reglas de negocio (R1-R10), no RBAC —RBAC por rol ya
-// se prueba a fondo en el archivo de integración de cada recurso—, así que
-// basta un único token (administrador, que tiene permiso sobre todo) para
-// autenticar el setup y los casos bajo prueba.
-const tokenDe = (rol) => generarToken({ id: 1, email: `${rol}@lavadero.com`, rol });
-const TOKEN_SUPERADMIN = tokenDe('superadmin');
-const TOKEN_ADMINISTRADOR = tokenDe('administrador');
-const TOKEN_SOPORTE = tokenDe('soporte');
-const TOKEN_PENDIENTE = tokenDe('pendiente');
 
 const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
   conApiKey(metodo, ruta).set('Authorization', `Bearer ${token}`);
