@@ -1,11 +1,13 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
+const { generarToken } = require('../../src/utils/jwt.util');
 const clientes = require('../../src/data/clientes');
 const vehiculos = require('../../src/data/vehiculos');
 const colaboradores = require('../../src/data/colaboradores');
 const servicios = require('../../src/data/servicios');
 const ordenesLavado = require('../../src/data/ordenesLavado');
 const jornadas = require('../../src/data/jornadas');
+const usuarios = require('../../src/data/usuarios');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -14,6 +16,26 @@ const app = crearApp({
   origenPermitido: 'http://localhost:5173',
 });
 
+// RBAC (SCRUM-139): todo el recurso exige API Key + JWT con rol autorizado.
+// `conToken` es el helper por defecto de este archivo: la mayoría de estas
+// pruebas verifican reglas de negocio (R1-R10), no RBAC —RBAC por rol ya
+// se prueba a fondo en el archivo de integración de cada recurso—, así que
+// basta un único token (administrador, que tiene permiso sobre todo) para
+// autenticar el setup y los casos bajo prueba.
+//
+// autenticarJWT ya no toma el rol del payload del token: vuelve a
+// consultar al usuario actual (hallazgo de revisión del PR #7), así que
+// cada rol de prueba necesita también su propio registro en la "tabla"
+// de usuarios, re-sembrado en cada beforeEach.
+const ROLES_DE_PRUEBA = ['superadmin', 'administrador', 'soporte', 'pendiente'];
+const idDeRolDePrueba = (rol) => ROLES_DE_PRUEBA.indexOf(rol) + 1;
+const tokenDe = (rol) =>
+  generarToken({ id: idDeRolDePrueba(rol), email: `${rol}@lavadero.com`, rol });
+const TOKEN_SUPERADMIN = tokenDe('superadmin');
+const TOKEN_ADMINISTRADOR = tokenDe('administrador');
+const TOKEN_SOPORTE = tokenDe('soporte');
+const TOKEN_PENDIENTE = tokenDe('pendiente');
+
 beforeEach(() => {
   clientes.length = 0;
   vehiculos.length = 0;
@@ -21,19 +43,33 @@ beforeEach(() => {
   servicios.length = 0;
   ordenesLavado.length = 0;
   jornadas.length = 0;
+  usuarios.length = 0;
+  ROLES_DE_PRUEBA.forEach((rol) => {
+    usuarios.push({
+      id: idDeRolDePrueba(rol),
+      nombre: rol,
+      email: `${rol}@lavadero.com`,
+      passwordHash: 'irrelevante-para-estas-pruebas',
+      rol,
+      activo: true,
+    });
+  });
 });
 
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
 
+const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
+  conApiKey(metodo, ruta).set('Authorization', `Bearer ${token}`);
+
 // --- Helpers de setup: registran cada recurso vía sus propios endpoints HTTP ---
 
 const abrirJornada = async () => {
-  const respuesta = await conApiKey('post', '/api/jornadas');
+  const respuesta = await conToken('post', '/api/jornadas');
   return respuesta.body.jornada;
 };
 
 const registrarClienteParticular = async (overrides = {}) => {
-  const respuesta = await conApiKey('post', '/api/clientes').send({
+  const respuesta = await conToken('post', '/api/clientes').send({
     nombre: 'Ana María Torres',
     documento: '1010101010',
     tipo: 'particular',
@@ -44,7 +80,7 @@ const registrarClienteParticular = async (overrides = {}) => {
 };
 
 const registrarClienteEmpresaConCredito = async (overrides = {}) => {
-  const respuesta = await conApiKey('post', '/api/clientes').send({
+  const respuesta = await conToken('post', '/api/clientes').send({
     nombre: 'Constructora Ejemplo S.A.S.',
     documento: '900123456',
     tipo: 'empresa',
@@ -56,7 +92,7 @@ const registrarClienteEmpresaConCredito = async (overrides = {}) => {
 };
 
 const registrarVehiculo = async (clienteId, overrides = {}) => {
-  const respuesta = await conApiKey('post', '/api/vehiculos').send({
+  const respuesta = await conToken('post', '/api/vehiculos').send({
     placa: 'ABC123',
     tipoVehiculo: 'automovil',
     clienteId,
@@ -66,7 +102,7 @@ const registrarVehiculo = async (clienteId, overrides = {}) => {
 };
 
 const registrarColaborador = async (overrides = {}) => {
-  const respuesta = await conApiKey('post', '/api/colaboradores').send({
+  const respuesta = await conToken('post', '/api/colaboradores').send({
     codigo: 401,
     nombre: 'Juan Pérez',
     documento: '1020304050',
@@ -79,7 +115,7 @@ const registrarColaborador = async (overrides = {}) => {
 };
 
 const registrarServicioParaAutomovil = async (overrides = {}) => {
-  const respuesta = await conApiKey('post', '/api/servicios').send({
+  const respuesta = await conToken('post', '/api/servicios').send({
     numero: 1,
     nombre: 'Lavado básico',
     descripcion: 'Lavado exterior con shampoo',
@@ -91,7 +127,7 @@ const registrarServicioParaAutomovil = async (overrides = {}) => {
 };
 
 const registrarServicioParaMoto = async (overrides = {}) => {
-  const respuesta = await conApiKey('post', '/api/servicios').send({
+  const respuesta = await conToken('post', '/api/servicios').send({
     numero: 2,
     nombre: 'Lavado de moto',
     descripcion: 'Lavado exterior de moto',
@@ -125,7 +161,7 @@ describe('POST /api/ordenes-lavado', () => {
   it('caso válido: registra una orden con el valor real de la tarifa (201)', async () => {
     const escenario = await construirEscenarioBase();
 
-    const respuesta = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+    const respuesta = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
 
     expect(respuesta.status).toBe(201);
     expect(respuesta.body.orden).toMatchObject({ valor: 15000, estado: 'registrada' });
@@ -134,7 +170,7 @@ describe('POST /api/ordenes-lavado', () => {
   it('mass assignment: ignora "valor" y "estado" enviados por el cliente (201)', async () => {
     const escenario = await construirEscenarioBase();
 
-    const respuesta = await conApiKey('post', '/api/ordenes-lavado').send(
+    const respuesta = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden(escenario, { valor: 999999999, estado: 'entregada' }),
     );
 
@@ -149,7 +185,7 @@ describe('POST /api/ordenes-lavado', () => {
     const colaborador = await registrarColaborador();
     const servicio = await registrarServicioParaAutomovil();
 
-    const respuesta = await conApiKey('post', '/api/ordenes-lavado').send(
+    const respuesta = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden({ vehiculo, colaborador, servicio }),
     );
     expect(respuesta.status).toBe(409);
@@ -158,7 +194,7 @@ describe('POST /api/ordenes-lavado', () => {
   describe('R1: el vehículo, servicio y colaborador deben existir', () => {
     it('vehiculoId inexistente: 404', async () => {
       const escenario = await construirEscenarioBase();
-      const respuesta = await conApiKey('post', '/api/ordenes-lavado').send(
+      const respuesta = await conToken('post', '/api/ordenes-lavado').send(
         datosOrden(escenario, { vehiculoId: 9999 }),
       );
       expect(respuesta.status).toBe(404);
@@ -166,7 +202,7 @@ describe('POST /api/ordenes-lavado', () => {
 
     it('servicioId inexistente: 404', async () => {
       const escenario = await construirEscenarioBase();
-      const respuesta = await conApiKey('post', '/api/ordenes-lavado').send(
+      const respuesta = await conToken('post', '/api/ordenes-lavado').send(
         datosOrden(escenario, { servicioId: 9999 }),
       );
       expect(respuesta.status).toBe(404);
@@ -174,7 +210,7 @@ describe('POST /api/ordenes-lavado', () => {
 
     it('colaboradorId inexistente: 404', async () => {
       const escenario = await construirEscenarioBase();
-      const respuesta = await conApiKey('post', '/api/ordenes-lavado').send(
+      const respuesta = await conToken('post', '/api/ordenes-lavado').send(
         datosOrden(escenario, { colaboradorId: 9999 }),
       );
       expect(respuesta.status).toBe(404);
@@ -183,11 +219,11 @@ describe('POST /api/ordenes-lavado', () => {
 
   it('R2 "Colaborador inactivo": rechaza asignar una orden a un colaborador inactivo (409)', async () => {
     const escenario = await construirEscenarioBase();
-    await conApiKey('patch', `/api/colaboradores/${escenario.colaborador.id}/estado`).send({
+    await conToken('patch', `/api/colaboradores/${escenario.colaborador.id}/estado`).send({
       estado: 'inactivo',
     });
 
-    const respuesta = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+    const respuesta = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
     expect(respuesta.status).toBe(409);
   });
 
@@ -198,7 +234,7 @@ describe('POST /api/ordenes-lavado', () => {
     const colaborador = await registrarColaborador();
     const servicioSoloMoto = await registrarServicioParaMoto();
 
-    const respuesta = await conApiKey('post', '/api/ordenes-lavado').send(
+    const respuesta = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden({ vehiculo, colaborador, servicio: servicioSoloMoto }),
     );
     expect(respuesta.status).toBe(409);
@@ -206,7 +242,7 @@ describe('POST /api/ordenes-lavado', () => {
 
   it('R5 "Turno duplicado": rechaza un segundo turno igual en la misma jornada, con vehículos distintos (409)', async () => {
     const escenario = await construirEscenarioBase();
-    const primera = await conApiKey('post', '/api/ordenes-lavado').send(
+    const primera = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden(escenario, { turno: 1 }),
     );
     expect(primera.status).toBe(201);
@@ -214,7 +250,7 @@ describe('POST /api/ordenes-lavado', () => {
     const otroCliente = await registrarClienteParticular({ documento: '1010101099' });
     const otroVehiculo = await registrarVehiculo(otroCliente.id, { placa: 'XYZ789' });
 
-    const respuesta = await conApiKey('post', '/api/ordenes-lavado').send(
+    const respuesta = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden({ ...escenario, vehiculo: otroVehiculo }, { turno: 1 }),
     );
     expect(respuesta.status).toBe(409);
@@ -223,24 +259,24 @@ describe('POST /api/ordenes-lavado', () => {
   it('R6 "Doble orden abierta": rechaza una segunda orden abierta para el mismo vehículo, y permite una nueva tras cerrar la primera (409 → 201)', async () => {
     const escenario = await construirEscenarioBase();
 
-    const primera = await conApiKey('post', '/api/ordenes-lavado').send(
+    const primera = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden(escenario, { turno: 1 }),
     );
     expect(primera.status).toBe(201);
 
-    const segundaMientrasAbierta = await conApiKey('post', '/api/ordenes-lavado').send(
+    const segundaMientrasAbierta = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden(escenario, { turno: 2 }),
     );
     expect(segundaMientrasAbierta.status).toBe(409);
 
     const ordenId = primera.body.orden.id;
-    await conApiKey('patch', `/api/ordenes-lavado/${ordenId}/estado`).send({
+    await conToken('patch', `/api/ordenes-lavado/${ordenId}/estado`).send({
       estado: 'en_proceso',
     });
-    await conApiKey('patch', `/api/ordenes-lavado/${ordenId}/estado`).send({ estado: 'terminada' });
-    await conApiKey('patch', `/api/ordenes-lavado/${ordenId}/estado`).send({ estado: 'entregada' });
+    await conToken('patch', `/api/ordenes-lavado/${ordenId}/estado`).send({ estado: 'terminada' });
+    await conToken('patch', `/api/ordenes-lavado/${ordenId}/estado`).send({ estado: 'entregada' });
 
-    const nuevaOrdenTrasCierre = await conApiKey('post', '/api/ordenes-lavado').send(
+    const nuevaOrdenTrasCierre = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden(escenario, { turno: 3 }),
     );
     expect(nuevaOrdenTrasCierre.status).toBe(201);
@@ -253,7 +289,7 @@ describe('POST /api/ordenes-lavado', () => {
     const colaborador = await registrarColaborador();
     const servicioMotor = await registrarServicioParaAutomovil({ numero: 5 });
 
-    const sinAutorizacion = await conApiKey('post', '/api/ordenes-lavado').send(
+    const sinAutorizacion = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden(
         { vehiculo, colaborador, servicio: servicioMotor },
         { autorizaMotor: false, turno: 1 },
@@ -261,7 +297,7 @@ describe('POST /api/ordenes-lavado', () => {
     );
     expect(sinAutorizacion.status).toBe(409);
 
-    const conAutorizacion = await conApiKey('post', '/api/ordenes-lavado').send(
+    const conAutorizacion = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden(
         { vehiculo, colaborador, servicio: servicioMotor },
         { autorizaMotor: true, turno: 2 },
@@ -278,7 +314,7 @@ describe('POST /api/ordenes-lavado', () => {
       const colaborador = await registrarColaborador();
       const servicio = await registrarServicioParaAutomovil();
 
-      const respuesta = await conApiKey('post', '/api/ordenes-lavado').send(
+      const respuesta = await conToken('post', '/api/ordenes-lavado').send(
         datosOrden(
           { vehiculo, colaborador, servicio },
           { medioPago: 'credito', clienteId: clienteParticular.id },
@@ -295,7 +331,7 @@ describe('POST /api/ordenes-lavado', () => {
       const colaborador = await registrarColaborador();
       const servicio = await registrarServicioParaAutomovil();
 
-      const respuesta = await conApiKey('post', '/api/ordenes-lavado').send(
+      const respuesta = await conToken('post', '/api/ordenes-lavado').send(
         datosOrden(
           { vehiculo, colaborador, servicio },
           { medioPago: 'credito', clienteId: clienteEmpresa.id },
@@ -307,7 +343,7 @@ describe('POST /api/ordenes-lavado', () => {
 
     it('rechaza medioPago credito sin clienteId en absoluto (400, lo atrapa el validador)', async () => {
       const escenario = await construirEscenarioBase();
-      const respuesta = await conApiKey('post', '/api/ordenes-lavado').send(
+      const respuesta = await conToken('post', '/api/ordenes-lavado').send(
         datosOrden(escenario, { medioPago: 'credito' }),
       );
       expect(respuesta.status).toBe(400);
@@ -319,25 +355,47 @@ describe('POST /api/ordenes-lavado', () => {
     const respuesta = await request(app).post('/api/ordenes-lavado').send(datosOrden(escenario));
     expect(respuesta.status).toBe(401);
   });
+
+  it('requiere JWT (401 sin Authorization, aunque la API Key sea válida)', async () => {
+    const escenario = await construirEscenarioBase();
+    const respuesta = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+    expect(respuesta.status).toBe(401);
+  });
+
+  it('soporte también puede registrar órdenes (201): es su trabajo central', async () => {
+    const escenario = await construirEscenarioBase();
+    const respuesta = await conToken('post', '/api/ordenes-lavado', TOKEN_SOPORTE).send(
+      datosOrden(escenario),
+    );
+    expect(respuesta.status).toBe(201);
+  });
+
+  it('RBAC: un usuario "pendiente" no puede registrar órdenes (403)', async () => {
+    const escenario = await construirEscenarioBase();
+    const respuesta = await conToken('post', '/api/ordenes-lavado', TOKEN_PENDIENTE).send(
+      datosOrden(escenario),
+    );
+    expect(respuesta.status).toBe(403);
+  });
 });
 
 describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
   it('"Editar vehículo": edita vehiculoId, y "valor" es inmutable (no se recalcula con la tarifa del nuevo tipo) (200)', async () => {
     const escenario = await construirEscenarioBase();
-    await conApiKey('put', `/api/servicios/${escenario.servicio.id}`).send({
+    await conToken('put', `/api/servicios/${escenario.servicio.id}`).send({
       tarifas: [
         { tipoVehiculo: 'automovil', valor: 15000 },
         { tipoVehiculo: 'camioneta', valor: 20000 },
       ],
     });
-    const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+    const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
 
     const nuevoVehiculo = await registrarVehiculo(escenario.cliente.id, {
       placa: 'XYZ789',
       tipoVehiculo: 'camioneta',
     });
 
-    const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
+    const respuesta = await conToken('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
       vehiculoId: nuevoVehiculo.id,
     });
 
@@ -348,11 +406,11 @@ describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
 
   it('"Editar con servicio inactivo": permite editar aunque el servicio original haya quedado inactivo (200)', async () => {
     const escenario = await construirEscenarioBase();
-    const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+    const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
 
-    await conApiKey('put', `/api/servicios/${escenario.servicio.id}`).send({ activo: false });
+    await conToken('put', `/api/servicios/${escenario.servicio.id}`).send({ activo: false });
 
-    const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
+    const respuesta = await conToken('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
       observaciones: 'actualizado',
     });
 
@@ -362,14 +420,14 @@ describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
 
   it('"Editar colaborador inactivo": rechaza editar a un colaborador inactivo (409)', async () => {
     const escenario = await construirEscenarioBase();
-    const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+    const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
 
     const otroColaborador = await registrarColaborador({ codigo: 402, documento: '1020304099' });
-    await conApiKey('patch', `/api/colaboradores/${otroColaborador.id}/estado`).send({
+    await conToken('patch', `/api/colaboradores/${otroColaborador.id}/estado`).send({
       estado: 'inactivo',
     });
 
-    const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
+    const respuesta = await conToken('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
       colaboradorId: otroColaborador.id,
     });
     expect(respuesta.status).toBe(409);
@@ -377,17 +435,17 @@ describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
 
   it('"Editar vehículo con otra orden abierta": rechaza editar vehiculoId a uno que ya tiene otra orden abierta (409)', async () => {
     const escenario = await construirEscenarioBase();
-    const creada = await conApiKey('post', '/api/ordenes-lavado').send(
+    const creada = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden(escenario, { turno: 1 }),
     );
 
     const otroCliente = await registrarClienteParticular({ documento: '1010101098' });
     const otroVehiculo = await registrarVehiculo(otroCliente.id, { placa: 'XYZ789' });
-    await conApiKey('post', '/api/ordenes-lavado').send(
+    await conToken('post', '/api/ordenes-lavado').send(
       datosOrden({ ...escenario, vehiculo: otroVehiculo }, { turno: 2 }),
     );
 
-    const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
+    const respuesta = await conToken('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
       vehiculoId: otroVehiculo.id,
     });
     expect(respuesta.status).toBe(409);
@@ -395,15 +453,15 @@ describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
 
   it('"Editar orden cerrada": rechaza editar una orden entregada o cancelada (409)', async () => {
     const escenario = await construirEscenarioBase();
-    const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+    const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
     const ordenId = creada.body.orden.id;
 
-    await conApiKey('patch', `/api/ordenes-lavado/${ordenId}/estado`).send({
+    await conToken('patch', `/api/ordenes-lavado/${ordenId}/estado`).send({
       estado: 'cancelada',
       motivo: 'Cliente canceló',
     });
 
-    const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${ordenId}`).send({
+    const respuesta = await conToken('patch', `/api/ordenes-lavado/${ordenId}`).send({
       observaciones: 'tarde',
     });
     expect(respuesta.status).toBe(409);
@@ -411,17 +469,17 @@ describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
 
   it('"Editar con jornada cerrada": rechaza editar una orden cuya jornada ya no está abierta (409)', async () => {
     const escenario = await construirEscenarioBase();
-    const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+    const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
 
-    const jornadasRespuesta = await conApiKey('get', '/api/jornadas');
+    const jornadasRespuesta = await conToken('get', '/api/jornadas');
     const jornadaAbierta = jornadasRespuesta.body.jornadas.find(
       (jornada) => jornada.estado === 'abierta',
     );
-    await conApiKey('patch', `/api/jornadas/${jornadaAbierta.id}/estado`).send({
+    await conToken('patch', `/api/jornadas/${jornadaAbierta.id}/estado`).send({
       estado: 'cerrada',
     });
 
-    const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
+    const respuesta = await conToken('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
       observaciones: 'tarde',
     });
     expect(respuesta.status).toBe(409);
@@ -429,11 +487,11 @@ describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
 
   it('"Editar a crédito sin convenio": rechaza editar medioPago a credito con un cliente sin crédito habilitado (409)', async () => {
     const escenario = await construirEscenarioBase();
-    const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+    const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
 
     // El cliente del escenario es particular (sin creditoHabilitado): pasa
     // el validador (clienteId sí viene), y el service lo rechaza (R8).
-    const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
+    const respuesta = await conToken('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
       medioPago: 'credito',
       clienteId: escenario.cliente.id,
     });
@@ -442,9 +500,9 @@ describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
 
   it('"Editar mass assignment": ignora "valor" y "estado" enviados en la edición (200, sin cambios)', async () => {
     const escenario = await construirEscenarioBase();
-    const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+    const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
 
-    const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
+    const respuesta = await conToken('patch', `/api/ordenes-lavado/${creada.body.orden.id}`).send({
       valor: 1,
       estado: 'entregada',
       observaciones: 'actualizado',
@@ -460,9 +518,9 @@ describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
 describe('PATCH /api/ordenes-lavado/:id/estado', () => {
   it('"Saltar estados": rechaza ir de registrada directo a entregada (409)', async () => {
     const escenario = await construirEscenarioBase();
-    const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+    const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
 
-    const respuesta = await conApiKey(
+    const respuesta = await conToken(
       'patch',
       `/api/ordenes-lavado/${creada.body.orden.id}/estado`,
     ).send({ estado: 'entregada' });
@@ -471,16 +529,16 @@ describe('PATCH /api/ordenes-lavado/:id/estado', () => {
 
   it('"Retroceder estado": rechaza volver de entregada a en_proceso (409)', async () => {
     const escenario = await construirEscenarioBase();
-    const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+    const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
     const ordenId = creada.body.orden.id;
 
-    await conApiKey('patch', `/api/ordenes-lavado/${ordenId}/estado`).send({
+    await conToken('patch', `/api/ordenes-lavado/${ordenId}/estado`).send({
       estado: 'en_proceso',
     });
-    await conApiKey('patch', `/api/ordenes-lavado/${ordenId}/estado`).send({ estado: 'terminada' });
-    await conApiKey('patch', `/api/ordenes-lavado/${ordenId}/estado`).send({ estado: 'entregada' });
+    await conToken('patch', `/api/ordenes-lavado/${ordenId}/estado`).send({ estado: 'terminada' });
+    await conToken('patch', `/api/ordenes-lavado/${ordenId}/estado`).send({ estado: 'entregada' });
 
-    const respuesta = await conApiKey('patch', `/api/ordenes-lavado/${ordenId}/estado`).send({
+    const respuesta = await conToken('patch', `/api/ordenes-lavado/${ordenId}/estado`).send({
       estado: 'en_proceso',
     });
     expect(respuesta.status).toBe(409);
@@ -489,9 +547,9 @@ describe('PATCH /api/ordenes-lavado/:id/estado', () => {
   describe('"Anular sin motivo" / "Anular con motivo"', () => {
     it('rechaza cancelar sin motivo (400)', async () => {
       const escenario = await construirEscenarioBase();
-      const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+      const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
 
-      const respuesta = await conApiKey(
+      const respuesta = await conToken(
         'patch',
         `/api/ordenes-lavado/${creada.body.orden.id}/estado`,
       ).send({ estado: 'cancelada' });
@@ -500,9 +558,9 @@ describe('PATCH /api/ordenes-lavado/:id/estado', () => {
 
     it('cancela con motivo (200) y el motivo queda guardado', async () => {
       const escenario = await construirEscenarioBase();
-      const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+      const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
 
-      const respuesta = await conApiKey(
+      const respuesta = await conToken(
         'patch',
         `/api/ordenes-lavado/${creada.body.orden.id}/estado`,
       ).send({ estado: 'cancelada', motivo: 'El cliente no llegó' });
@@ -514,9 +572,9 @@ describe('PATCH /api/ordenes-lavado/:id/estado', () => {
 
     it('cambiar a cualquier otro estado sin motivo sigue funcionando (200)', async () => {
       const escenario = await construirEscenarioBase();
-      const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+      const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
 
-      const respuesta = await conApiKey(
+      const respuesta = await conToken(
         'patch',
         `/api/ordenes-lavado/${creada.body.orden.id}/estado`,
       ).send({ estado: 'en_proceso' });
@@ -524,16 +582,55 @@ describe('PATCH /api/ordenes-lavado/:id/estado', () => {
       expect(respuesta.status).toBe(200);
       expect(respuesta.body.orden.estado).toBe('en_proceso');
     });
+
+    it('RBAC: soporte no puede anular (cancelar) una orden (403)', async () => {
+      const escenario = await construirEscenarioBase();
+      const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+
+      const respuesta = await conToken(
+        'patch',
+        `/api/ordenes-lavado/${creada.body.orden.id}/estado`,
+        TOKEN_SOPORTE,
+      ).send({ estado: 'cancelada', motivo: 'El cliente no llegó' });
+
+      expect(respuesta.status).toBe(403);
+    });
+
+    it('RBAC: soporte sí puede avanzar a cualquier otro estado que no sea anular (200)', async () => {
+      const escenario = await construirEscenarioBase();
+      const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+
+      const respuesta = await conToken(
+        'patch',
+        `/api/ordenes-lavado/${creada.body.orden.id}/estado`,
+        TOKEN_SOPORTE,
+      ).send({ estado: 'en_proceso' });
+
+      expect(respuesta.status).toBe(200);
+    });
+
+    it('RBAC: superadmin también puede anular (cancelar) una orden (200)', async () => {
+      const escenario = await construirEscenarioBase();
+      const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+
+      const respuesta = await conToken(
+        'patch',
+        `/api/ordenes-lavado/${creada.body.orden.id}/estado`,
+        TOKEN_SUPERADMIN,
+      ).send({ estado: 'cancelada', motivo: 'El cliente no llegó' });
+
+      expect(respuesta.status).toBe(200);
+    });
   });
 });
 
 describe('GET /api/ordenes-lavado', () => {
   it('filtra por fecha exacta cuando se envía ?fecha=', async () => {
     const escenario = await construirEscenarioBase();
-    const creada = await conApiKey('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+    const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
     const fechaDeLaOrden = creada.body.orden.fecha;
 
-    const respuesta = await conApiKey('get', `/api/ordenes-lavado?fecha=${fechaDeLaOrden}`);
+    const respuesta = await conToken('get', `/api/ordenes-lavado?fecha=${fechaDeLaOrden}`);
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.ordenes).toHaveLength(1);
@@ -544,29 +641,29 @@ describe('GET /api/ordenes-lavado', () => {
     const escenario = await construirEscenarioBase();
 
     // Orden 1: efectivo, se queda registrada.
-    await conApiKey('post', '/api/ordenes-lavado').send(
+    await conToken('post', '/api/ordenes-lavado').send(
       datosOrden(escenario, { turno: 1, medioPago: 'efectivo' }),
     );
 
     // Orden 2: nequi (otro vehículo), se queda registrada.
     const clienteB = await registrarClienteParticular({ documento: '1010101097' });
     const vehiculoB = await registrarVehiculo(clienteB.id, { placa: 'XYZ789' });
-    await conApiKey('post', '/api/ordenes-lavado').send(
+    await conToken('post', '/api/ordenes-lavado').send(
       datosOrden({ ...escenario, vehiculo: vehiculoB }, { turno: 2, medioPago: 'nequi' }),
     );
 
     // Orden 3: efectivo (otro vehículo), pero se cancela: NO debe sumar a nada.
     const clienteC = await registrarClienteParticular({ documento: '1010101096' });
     const vehiculoC = await registrarVehiculo(clienteC.id, { placa: 'DEF456' });
-    const orden3 = await conApiKey('post', '/api/ordenes-lavado').send(
+    const orden3 = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden({ ...escenario, vehiculo: vehiculoC }, { turno: 3, medioPago: 'efectivo' }),
     );
-    await conApiKey('patch', `/api/ordenes-lavado/${orden3.body.orden.id}/estado`).send({
+    await conToken('patch', `/api/ordenes-lavado/${orden3.body.orden.id}/estado`).send({
       estado: 'cancelada',
       motivo: 'Cliente canceló',
     });
 
-    const respuesta = await conApiKey('get', '/api/ordenes-lavado');
+    const respuesta = await conToken('get', '/api/ordenes-lavado');
 
     expect(respuesta.status).toBe(200);
     // Las 3 órdenes siguen apareciendo en el listado, incluida la anulada.
@@ -605,7 +702,7 @@ describe('GET /api/ordenes-lavado', () => {
 
   it('filtra por colaboradorId, servicioId, medioPago y jornadaId vía HTTP', async () => {
     const escenario = await construirEscenarioBase();
-    const orden1 = await conApiKey('post', '/api/ordenes-lavado').send(
+    const orden1 = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden(escenario, { turno: 1, medioPago: 'efectivo' }),
     );
 
@@ -613,44 +710,54 @@ describe('GET /api/ordenes-lavado', () => {
     const vehiculoB = await registrarVehiculo(clienteB.id, { placa: 'GHI789' });
     const colaboradorB = await registrarColaborador({ codigo: 402, documento: '1020304098' });
     const servicioB = await registrarServicioParaAutomovil({ numero: 2 });
-    await conApiKey('post', '/api/ordenes-lavado').send(
+    await conToken('post', '/api/ordenes-lavado').send(
       datosOrden(
         { vehiculo: vehiculoB, colaborador: colaboradorB, servicio: servicioB },
         { turno: 2, medioPago: 'nequi' },
       ),
     );
 
-    const porColaborador = await conApiKey(
+    const porColaborador = await conToken(
       'get',
       `/api/ordenes-lavado?colaboradorId=${escenario.colaborador.id}`,
     );
     expect(porColaborador.body.ordenes).toHaveLength(1);
     expect(porColaborador.body.ordenes[0].colaboradorId).toBe(escenario.colaborador.id);
 
-    const porServicio = await conApiKey(
+    const porServicio = await conToken(
       'get',
       `/api/ordenes-lavado?servicioId=${escenario.servicio.id}`,
     );
     expect(porServicio.body.ordenes).toHaveLength(1);
 
-    const porMedioPago = await conApiKey('get', '/api/ordenes-lavado?medioPago=nequi');
+    const porMedioPago = await conToken('get', '/api/ordenes-lavado?medioPago=nequi');
     expect(porMedioPago.body.ordenes).toHaveLength(1);
     expect(porMedioPago.body.ordenes[0].medioPago).toBe('nequi');
 
     const jornadaId = orden1.body.orden.jornadaId;
-    const porJornada = await conApiKey('get', `/api/ordenes-lavado?jornadaId=${jornadaId}`);
+    const porJornada = await conToken('get', `/api/ordenes-lavado?jornadaId=${jornadaId}`);
     expect(porJornada.body.ordenes).toHaveLength(2);
   });
 });
 
 describe('GET /api/ordenes-lavado/:id', () => {
   it('id inexistente: 404', async () => {
-    const respuesta = await conApiKey('get', '/api/ordenes-lavado/9999');
+    const respuesta = await conToken('get', '/api/ordenes-lavado/9999');
     expect(respuesta.status).toBe(404);
   });
 
   it('id inválido: 400', async () => {
-    const respuesta = await conApiKey('get', '/api/ordenes-lavado/abc');
+    const respuesta = await conToken('get', '/api/ordenes-lavado/abc');
     expect(respuesta.status).toBe(400);
+  });
+
+  it('RBAC: un usuario "pendiente" no puede consultar (403)', async () => {
+    const respuesta = await conToken('get', '/api/ordenes-lavado/9999', TOKEN_PENDIENTE);
+    expect(respuesta.status).toBe(403);
+  });
+
+  it('requiere JWT (401 sin Authorization)', async () => {
+    const respuesta = await conApiKey('get', '/api/ordenes-lavado/9999');
+    expect(respuesta.status).toBe(401);
   });
 });

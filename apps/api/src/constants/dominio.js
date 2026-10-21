@@ -34,6 +34,12 @@ const ESTADOS_ACTIVIDAD = aEnumeracion(dominio.estadosActividad);
 const TIPOS_CLIENTE = aEnumeracion(dominio.tiposCliente);
 const TIPOS_VINCULACION = aEnumeracion(dominio.tiposVinculacion);
 const ESTADOS_JORNADA = aEnumeracion(dominio.estadosJornada);
+// ROLES (abajo) se mantiene como array plano: auth.validator.js lo usa
+// con .isIn(ROLES)/.join(', ') de express-validator, y dominio.test.js ya
+// prueba esa forma — cambiarlo a enum rompería ambos. ROLES_ENUM es la
+// forma "objeto" (igual que ESTADOS_ORDEN/ESTADOS_JORNADA) para el código
+// que necesita comparar un rol puntual, como los middlewares de RBAC.
+const ROLES_ENUM = aEnumeracion(dominio.roles);
 
 const PATRONES_PLACA = Object.freeze({
   CARRO: new RegExp(dominio.patronesPlaca.carro),
@@ -53,6 +59,7 @@ module.exports = {
   PATRONES_PLACA,
   LIMITES: dominio.limites,
   ROLES: dominio.roles,
+  ROLES_ENUM,
   TIPOS_CLIENTE,
   TIPOS_VINCULACION,
   DIAS_GRACIA_CODIGO_COLABORADOR: dominio.diasGraciaCodigoColaborador,

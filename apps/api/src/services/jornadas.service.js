@@ -71,10 +71,11 @@ const listarJornadas = (filtros = {}) => {
  * - Solo puede existir UNA jornada por fecha calendario (no se crean dos
  *   filas para el mismo día, esté la de hoy abierta o cerrada).
  *
+ * @param {string|null} [abiertaPor] email del usuario autenticado que abre la jornada (SCRUM-139)
  * @returns {object} la jornada abierta
  * @throws {Conflicto} si ya hay una jornada abierta, o ya existe una jornada para hoy
  */
-const abrirJornada = () => {
+const abrirJornada = (abiertaPor = null) => {
   if (obtenerJornadaAbierta()) {
     throw new Conflicto('Ya existe una jornada abierta');
   }
@@ -89,7 +90,7 @@ const abrirJornada = () => {
     fecha: fechaDeHoy,
     estado: ESTADOS_JORNADA.ABIERTA,
     abiertaEn: new Date().toISOString(),
-    abiertaPor: null,
+    abiertaPor,
     cerradaEn: null,
     cerradaPor: null,
     reaperturas: [],
@@ -102,11 +103,12 @@ const abrirJornada = () => {
 /**
  * Cierra una jornada abierta.
  * @param {number|string} id
+ * @param {string|null} [cerradaPor] email del usuario autenticado que cierra la jornada (SCRUM-139)
  * @returns {object} la jornada cerrada
  * @throws {NoEncontrado} si el id no existe
  * @throws {Conflicto} si la jornada no está abierta
  */
-const cerrarJornada = (id) => {
+const cerrarJornada = (id, cerradaPor = null) => {
   const jornada = obtenerJornadaOFallar(id);
 
   if (jornada.estado !== ESTADOS_JORNADA.ABIERTA) {
@@ -115,15 +117,15 @@ const cerrarJornada = (id) => {
 
   jornada.estado = ESTADOS_JORNADA.CERRADA;
   jornada.cerradaEn = new Date().toISOString();
+  jornada.cerradaPor = cerradaPor;
   return jornada;
 };
 
 /**
- * Reabre una jornada cerrada (pensado para rol DUEÑO; el RBAC por rol
- * todavía no existe en el proyecto, así que este service no lo exige
- * todavía). Cada reapertura queda registrada en `reaperturas` como
- * auditoría mínima de quién/cuándo, hasta que exista un sistema de
- * auditoría genérico.
+ * Reabre una jornada cerrada. Restringido a rol superadmin (SCRUM-139); la
+ * autorización la exige el middleware de la ruta, no este service. Cada
+ * reapertura queda registrada en `reaperturas` como auditoría mínima de
+ * cuándo, hasta que exista un sistema de auditoría genérico.
  *
  * @param {number|string} id
  * @returns {object} la jornada reabierta
