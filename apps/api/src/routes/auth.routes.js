@@ -7,6 +7,7 @@ const {
 const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
 const { autenticarJWT } = require('../middlewares/auth.middleware');
 const { autorizarRoles } = require('../middlewares/roles.middleware');
+const { ROLES_ENUM } = require('../constants/dominio');
 const { registrar, login, perfil, asignarRol } = require('../controllers/auth.controller');
 
 const router = Router();
@@ -173,7 +174,7 @@ router.get('/perfil', autenticarJWT, perfil);
 router.patch(
   '/usuarios/:id/rol',
   autenticarJWT,
-  autorizarRoles('superadmin'),
+  autorizarRoles(ROLES_ENUM.SUPERADMIN),
   validarIdDeUrl,
   validarAsignacionRol,
   validar,

@@ -9,6 +9,7 @@ const {
   SERVICIOS_CON_LAVADO_MOTOR,
   PATRONES_PLACA,
   ROLES,
+  ROLES_ENUM,
   TIPOS_CLIENTE,
   LIMITES,
   TIPOS_VINCULACION,
@@ -103,6 +104,18 @@ describe('constantes de dominio', () => {
       // Nadie se auto-asigna un rol con privilegios: toda cuenta nueva
       // nace en "pendiente" hasta que un superadmin decide su rol real.
       expect(ROLES).toContain('pendiente');
+    });
+
+    it('ROLES_ENUM expone los mismos roles que ROLES, en forma de objeto (hallazgo de revisión del PR #7)', () => {
+      expect(ROLES_ENUM.SUPERADMIN).toBe('superadmin');
+      expect(ROLES_ENUM.ADMINISTRADOR).toBe('administrador');
+      expect(ROLES_ENUM.SOPORTE).toBe('soporte');
+      expect(ROLES_ENUM.PENDIENTE).toBe('pendiente');
+      expect(Object.values(ROLES_ENUM).sort()).toEqual([...ROLES].sort());
+    });
+
+    it('ROLES_ENUM está congelado', () => {
+      expect(Object.isFrozen(ROLES_ENUM)).toBe(true);
     });
   });
 

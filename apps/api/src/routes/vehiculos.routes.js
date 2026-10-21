@@ -10,13 +10,18 @@ const { validarCrear, validarActualizar } = require('../middlewares/vehiculos.va
 const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
 const { autenticarJWT } = require('../middlewares/auth.middleware');
 const { autorizarRoles } = require('../middlewares/roles.middleware');
+const { ROLES_ENUM } = require('../constants/dominio');
 
 const router = Router();
 
 // RBAC (SCRUM-139): mismo criterio que Clientes — soporte consulta, pero
 // no gestiona (crear/editar/eliminar).
-const PUEDEN_CONSULTAR = autorizarRoles('superadmin', 'administrador', 'soporte');
-const PUEDEN_GESTIONAR = autorizarRoles('superadmin', 'administrador');
+const PUEDEN_CONSULTAR = autorizarRoles(
+  ROLES_ENUM.SUPERADMIN,
+  ROLES_ENUM.ADMINISTRADOR,
+  ROLES_ENUM.SOPORTE,
+);
+const PUEDEN_GESTIONAR = autorizarRoles(ROLES_ENUM.SUPERADMIN, ROLES_ENUM.ADMINISTRADOR);
 
 /**
  * @swagger

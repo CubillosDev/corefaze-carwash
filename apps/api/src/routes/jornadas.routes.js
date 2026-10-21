@@ -8,31 +8,26 @@ const {
 const { validarFiltroListar, validarCambioDeEstado } = require('../middlewares/jornadas.validator');
 const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
 const { autenticarJWT } = require('../middlewares/auth.middleware');
-const { autorizarRoles } = require('../middlewares/roles.middleware');
-const { AccesoDenegado } = require('../utils/errores');
-const { ESTADOS_JORNADA } = require('../constants/dominio');
+const { autorizarRoles, exigirSuperadminParaReabrir } = require('../middlewares/roles.middleware');
+const { ROLES_ENUM } = require('../constants/dominio');
 
 const router = Router();
 
 // RBAC (SCRUM-139): abrir/cerrar la jornada es la operación central del
 // día a día y queda disponible para superadmin/administrador/soporte.
-const PUEDEN_CONSULTAR = autorizarRoles('superadmin', 'administrador', 'soporte');
-const PUEDEN_GESTIONAR = autorizarRoles('superadmin', 'administrador', 'soporte');
-
-/**
- * Reabrir una jornada cerrada queda reservado a superadmin (criterio de
- * aceptación explícito de SCRUM-139). Abrir/cerrar y reabrir comparten el
- * mismo endpoint PATCH /:id/estado (el verbo va en el valor de "estado",
- * no en la URL), así que esta restricción no se puede expresar como un
- * autorizarRoles(...) estático por ruta: depende del body ya validado por
- * `validar`, de ahí que corra después en la cadena.
- */
-const exigirSuperadminParaReabrir = (req, _res, next) => {
-  if (req.datos.cuerpo.estado === ESTADOS_JORNADA.ABIERTA && req.usuario.rol !== 'superadmin') {
-    return next(new AccesoDenegado('Solo superadmin puede reabrir una jornada'));
-  }
-  return next();
-};
+// Reabrir es la excepción: ver exigirSuperadminParaReabrir, que corre más
+// abajo en la cadena de PATCH /:id/estado porque depende del body (no se
+// puede expresar como autorizarRoles(...) estático).
+const PUEDEN_CONSULTAR = autorizarRoles(
+  ROLES_ENUM.SUPERADMIN,
+  ROLES_ENUM.ADMINISTRADOR,
+  ROLES_ENUM.SOPORTE,
+);
+const PUEDEN_GESTIONAR = autorizarRoles(
+  ROLES_ENUM.SUPERADMIN,
+  ROLES_ENUM.ADMINISTRADOR,
+  ROLES_ENUM.SOPORTE,
+);
 
 /**
  * @swagger

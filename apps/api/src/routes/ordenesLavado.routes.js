@@ -14,32 +14,26 @@ const {
 } = require('../middlewares/ordenesLavado.validator');
 const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
 const { autenticarJWT } = require('../middlewares/auth.middleware');
-const { autorizarRoles } = require('../middlewares/roles.middleware');
-const { AccesoDenegado } = require('../utils/errores');
-const { ESTADOS_ORDEN } = require('../constants/dominio');
+const { autorizarRoles, exigirPermisoParaCancelar } = require('../middlewares/roles.middleware');
+const { ROLES_ENUM } = require('../constants/dominio');
 
 const router = Router();
 
 // RBAC (SCRUM-139): registrar y editar una orden es el trabajo central
 // del operador (soporte), igual que consultarlas y avanzar su estado.
-const PUEDEN_CONSULTAR = autorizarRoles('superadmin', 'administrador', 'soporte');
-const PUEDEN_GESTIONAR = autorizarRoles('superadmin', 'administrador', 'soporte');
-
-/**
- * Anular (cancelar) una orden queda reservado a superadmin/administrador;
- * cualquier otra transición de estado sigue abierta a soporte. Como todas
- * las transiciones comparten el mismo endpoint PATCH /:id/estado (el
- * verbo va en el valor de "estado", no en la URL), esta restricción no se
- * puede expresar como un autorizarRoles(...) estático por ruta: depende
- * del body ya validado por `validar`, de ahí que corra después en la
- * cadena.
- */
-const exigirPermisoParaCancelar = (req, _res, next) => {
-  if (req.datos.cuerpo.estado === ESTADOS_ORDEN.CANCELADA && req.usuario.rol === 'soporte') {
-    return next(new AccesoDenegado('Solo superadmin o administrador pueden anular una orden'));
-  }
-  return next();
-};
+// Anular (cancelar) es la excepción: ver exigirPermisoParaCancelar, que
+// corre más abajo en la cadena de PATCH /:id/estado porque depende del
+// body (no se puede expresar como autorizarRoles(...) estático).
+const PUEDEN_CONSULTAR = autorizarRoles(
+  ROLES_ENUM.SUPERADMIN,
+  ROLES_ENUM.ADMINISTRADOR,
+  ROLES_ENUM.SOPORTE,
+);
+const PUEDEN_GESTIONAR = autorizarRoles(
+  ROLES_ENUM.SUPERADMIN,
+  ROLES_ENUM.ADMINISTRADOR,
+  ROLES_ENUM.SOPORTE,
+);
 
 /**
  * @swagger

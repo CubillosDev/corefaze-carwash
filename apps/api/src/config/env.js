@@ -53,7 +53,9 @@ const validarValorSeguro = (nombreVariable, valor, longitudMinima, errores) => {
   if (valor.length < longitudMinima) {
     errores.push(`${nombreVariable} debe tener al menos ${longitudMinima} caracteres`);
   } else if (valor.startsWith(PREFIJO_API_KEY_DE_EJEMPLO)) {
-    errores.push(`${nombreVariable} conserva el valor de ejemplo de .env.example; genera uno propio`);
+    errores.push(
+      `${nombreVariable} conserva el valor de ejemplo de .env.example; genera uno propio`,
+    );
   }
 };
 
