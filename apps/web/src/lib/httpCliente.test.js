@@ -254,3 +254,86 @@ describe('httpCliente: instancia de la aplicación', () => {
     );
   });
 });
+
+
+describe('httpCliente: sesión', () => {
+  function clienteConSesion({ token, estado = 200, cuerpo = {} }) {
+    const hacerPeticion = vi.fn(async () => respuestaJson(estado, cuerpo));
+    const alSesionExpirada = vi.fn();
+    const cliente = crearHttpCliente({
+      urlBase: URL_BASE,
+      llaveApi: LLAVE,
+      hacerPeticion,
+      obtenerToken: () => token,
+      alSesionExpirada,
+    });
+    return { cliente, hacerPeticion, alSesionExpirada };
+  }
+
+  it('agrega Authorization: Bearer cuando hay token', async () => {
+    const { cliente, hacerPeticion } = clienteConSesion({ token: 'jwt-de-prueba' });
+
+    await cliente.obtener('vehiculos');
+
+    expect(hacerPeticion.mock.calls[0][1].headers).toEqual({
+      Accept: 'application/json',
+      'X-API-Key': LLAVE,
+      Authorization: 'Bearer jwt-de-prueba',
+    });
+  });
+
+  it('no envía Authorization cuando no hay sesión', async () => {
+    const { cliente, hacerPeticion } = clienteConSesion({ token: null });
+
+    await cliente.obtener('vehiculos');
+
+    expect(hacerPeticion.mock.calls[0][1].headers).not.toHaveProperty('Authorization');
+  });
+
+  it('pide el token en cada solicitud, no una sola vez', async () => {
+    let token = 'primero';
+    const hacerPeticion = vi.fn(async () => respuestaJson(200, {}));
+    const cliente = crearHttpCliente({
+      urlBase: URL_BASE,
+      hacerPeticion,
+      obtenerToken: () => token,
+    });
+
+    await cliente.obtener('a');
+    token = 'segundo';
+    await cliente.obtener('b');
+
+    expect(hacerPeticion.mock.calls[0][1].headers.Authorization).toBe('Bearer primero');
+    expect(hacerPeticion.mock.calls[1][1].headers.Authorization).toBe('Bearer segundo');
+  });
+
+  it('avisa que la sesión expiró cuando la API responde 401 a una solicitud con token', async () => {
+    const { cliente, alSesionExpirada } = clienteConSesion({
+      token: 'jwt-vencido',
+      estado: 401,
+      cuerpo: { mensaje: 'Token expirado' },
+    });
+
+    await expect(cliente.obtener('vehiculos')).rejects.toMatchObject({ estado: 401 });
+    expect(alSesionExpirada).toHaveBeenCalledTimes(1);
+  });
+
+  it('no avisa de sesión expirada ante un 401 sin token (credenciales incorrectas al ingresar)', async () => {
+    const { cliente, alSesionExpirada } = clienteConSesion({
+      token: null,
+      estado: 401,
+      cuerpo: { mensaje: 'Credenciales inválidas' },
+    });
+
+    await expect(cliente.crear('auth/login', {})).rejects.toMatchObject({ estado: 401 });
+    expect(alSesionExpirada).not.toHaveBeenCalled();
+  });
+
+  it('no avisa de sesión expirada ante otros errores (403, 404, 409)', async () => {
+    for (const estado of [403, 404, 409]) {
+      const { cliente, alSesionExpirada } = clienteConSesion({ token: 'jwt', estado });
+      await expect(cliente.obtener('x')).rejects.toBeInstanceOf(ErrorHttp);
+      expect(alSesionExpirada).not.toHaveBeenCalled();
+    }
+  });
+});

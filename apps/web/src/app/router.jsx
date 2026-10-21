@@ -3,6 +3,7 @@ import { createBrowserRouter } from 'react-router';
 
 import { LayoutPrincipal } from '@/components/layout/LayoutPrincipal';
 import { RUTAS } from '@/constants/rutas';
+import { IngresoPage, RutaConPermiso, RutaPrivada } from '@/features/autenticacion';
 
 /**
  * Página con carga diferida: se descarga aparte, la primera vez que se visita.
@@ -27,14 +28,33 @@ const rutasDeDesarrollo = import.meta.env.DEV
     ]
   : [];
 
+/*
+ * Estructura:
+ *   /ingreso            pública
+ *   RutaPrivada         sin sesión -> /ingreso; cuenta pendiente -> pantalla de espera
+ *     LayoutPrincipal   cabecera, menú y área de contenido
+ *       RutaConPermiso  rol sin acceso al módulo -> "Sin permiso" (403)
+ *         páginas
+ */
 export const rutas = [
+  { path: RUTAS.INGRESO, Component: IngresoPage },
   {
-    path: RUTAS.INICIO,
-    Component: LayoutPrincipal,
+    Component: RutaPrivada,
     children: [
-      { index: true, Component: paginaDiferida(cargarInicio, 'InicioPage') },
-      ...rutasDeDesarrollo,
-      { path: '*', Component: paginaDiferida(cargarInicio, 'NoEncontradaPage') },
+      {
+        path: RUTAS.INICIO,
+        Component: LayoutPrincipal,
+        children: [
+          {
+            Component: RutaConPermiso,
+            children: [
+              { index: true, Component: paginaDiferida(cargarInicio, 'InicioPage') },
+              ...rutasDeDesarrollo,
+              { path: '*', Component: paginaDiferida(cargarInicio, 'NoEncontradaPage') },
+            ],
+          },
+        ],
+      },
     ],
   },
 ];
