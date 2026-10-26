@@ -45,10 +45,15 @@ const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
 
 // clientes.service.js ya escribe en el Supabase local (SCRUM-152, Etapa
 // A), no en un array en memoria que cada beforeEach pudiera vaciar: el
-// documento de cada cliente de prueba es único (sello de tiempo +
+// documento de cada cliente de prueba es único (salto aleatorio +
 // contador) para no chocar ni dentro de esta corrida ni con filas de
-// corridas anteriores sin un `db reset` de por medio.
-const selloDocumento = Date.now().toString().slice(-9);
+// corridas anteriores sin un `db reset` de por medio. El salto es
+// aleatorio, no Date.now(): Jest corre archivos en paralelo en workers
+// distintos y dos pueden arrancar en el mismo milisegundo (causó una
+// colisión real entre este archivo y otro al migrar clientes).
+const selloDocumento = Math.floor(Math.random() * 1e6)
+  .toString()
+  .padStart(6, '0');
 let contadorDocumento = 0;
 const documentoUnico = () => {
   contadorDocumento += 1;

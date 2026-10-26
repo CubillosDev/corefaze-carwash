@@ -11,10 +11,12 @@ const { NoEncontrado, Conflicto } = require('../../../src/utils/errores');
 // clientes.service.js ya consulta el Supabase local (SCRUM-152, Etapa A),
 // no un array en memoria: estas pruebas corren contra ese stack
 // (`npx supabase start`), nunca contra el remoto (ver tests/setupEnv.js).
-// El documento es único por llamada (sello de tiempo + contador) porque la
+// El documento es único por llamada (salto aleatorio + contador) porque la
 // tabla ya no se puede "vaciar" entre pruebas como el array anterior.
 const USUARIO_ID_PRUEBA = 1;
-const selloDocumento = Date.now().toString().slice(-9);
+const selloDocumento = Math.floor(Math.random() * 1e6)
+  .toString()
+  .padStart(6, '0');
 let contadorDocumento = 0;
 const documentoUnico = () => {
   contadorDocumento += 1;

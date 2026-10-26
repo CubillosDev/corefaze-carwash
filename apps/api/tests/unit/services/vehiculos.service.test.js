@@ -19,9 +19,11 @@ beforeEach(() => {
 
 // clientesService.crearCliente ya escribe en el Supabase local (SCRUM-152,
 // Etapa A), no en un array que este beforeEach pudiera vaciar: el
-// documento de cada cliente de prueba es único (sello de tiempo +
+// documento de cada cliente de prueba es único (salto aleatorio +
 // contador) para no chocar entre pruebas ni entre corridas.
-const selloDocumento = Date.now().toString().slice(-9);
+const selloDocumento = Math.floor(Math.random() * 1e6)
+  .toString()
+  .padStart(6, '0');
 let contadorDocumento = 0;
 const crearClienteDePrueba = () =>
   clientesService.crearCliente(
