@@ -1,7 +1,6 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const { generarToken } = require('../../src/utils/jwt.util');
-const vehiculos = require('../../src/data/vehiculos');
 const colaboradores = require('../../src/data/colaboradores');
 const servicios = require('../../src/data/servicios');
 const ordenesLavado = require('../../src/data/ordenesLavado');
@@ -36,7 +35,6 @@ const TOKEN_SOPORTE = tokenDe('soporte');
 const TOKEN_PENDIENTE = tokenDe('pendiente');
 
 beforeEach(() => {
-  vehiculos.length = 0;
   colaboradores.length = 0;
   servicios.length = 0;
   ordenesLavado.length = 0;
@@ -102,12 +100,30 @@ const registrarClienteEmpresaConCredito = async (overrides = {}) => {
   return respuesta.body.cliente;
 };
 
+// vehiculos.service.js ya escribe en el Supabase local (SCRUM-152), no en
+// un array que el beforeEach pudiera vaciar: la placa es única (letras
+// fijas por archivo + contador, con el formato que exige cada
+// tipoVehiculo) para no chocar ni dentro de esta corrida ni con otro
+// archivo que Jest ejecute en paralelo.
+const LETRAS_PLACA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const letraAleatoriaPlaca = () => LETRAS_PLACA[Math.floor(Math.random() * LETRAS_PLACA.length)];
+const prefijoPlaca = `${letraAleatoriaPlaca()}${letraAleatoriaPlaca()}${letraAleatoriaPlaca()}`;
+const TIPOS_VEHICULO_MOTO_DE_PRUEBA = ['moto_hasta_150cc', 'moto_desde_150cc'];
+let contadorPlaca = 0;
+const siguientePlaca = (tipoVehiculo) => {
+  contadorPlaca += 1;
+  return TIPOS_VEHICULO_MOTO_DE_PRUEBA.includes(tipoVehiculo)
+    ? `${prefijoPlaca}${String(contadorPlaca).padStart(2, '0')}X`
+    : `${prefijoPlaca}${String(contadorPlaca).padStart(3, '0')}`;
+};
+
 const registrarVehiculo = async (clienteId, overrides = {}) => {
+  const { tipoVehiculo = 'automovil', placa, ...resto } = overrides;
   const respuesta = await conToken('post', '/api/vehiculos').send({
-    placa: 'ABC123',
-    tipoVehiculo: 'automovil',
+    placa: placa ?? siguientePlaca(tipoVehiculo),
+    tipoVehiculo,
     clienteId,
-    ...overrides,
+    ...resto,
   });
   return respuesta.body.vehiculo;
 };
@@ -259,7 +275,7 @@ describe('POST /api/ordenes-lavado', () => {
     expect(primera.status).toBe(201);
 
     const otroCliente = await registrarClienteParticular();
-    const otroVehiculo = await registrarVehiculo(otroCliente.id, { placa: 'XYZ789' });
+    const otroVehiculo = await registrarVehiculo(otroCliente.id);
 
     const respuesta = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden({ ...escenario, vehiculo: otroVehiculo }, { turno: 1 }),
@@ -402,7 +418,6 @@ describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
     const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
 
     const nuevoVehiculo = await registrarVehiculo(escenario.cliente.id, {
-      placa: 'XYZ789',
       tipoVehiculo: 'camioneta',
     });
 
@@ -451,7 +466,7 @@ describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
     );
 
     const otroCliente = await registrarClienteParticular();
-    const otroVehiculo = await registrarVehiculo(otroCliente.id, { placa: 'XYZ789' });
+    const otroVehiculo = await registrarVehiculo(otroCliente.id);
     await conToken('post', '/api/ordenes-lavado').send(
       datosOrden({ ...escenario, vehiculo: otroVehiculo }, { turno: 2 }),
     );
@@ -658,14 +673,14 @@ describe('GET /api/ordenes-lavado', () => {
 
     // Orden 2: nequi (otro vehículo), se queda registrada.
     const clienteB = await registrarClienteParticular();
-    const vehiculoB = await registrarVehiculo(clienteB.id, { placa: 'XYZ789' });
+    const vehiculoB = await registrarVehiculo(clienteB.id);
     await conToken('post', '/api/ordenes-lavado').send(
       datosOrden({ ...escenario, vehiculo: vehiculoB }, { turno: 2, medioPago: 'nequi' }),
     );
 
     // Orden 3: efectivo (otro vehículo), pero se cancela: NO debe sumar a nada.
     const clienteC = await registrarClienteParticular();
-    const vehiculoC = await registrarVehiculo(clienteC.id, { placa: 'DEF456' });
+    const vehiculoC = await registrarVehiculo(clienteC.id);
     const orden3 = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden({ ...escenario, vehiculo: vehiculoC }, { turno: 3, medioPago: 'efectivo' }),
     );
@@ -718,7 +733,7 @@ describe('GET /api/ordenes-lavado', () => {
     );
 
     const clienteB = await registrarClienteParticular();
-    const vehiculoB = await registrarVehiculo(clienteB.id, { placa: 'GHI789' });
+    const vehiculoB = await registrarVehiculo(clienteB.id);
     const colaboradorB = await registrarColaborador({ codigo: 402, documento: '1020304098' });
     const servicioB = await registrarServicioParaAutomovil({ numero: 2 });
     await conToken('post', '/api/ordenes-lavado').send(

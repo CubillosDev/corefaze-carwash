@@ -1,4 +1,3 @@
-const vehiculos = require('../../../src/data/vehiculos');
 const colaboradores = require('../../../src/data/colaboradores');
 const servicios = require('../../../src/data/servicios');
 const ordenesLavado = require('../../../src/data/ordenesLavado');
@@ -37,7 +36,6 @@ const selloDocumento = Math.floor(Math.random() * 1e6)
 let contadorDocumentoCliente = 0;
 
 beforeEach(() => {
-  vehiculos.length = 0;
   colaboradores.length = 0;
   servicios.length = 0;
   ordenesLavado.length = 0;
@@ -63,12 +61,29 @@ const crearClienteDePrueba = (datos = {}) =>
     USUARIO_ID_PRUEBA,
   );
 
+// vehiculosService.crearVehiculo ya escribe en el Supabase local
+// (SCRUM-152), no en un array que beforeEach pudiera vaciar: la placa es
+// única (letras fijas por archivo + contador, con el formato que exige
+// cada tipoVehiculo) para no chocar ni dentro de esta corrida ni con otro
+// archivo que Jest ejecute en paralelo.
+const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const letraAleatoria = () => LETRAS[Math.floor(Math.random() * LETRAS.length)];
+const prefijoPlaca = `${letraAleatoria()}${letraAleatoria()}${letraAleatoria()}`;
+const TIPOS_VEHICULO_MOTO_DE_PRUEBA = ['moto_hasta_150cc', 'moto_desde_150cc'];
+let contadorPlaca = 0;
+const siguientePlaca = (tipoVehiculo) => {
+  contadorPlaca += 1;
+  return TIPOS_VEHICULO_MOTO_DE_PRUEBA.includes(tipoVehiculo)
+    ? `${prefijoPlaca}${String(contadorPlaca).padStart(2, '0')}X`
+    : `${prefijoPlaca}${String(contadorPlaca).padStart(3, '0')}`;
+};
+
 const crearVehiculoDePrueba = async (datos = {}) => {
-  const { clienteId, ...resto } = datos;
+  const { clienteId, tipoVehiculo = 'automovil', placa, ...resto } = datos;
   const idCliente = clienteId ?? (await crearClienteDePrueba()).id;
   return vehiculosService.crearVehiculo({
-    placa: 'ABC123',
-    tipoVehiculo: 'automovil',
+    placa: placa ?? siguientePlaca(tipoVehiculo),
+    tipoVehiculo,
     clienteId: idCliente,
     ...resto,
   });
@@ -306,7 +321,7 @@ describe('ordenesLavado.service', () => {
       const escenario = await construirEscenarioValido();
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
-      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
+      const otroVehiculo = await crearVehiculoDePrueba();
       await expect(
         crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 1 })),
       ).rejects.toThrow(Conflicto);
@@ -317,7 +332,7 @@ describe('ordenesLavado.service', () => {
       const escenario = await construirEscenarioValido();
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
-      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
+      const otroVehiculo = await crearVehiculoDePrueba();
       await crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 2 }));
     });
 
@@ -369,7 +384,6 @@ describe('ordenesLavado.service', () => {
       const orden = await crearOrden(datosOrdenValida(escenario));
 
       const nuevoVehiculo = await crearVehiculoDePrueba({
-        placa: 'XYZ789',
         tipoVehiculo: 'camioneta',
       });
       const editada = await editarOrden(orden.id, { vehiculoId: nuevoVehiculo.id });
@@ -385,7 +399,6 @@ describe('ordenesLavado.service', () => {
       const orden = await crearOrden(datosOrdenValida(escenario));
 
       const vehiculoMoto = await crearVehiculoDePrueba({
-        placa: 'XYZ12D',
         tipoVehiculo: 'moto_hasta_150cc',
       });
 
@@ -425,7 +438,7 @@ describe('ordenesLavado.service', () => {
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
-      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
+      const otroVehiculo = await crearVehiculoDePrueba();
       await crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 2 }));
 
       await expect(editarOrden(orden.id, { vehiculoId: otroVehiculo.id })).rejects.toThrow(
@@ -497,7 +510,7 @@ describe('ordenesLavado.service', () => {
       abrirJornadaConFecha('2026-01-10');
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
-      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
+      const otroVehiculo = await crearVehiculoDePrueba();
       abrirJornadaConFecha('2026-01-11');
       await crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 1 }));
 
@@ -509,7 +522,7 @@ describe('ordenesLavado.service', () => {
       abrirJornadaConFecha('2026-01-10');
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
-      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
+      const otroVehiculo = await crearVehiculoDePrueba();
       abrirJornadaConFecha('2026-01-11');
       await crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 1 }));
 
@@ -524,7 +537,7 @@ describe('ordenesLavado.service', () => {
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
       const otroColaborador = crearColaboradorDePrueba({ codigo: 402, documento: '1020304099' });
-      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
+      const otroVehiculo = await crearVehiculoDePrueba();
       await crearOrden(
         datosOrdenValida(
           { ...escenario, vehiculo: otroVehiculo, colaborador: otroColaborador },
@@ -543,7 +556,7 @@ describe('ordenesLavado.service', () => {
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
       const otroServicio = crearServicioDePrueba({ numero: 2 });
-      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
+      const otroVehiculo = await crearVehiculoDePrueba();
       await crearOrden(
         datosOrdenValida(
           { ...escenario, vehiculo: otroVehiculo, servicio: otroServicio },
@@ -561,7 +574,7 @@ describe('ordenesLavado.service', () => {
       const escenario = await construirEscenarioValido();
       await crearOrden(datosOrdenValida(escenario, { turno: 1, medioPago: 'efectivo' }));
 
-      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
+      const otroVehiculo = await crearVehiculoDePrueba();
       await crearOrden(
         datosOrdenValida(
           { ...escenario, vehiculo: otroVehiculo },
@@ -579,7 +592,7 @@ describe('ordenesLavado.service', () => {
       const jornada1 = abrirJornadaConFecha('2026-01-10');
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
-      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
+      const otroVehiculo = await crearVehiculoDePrueba();
       const jornada2 = abrirJornadaConFecha('2026-01-11');
       await crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 1 }));
 
@@ -596,7 +609,7 @@ describe('ordenesLavado.service', () => {
         datosOrdenValida(escenario, { turno: 1, medioPago: 'efectivo' }),
       );
 
-      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
+      const otroVehiculo = await crearVehiculoDePrueba();
       await crearOrden(
         datosOrdenValida(
           { ...escenario, vehiculo: otroVehiculo },
@@ -665,8 +678,8 @@ describe('ordenesLavado.service', () => {
       const jornada1 = abrirJornadaConFecha('2026-01-10');
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
-      const vehiculoB = await crearVehiculoDePrueba({ placa: 'XYZ789' });
-      const vehiculoC = await crearVehiculoDePrueba({ placa: 'DEF456' });
+      const vehiculoB = await crearVehiculoDePrueba();
+      const vehiculoC = await crearVehiculoDePrueba();
       const jornada2 = abrirJornadaConFecha('2026-01-11');
       await crearOrden(datosOrdenValida({ ...escenario, vehiculo: vehiculoB }, { turno: 1 }));
       await crearOrden(datosOrdenValida({ ...escenario, vehiculo: vehiculoC }, { turno: 2 }));

@@ -1,6 +1,5 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
-const vehiculos = require('../../src/data/vehiculos');
 const servicios = require('../../src/data/servicios');
 const colaboradores = require('../../src/data/colaboradores');
 const ordenesLavado = require('../../src/data/ordenesLavado');
@@ -34,7 +33,6 @@ const TOKEN_SOPORTE = tokenDe('soporte');
 const TOKEN_PENDIENTE = tokenDe('pendiente');
 
 beforeEach(() => {
-  vehiculos.length = 0;
   servicios.length = 0;
   colaboradores.length = 0;
   ordenesLavado.length = 0;
@@ -57,10 +55,12 @@ const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', 
 const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
   conApiKey(metodo, ruta).set('Authorization', `Bearer ${token}`);
 
-// clientes.service.js ya escribe en el Supabase local (SCRUM-152, Etapa
-// A), no en un array que el beforeEach pudiera vaciar: el documento es
-// único (salto aleatorio + contador) para no chocar ni dentro de esta
-// corrida ni con filas de corridas anteriores sin un `db reset` de por medio.
+// clientes.service.js y vehiculos.service.js ya escriben en el Supabase
+// local (SCRUM-152), no en arrays que el beforeEach pudiera vaciar: el
+// documento y la placa son únicos (salto aleatorio por archivo + contador)
+// para no chocar ni dentro de esta corrida, ni con otro archivo que Jest
+// ejecute en paralelo, ni con filas de corridas anteriores sin un
+// `db reset` de por medio.
 const selloDocumentoCliente = Math.floor(Math.random() * 1e6)
   .toString()
   .padStart(6, '0');
@@ -77,26 +77,42 @@ const registrarCliente = async () => {
   return respuesta.body.cliente;
 };
 
+const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const letraAleatoria = () => LETRAS[Math.floor(Math.random() * LETRAS.length)];
+const prefijoPlaca = `${letraAleatoria()}${letraAleatoria()}${letraAleatoria()}`;
+let contadorPlaca = 0;
+/** Placa de carro única: 3 letras fijas por archivo + 3 dígitos del contador. */
+const placaUnica = () => {
+  contadorPlaca += 1;
+  return `${prefijoPlaca}${String(contadorPlaca).padStart(3, '0')}`;
+};
+/** Placa de moto única: 3 letras fijas por archivo + 2 dígitos del contador + 1 letra fija. */
+const placaMotoUnica = () => {
+  contadorPlaca += 1;
+  return `${prefijoPlaca}${String(contadorPlaca).padStart(2, '0')}X`;
+};
+
 describe('POST /api/vehiculos', () => {
   it('caso válido: registra un vehículo (201)', async () => {
     const cliente = await registrarCliente();
+    const placa = placaUnica();
 
     const respuesta = await conToken('post', '/api/vehiculos').send({
-      placa: 'abc123',
+      placa: placa.toLowerCase(),
       tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
 
     expect(respuesta.status).toBe(201);
     // La placa se normaliza a mayúsculas
-    expect(respuesta.body.vehiculo.placa).toBe('ABC123');
+    expect(respuesta.body.vehiculo.placa).toBe(placa);
   });
 
   it('regla de negocio: placa de moto corresponde a tipo moto', async () => {
     const cliente = await registrarCliente();
 
     const respuesta = await conToken('post', '/api/vehiculos').send({
-      placa: 'ABC12D',
+      placa: placaMotoUnica(),
       tipoVehiculo: 'moto_hasta_150cc',
       clienteId: cliente.id,
     });
@@ -130,9 +146,9 @@ describe('POST /api/vehiculos', () => {
 
   it('cliente inexistente: 404', async () => {
     const respuesta = await conToken('post', '/api/vehiculos').send({
-      placa: 'ABC123',
+      placa: placaUnica(),
       tipoVehiculo: 'automovil',
-      clienteId: 9999,
+      clienteId: 999999999,
     });
 
     expect(respuesta.status).toBe(404);
@@ -140,14 +156,16 @@ describe('POST /api/vehiculos', () => {
 
   it('duplicado: una placa repetida responde 409', async () => {
     const cliente = await registrarCliente();
+    const placa = placaUnica();
+
     await conToken('post', '/api/vehiculos').send({
-      placa: 'ABC123',
+      placa,
       tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
 
     const respuesta = await conToken('post', '/api/vehiculos').send({
-      placa: 'ABC123',
+      placa,
       tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
@@ -159,7 +177,7 @@ describe('POST /api/vehiculos', () => {
     const cliente = await registrarCliente();
 
     const respuesta = await conToken('post', '/api/vehiculos').send({
-      placa: 'ABC123',
+      placa: placaUnica(),
       tipoVehiculo: 'automovil',
       clienteId: cliente.id,
       id: 9999,
@@ -186,7 +204,7 @@ describe('POST /api/vehiculos', () => {
     const cliente = await registrarCliente();
 
     const respuesta = await conToken('post', '/api/vehiculos', TOKEN_SUPERADMIN).send({
-      placa: 'ABC123',
+      placa: placaUnica(),
       tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
@@ -198,7 +216,7 @@ describe('POST /api/vehiculos', () => {
     const cliente = await registrarCliente();
 
     const respuesta = await conToken('post', '/api/vehiculos', TOKEN_SOPORTE).send({
-      placa: 'ABC123',
+      placa: placaUnica(),
       tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
@@ -214,7 +232,7 @@ describe('POST /api/vehiculos', () => {
 
 describe('GET /api/vehiculos/:id', () => {
   it('id inexistente: 404', async () => {
-    const respuesta = await conToken('get', '/api/vehiculos/9999');
+    const respuesta = await conToken('get', '/api/vehiculos/999999999');
     expect(respuesta.status).toBe(404);
   });
 
@@ -224,12 +242,12 @@ describe('GET /api/vehiculos/:id', () => {
   });
 
   it('soporte puede consultar (200/404 según exista)', async () => {
-    const respuesta = await conToken('get', '/api/vehiculos/9999', TOKEN_SOPORTE);
+    const respuesta = await conToken('get', '/api/vehiculos/999999999', TOKEN_SOPORTE);
     expect(respuesta.status).toBe(404);
   });
 
   it('RBAC: un usuario "pendiente" no puede consultar (403)', async () => {
-    const respuesta = await conToken('get', '/api/vehiculos/9999', TOKEN_PENDIENTE);
+    const respuesta = await conToken('get', '/api/vehiculos/999999999', TOKEN_PENDIENTE);
     expect(respuesta.status).toBe(403);
   });
 });
@@ -238,7 +256,7 @@ describe('PUT /api/vehiculos/:id', () => {
   it('actualiza el color (200)', async () => {
     const cliente = await registrarCliente();
     const creado = await conToken('post', '/api/vehiculos').send({
-      placa: 'ABC123',
+      placa: placaUnica(),
       tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
@@ -254,7 +272,7 @@ describe('PUT /api/vehiculos/:id', () => {
   it('RBAC: soporte no puede actualizar (403)', async () => {
     const cliente = await registrarCliente();
     const creado = await conToken('post', '/api/vehiculos').send({
-      placa: 'ABC123',
+      placa: placaUnica(),
       tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
@@ -273,7 +291,7 @@ describe('DELETE /api/vehiculos/:id', () => {
   it('sin relaciones: elimina correctamente (200)', async () => {
     const cliente = await registrarCliente();
     const creado = await conToken('post', '/api/vehiculos').send({
-      placa: 'ABC123',
+      placa: placaUnica(),
       tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
@@ -284,12 +302,12 @@ describe('DELETE /api/vehiculos/:id', () => {
   });
 
   it('id inexistente: 404', async () => {
-    const respuesta = await conToken('delete', '/api/vehiculos/9999');
+    const respuesta = await conToken('delete', '/api/vehiculos/999999999');
     expect(respuesta.status).toBe(404);
   });
 
   it('RBAC: soporte no puede eliminar (403)', async () => {
-    const respuesta = await conToken('delete', '/api/vehiculos/9999', TOKEN_SOPORTE);
+    const respuesta = await conToken('delete', '/api/vehiculos/999999999', TOKEN_SOPORTE);
     expect(respuesta.status).toBe(403);
   });
 });
@@ -298,7 +316,7 @@ describe('Integridad referencial: DELETE /api/clientes/:id con vehículos', () =
   it('no se puede eliminar un cliente con vehículos asociados (409)', async () => {
     const cliente = await registrarCliente();
     await conToken('post', '/api/vehiculos').send({
-      placa: 'ABC123',
+      placa: placaUnica(),
       tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
@@ -324,7 +342,7 @@ describe('Integridad referencial: DELETE /api/vehiculos/:id con órdenes de lava
   it('no se puede eliminar un vehículo con órdenes de lavado asociadas (409)', async () => {
     const cliente = await registrarCliente();
     const vehiculoCreado = await conToken('post', '/api/vehiculos').send({
-      placa: 'ABC123',
+      placa: placaUnica(),
       tipoVehiculo: 'automovil',
       clienteId: cliente.id,
     });
@@ -349,7 +367,7 @@ describe('Integridad referencial: DELETE /api/vehiculos/:id con órdenes de lava
       porcentajeComision: 0.15,
       tipoVinculacion: 'fijo',
     });
-    ordenesLavadoService.crearOrden({
+    await ordenesLavadoService.crearOrden({
       turno: 1,
       vehiculoId: vehiculo.id,
       servicioId: servicio.id,

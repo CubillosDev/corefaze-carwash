@@ -115,7 +115,7 @@ describe('clientes.controller', () => {
 
   describe('eliminar', () => {
     it('responde 200 al eliminar correctamente', async () => {
-      vehiculosService.clienteTieneVehiculos.mockReturnValue(false);
+      vehiculosService.clienteTieneVehiculos.mockResolvedValue(false);
       clientesService.eliminarCliente.mockResolvedValue(undefined);
 
       const res = crearRespuesta();
@@ -127,7 +127,7 @@ describe('clientes.controller', () => {
     });
 
     it('propaga el error si el id no existe (404)', async () => {
-      vehiculosService.clienteTieneVehiculos.mockReturnValue(false);
+      vehiculosService.clienteTieneVehiculos.mockResolvedValue(false);
       const error = new Error('no encontrado');
       clientesService.eliminarCliente.mockRejectedValue(error);
 
@@ -137,7 +137,7 @@ describe('clientes.controller', () => {
     });
 
     it('responde 409 si el cliente tiene vehículos asociados, sin llamar a eliminarCliente', async () => {
-      vehiculosService.clienteTieneVehiculos.mockReturnValue(true);
+      vehiculosService.clienteTieneVehiculos.mockResolvedValue(true);
 
       await expect(
         eliminar(crearPeticion({ parametros: { id: 1 } }), crearRespuesta(), jest.fn()),

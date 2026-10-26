@@ -2,7 +2,6 @@ const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const { generarToken } = require('../../src/utils/jwt.util');
 const jornadas = require('../../src/data/jornadas');
-const vehiculos = require('../../src/data/vehiculos');
 const colaboradores = require('../../src/data/colaboradores');
 const servicios = require('../../src/data/servicios');
 const ordenesLavado = require('../../src/data/ordenesLavado');
@@ -31,7 +30,6 @@ const TOKEN_PENDIENTE = tokenDe('pendiente');
 
 beforeEach(() => {
   jornadas.length = 0;
-  vehiculos.length = 0;
   colaboradores.length = 0;
   servicios.length = 0;
   ordenesLavado.length = 0;
@@ -70,8 +68,22 @@ const selloDocumentoCliente = Math.floor(Math.random() * 1e6)
   .padStart(6, '0');
 let contadorDocumentoCliente = 0;
 
+// vehiculos.service.js ya escribe en el Supabase local (SCRUM-152), no en
+// un array que el beforeEach pudiera vaciar: la placa es única (letras
+// fijas por archivo + contador) para no chocar ni dentro de esta corrida
+// ni con otro archivo que Jest ejecute en paralelo.
+const LETRAS_PLACA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const letraAleatoriaPlaca = () => LETRAS_PLACA[Math.floor(Math.random() * LETRAS_PLACA.length)];
+const prefijoPlaca = `${letraAleatoriaPlaca()}${letraAleatoriaPlaca()}${letraAleatoriaPlaca()}`;
+let contadorPlaca = 0;
+const siguientePlaca = () => {
+  contadorPlaca += 1;
+  return `${prefijoPlaca}${String(contadorPlaca).padStart(3, '0')}`;
+};
+
 const registrarVehiculoDePrueba = async (overrides = {}) => {
   contadorDocumentoCliente += 1;
+  const { placa, ...resto } = overrides;
   const cliente = await conToken('post', '/api/clientes').send({
     nombre: 'Ana María Torres',
     documento: `${selloDocumentoCliente}${String(contadorDocumentoCliente).padStart(3, '0')}`,
@@ -79,10 +91,10 @@ const registrarVehiculoDePrueba = async (overrides = {}) => {
     telefono: '3001234567',
   });
   const vehiculo = await conToken('post', '/api/vehiculos').send({
-    placa: 'ABC123',
+    placa: placa ?? siguientePlaca(),
     tipoVehiculo: 'automovil',
     clienteId: cliente.body.cliente.id,
-    ...overrides,
+    ...resto,
   });
   return vehiculo.body.vehiculo;
 };
@@ -113,7 +125,7 @@ const registrarServicioDePrueba = async (overrides = {}) => {
 };
 
 const crearOrdenDePrueba = async (overrides = {}) => {
-  const vehiculo = await registrarVehiculoDePrueba({ placa: overrides.placa ?? 'ABC123' });
+  const vehiculo = await registrarVehiculoDePrueba({ placa: overrides.placa });
   const colaborador = await registrarColaboradorDePrueba(overrides.colaborador);
   const servicio = await registrarServicioDePrueba(overrides.servicio);
 
@@ -205,13 +217,11 @@ describe('GET /api/jornadas', () => {
 
     await crearOrdenDePrueba({
       turno: 1,
-      placa: 'ABC123',
       colaborador: { codigo: 401, documento: '1020304050' },
       servicio: { numero: 1 },
     });
     await crearOrdenDePrueba({
       turno: 2,
-      placa: 'XYZ789',
       colaborador: { codigo: 402, documento: '1020304099' },
       servicio: { numero: 2 },
     });
