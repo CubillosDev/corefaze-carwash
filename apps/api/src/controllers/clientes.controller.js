@@ -42,7 +42,7 @@ const actualizar = async (req, res) => {
 const eliminar = async (req, res) => {
   const { id } = req.datos.parametros;
 
-  if (vehiculosService.clienteTieneVehiculos(id)) {
+  if (await vehiculosService.clienteTieneVehiculos(id)) {
     throw new Conflicto('No se puede eliminar un cliente con vehículos asociados');
   }
 

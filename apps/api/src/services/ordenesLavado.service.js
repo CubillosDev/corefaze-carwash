@@ -277,7 +277,7 @@ const crearOrden = async (datos) => {
   }
 
   // R1: vehículo, servicio y colaborador deben existir (404 si no).
-  const vehiculo = vehiculosService.obtenerVehiculoOFallar(datos.vehiculoId);
+  const vehiculo = await vehiculosService.obtenerVehiculoOFallar(datos.vehiculoId);
   const servicio = serviciosService.obtenerServicioOFallar(datos.servicioId);
   const colaborador = colaboradoresService.obtenerColaboradorOFallar(datos.colaboradorId);
 
@@ -364,7 +364,7 @@ const editarOrden = async (id, datos) => {
   const clienteIdFinal = datos.clienteId !== undefined ? datos.clienteId : orden.clienteId;
 
   if (vehiculoIdFinal !== orden.vehiculoId) {
-    const vehiculo = vehiculosService.obtenerVehiculoOFallar(vehiculoIdFinal); // R1
+    const vehiculo = await vehiculosService.obtenerVehiculoOFallar(vehiculoIdFinal); // R1
     validarVehiculoSinOtraOrdenAbierta(vehiculoIdFinal, orden.id); // R6
     validarServicioAplicaATipo(orden.servicioId, vehiculo.tipoVehiculo); // R3 (aplicabilidad)
   }
