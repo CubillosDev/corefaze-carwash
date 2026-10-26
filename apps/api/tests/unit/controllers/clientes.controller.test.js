@@ -18,17 +18,20 @@ const crearRespuesta = () => {
   return res;
 };
 
-const crearPeticion = ({ cuerpo = {}, parametros = {} } = {}) => ({
+// usuario: req.usuario ya existe siempre aquí (autenticarJWT corre antes
+// en la ruta real); clientes.controller.js lo usa para la auditoría.
+const crearPeticion = ({ cuerpo = {}, parametros = {}, usuario = { id: 1 } } = {}) => ({
   datos: { cuerpo, parametros },
+  usuario,
 });
 
 describe('clientes.controller', () => {
   describe('listar', () => {
-    it('responde 200 con la lista de clientes', () => {
-      clientesService.listarClientes.mockReturnValue([{ id: 1 }, { id: 2 }]);
+    it('responde 200 con la lista de clientes', async () => {
+      clientesService.listarClientes.mockResolvedValue([{ id: 1 }, { id: 2 }]);
 
       const res = crearRespuesta();
-      listar(crearPeticion(), res, jest.fn());
+      await listar(crearPeticion(), res, jest.fn());
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ clientes: [{ id: 1 }, { id: 2 }] });
@@ -36,111 +39,109 @@ describe('clientes.controller', () => {
   });
 
   describe('obtenerPorId', () => {
-    it('responde 200 con el cliente encontrado', () => {
-      clientesService.obtenerClienteOFallar.mockReturnValue({ id: 1, nombre: 'Ana' });
+    it('responde 200 con el cliente encontrado', async () => {
+      clientesService.obtenerClienteOFallar.mockResolvedValue({ id: 1, nombre: 'Ana' });
 
       const res = crearRespuesta();
-      obtenerPorId(crearPeticion({ parametros: { id: 1 } }), res, jest.fn());
+      await obtenerPorId(crearPeticion({ parametros: { id: 1 } }), res, jest.fn());
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ cliente: { id: 1, nombre: 'Ana' } });
     });
 
-    it('pasa el error al siguiente manejador si el service lanza (404)', () => {
+    it('propaga el error si el service lanza (404) — sin try/catch, Express 5 lo atrapa solo', async () => {
       const error = new Error('no encontrado');
-      clientesService.obtenerClienteOFallar.mockImplementation(() => {
-        throw error;
-      });
+      clientesService.obtenerClienteOFallar.mockRejectedValue(error);
 
-      const next = jest.fn();
-      obtenerPorId(crearPeticion({ parametros: { id: 999 } }), crearRespuesta(), next);
-
-      expect(next).toHaveBeenCalledWith(error);
+      await expect(
+        obtenerPorId(crearPeticion({ parametros: { id: 999 } }), crearRespuesta(), jest.fn()),
+      ).rejects.toThrow(error);
     });
   });
 
   describe('crear', () => {
-    it('responde 201 con el cliente creado', () => {
+    it('responde 201 con el cliente creado, pasando el usuario autenticado para la auditoría', async () => {
       const datosCliente = {
         nombre: 'Ana',
         documento: '123',
         tipo: 'particular',
         telefono: '3001234567',
       };
-      clientesService.crearCliente.mockReturnValue({ id: 1, ...datosCliente });
+      clientesService.crearCliente.mockResolvedValue({ id: 1, ...datosCliente });
 
       const res = crearRespuesta();
-      crear(crearPeticion({ cuerpo: datosCliente }), res, jest.fn());
+      await crear(crearPeticion({ cuerpo: datosCliente, usuario: { id: 7 } }), res, jest.fn());
 
-      expect(clientesService.crearCliente).toHaveBeenCalledWith(datosCliente);
+      expect(clientesService.crearCliente).toHaveBeenCalledWith(datosCliente, 7);
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ mensaje: 'Cliente registrado correctamente' }),
       );
     });
 
-    it('pasa el error al siguiente manejador si el documento ya existe (409)', () => {
+    it('propaga el error si el documento ya existe (409)', async () => {
       const error = new Error('documento duplicado');
-      clientesService.crearCliente.mockImplementation(() => {
-        throw error;
-      });
+      clientesService.crearCliente.mockRejectedValue(error);
 
-      const next = jest.fn();
-      crear(crearPeticion({ cuerpo: {} }), crearRespuesta(), next);
-
-      expect(next).toHaveBeenCalledWith(error);
+      await expect(
+        crear(crearPeticion({ cuerpo: {} }), crearRespuesta(), jest.fn()),
+      ).rejects.toThrow(error);
     });
   });
 
   describe('actualizar', () => {
-    it('responde 200 con el cliente actualizado', () => {
-      clientesService.actualizarCliente.mockReturnValue({ id: 1, telefono: '3009999999' });
+    it('responde 200 con el cliente actualizado', async () => {
+      clientesService.actualizarCliente.mockResolvedValue({ id: 1, telefono: '3009999999' });
 
       const res = crearRespuesta();
-      actualizar(
-        crearPeticion({ parametros: { id: 1 }, cuerpo: { telefono: '3009999999' } }),
+      await actualizar(
+        crearPeticion({
+          parametros: { id: 1 },
+          cuerpo: { telefono: '3009999999' },
+          usuario: { id: 7 },
+        }),
         res,
         jest.fn(),
       );
 
-      expect(clientesService.actualizarCliente).toHaveBeenCalledWith(1, { telefono: '3009999999' });
+      expect(clientesService.actualizarCliente).toHaveBeenCalledWith(
+        1,
+        { telefono: '3009999999' },
+        7,
+      );
       expect(res.status).toHaveBeenCalledWith(200);
     });
   });
 
   describe('eliminar', () => {
-    it('responde 200 al eliminar correctamente', () => {
+    it('responde 200 al eliminar correctamente', async () => {
       vehiculosService.clienteTieneVehiculos.mockReturnValue(false);
+      clientesService.eliminarCliente.mockResolvedValue(undefined);
 
       const res = crearRespuesta();
-      eliminar(crearPeticion({ parametros: { id: 1 } }), res, jest.fn());
+      await eliminar(crearPeticion({ parametros: { id: 1 }, usuario: { id: 7 } }), res, jest.fn());
 
-      expect(clientesService.eliminarCliente).toHaveBeenCalledWith(1);
+      expect(clientesService.eliminarCliente).toHaveBeenCalledWith(1, 7);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ mensaje: 'Cliente eliminado correctamente' });
     });
 
-    it('pasa el error al siguiente manejador si el id no existe (404)', () => {
+    it('propaga el error si el id no existe (404)', async () => {
       vehiculosService.clienteTieneVehiculos.mockReturnValue(false);
       const error = new Error('no encontrado');
-      clientesService.eliminarCliente.mockImplementation(() => {
-        throw error;
-      });
+      clientesService.eliminarCliente.mockRejectedValue(error);
 
-      const next = jest.fn();
-      eliminar(crearPeticion({ parametros: { id: 999 } }), crearRespuesta(), next);
-
-      expect(next).toHaveBeenCalledWith(error);
+      await expect(
+        eliminar(crearPeticion({ parametros: { id: 999 } }), crearRespuesta(), jest.fn()),
+      ).rejects.toThrow(error);
     });
 
-    it('responde 409 si el cliente tiene vehículos asociados', () => {
+    it('responde 409 si el cliente tiene vehículos asociados, sin llamar a eliminarCliente', async () => {
       vehiculosService.clienteTieneVehiculos.mockReturnValue(true);
 
-      const next = jest.fn();
-      eliminar(crearPeticion({ parametros: { id: 1 } }), crearRespuesta(), next);
-
-      const [error] = next.mock.calls[0];
-      expect(error.estado).toBe(409);
+      await expect(
+        eliminar(crearPeticion({ parametros: { id: 1 } }), crearRespuesta(), jest.fn()),
+      ).rejects.toMatchObject({ estado: 409 });
       expect(clientesService.eliminarCliente).not.toHaveBeenCalled();
     });
   });

@@ -125,7 +125,7 @@ describe('ordenesLavado.controller', () => {
   });
 
   describe('crear', () => {
-    it('responde 201 con la orden creada', () => {
+    it('responde 201 con la orden creada', async () => {
       const datosOrden = {
         turno: 1,
         vehiculoId: 1,
@@ -133,14 +133,14 @@ describe('ordenesLavado.controller', () => {
         colaboradorId: 1,
         medioPago: 'efectivo',
       };
-      ordenesLavadoService.crearOrden.mockReturnValue({
+      ordenesLavadoService.crearOrden.mockResolvedValue({
         id: 1,
         ...datosOrden,
         estado: 'registrada',
       });
 
       const res = crearRespuesta();
-      crear(crearPeticion({ cuerpo: datosOrden }), res, jest.fn());
+      await crear(crearPeticion({ cuerpo: datosOrden }), res, jest.fn());
 
       expect(ordenesLavadoService.crearOrden).toHaveBeenCalledWith(datosOrden);
       expect(res.status).toHaveBeenCalledWith(201);
@@ -149,25 +149,27 @@ describe('ordenesLavado.controller', () => {
       );
     });
 
-    it('pasa el error al siguiente manejador si el service lanza (404/409)', () => {
+    it('pasa el error al siguiente manejador si el service lanza (404/409)', async () => {
       const error = new Error('conflicto de negocio');
-      ordenesLavadoService.crearOrden.mockImplementation(() => {
-        throw error;
-      });
+      ordenesLavadoService.crearOrden.mockRejectedValue(error);
 
       const next = jest.fn();
-      crear(crearPeticion({ cuerpo: {} }), crearRespuesta(), next);
+      await crear(crearPeticion({ cuerpo: {} }), crearRespuesta(), next);
 
       expect(next).toHaveBeenCalledWith(error);
     });
   });
 
   describe('editar', () => {
-    it('responde 200 con la orden editada', () => {
-      ordenesLavadoService.editarOrden.mockReturnValue({ id: 1, vehiculoId: 2 });
+    it('responde 200 con la orden editada', async () => {
+      ordenesLavadoService.editarOrden.mockResolvedValue({ id: 1, vehiculoId: 2 });
 
       const res = crearRespuesta();
-      editar(crearPeticion({ parametros: { id: 1 }, cuerpo: { vehiculoId: 2 } }), res, jest.fn());
+      await editar(
+        crearPeticion({ parametros: { id: 1 }, cuerpo: { vehiculoId: 2 } }),
+        res,
+        jest.fn(),
+      );
 
       expect(ordenesLavadoService.editarOrden).toHaveBeenCalledWith(1, { vehiculoId: 2 });
       expect(res.status).toHaveBeenCalledWith(200);
@@ -176,14 +178,12 @@ describe('ordenesLavado.controller', () => {
       );
     });
 
-    it('pasa el error al siguiente manejador si el service lanza (404/409)', () => {
+    it('pasa el error al siguiente manejador si el service lanza (404/409)', async () => {
       const error = new Error('conflicto de negocio');
-      ordenesLavadoService.editarOrden.mockImplementation(() => {
-        throw error;
-      });
+      ordenesLavadoService.editarOrden.mockRejectedValue(error);
 
       const next = jest.fn();
-      editar(crearPeticion({ parametros: { id: 1 }, cuerpo: {} }), crearRespuesta(), next);
+      await editar(crearPeticion({ parametros: { id: 1 }, cuerpo: {} }), crearRespuesta(), next);
 
       expect(next).toHaveBeenCalledWith(error);
     });

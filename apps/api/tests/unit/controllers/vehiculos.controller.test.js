@@ -58,12 +58,12 @@ describe('vehiculos.controller', () => {
   });
 
   describe('crear', () => {
-    it('responde 201 con el vehículo creado', () => {
+    it('responde 201 con el vehículo creado', async () => {
       const datosVehiculo = { placa: 'ABC123', tipoVehiculo: 'automovil', clienteId: 1 };
-      vehiculosService.crearVehiculo.mockReturnValue({ id: 1, ...datosVehiculo });
+      vehiculosService.crearVehiculo.mockResolvedValue({ id: 1, ...datosVehiculo });
 
       const res = crearRespuesta();
-      crear(crearPeticion({ cuerpo: datosVehiculo }), res, jest.fn());
+      await crear(crearPeticion({ cuerpo: datosVehiculo }), res, jest.fn());
 
       expect(vehiculosService.crearVehiculo).toHaveBeenCalledWith(datosVehiculo);
       expect(res.status).toHaveBeenCalledWith(201);
@@ -72,25 +72,23 @@ describe('vehiculos.controller', () => {
       );
     });
 
-    it('pasa el error al siguiente manejador si la placa ya existe (409)', () => {
+    it('pasa el error al siguiente manejador si la placa ya existe (409)', async () => {
       const error = new Error('placa duplicada');
-      vehiculosService.crearVehiculo.mockImplementation(() => {
-        throw error;
-      });
+      vehiculosService.crearVehiculo.mockRejectedValue(error);
 
       const next = jest.fn();
-      crear(crearPeticion({ cuerpo: {} }), crearRespuesta(), next);
+      await crear(crearPeticion({ cuerpo: {} }), crearRespuesta(), next);
 
       expect(next).toHaveBeenCalledWith(error);
     });
   });
 
   describe('actualizar', () => {
-    it('responde 200 con el vehículo actualizado', () => {
-      vehiculosService.actualizarVehiculo.mockReturnValue({ id: 1, color: 'rojo' });
+    it('responde 200 con el vehículo actualizado', async () => {
+      vehiculosService.actualizarVehiculo.mockResolvedValue({ id: 1, color: 'rojo' });
 
       const res = crearRespuesta();
-      actualizar(
+      await actualizar(
         crearPeticion({ parametros: { id: 1 }, cuerpo: { color: 'rojo' } }),
         res,
         jest.fn(),

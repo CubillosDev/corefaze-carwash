@@ -1,7 +1,6 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const { generarToken } = require('../../src/utils/jwt.util');
-const clientes = require('../../src/data/clientes');
 const vehiculos = require('../../src/data/vehiculos');
 const colaboradores = require('../../src/data/colaboradores');
 const servicios = require('../../src/data/servicios');
@@ -37,7 +36,6 @@ const TOKEN_SOPORTE = tokenDe('soporte');
 const TOKEN_PENDIENTE = tokenDe('pendiente');
 
 beforeEach(() => {
-  clientes.length = 0;
   vehiculos.length = 0;
   colaboradores.length = 0;
   servicios.length = 0;
@@ -68,10 +66,21 @@ const abrirJornada = async () => {
   return respuesta.body.jornada;
 };
 
+// clientes.service.js ya escribe en el Supabase local (SCRUM-152, Etapa
+// A), no en un array que el beforeEach pudiera vaciar: el documento es
+// único (sello de tiempo + contador) para no chocar ni dentro de esta
+// corrida ni con filas de corridas anteriores sin un `db reset` de por medio.
+const selloDocumentoCliente = Date.now().toString().slice(-9);
+let contadorDocumentoCliente = 0;
+const documentoUnicoDeCliente = () => {
+  contadorDocumentoCliente += 1;
+  return `${selloDocumentoCliente}${String(contadorDocumentoCliente).padStart(3, '0')}`;
+};
+
 const registrarClienteParticular = async (overrides = {}) => {
   const respuesta = await conToken('post', '/api/clientes').send({
     nombre: 'Ana María Torres',
-    documento: '1010101010',
+    documento: documentoUnicoDeCliente(),
     tipo: 'particular',
     telefono: '3001234567',
     ...overrides,
@@ -82,7 +91,7 @@ const registrarClienteParticular = async (overrides = {}) => {
 const registrarClienteEmpresaConCredito = async (overrides = {}) => {
   const respuesta = await conToken('post', '/api/clientes').send({
     nombre: 'Constructora Ejemplo S.A.S.',
-    documento: '900123456',
+    documento: documentoUnicoDeCliente(),
     tipo: 'empresa',
     telefono: '3009876543',
     creditoHabilitado: true,
@@ -247,7 +256,7 @@ describe('POST /api/ordenes-lavado', () => {
     );
     expect(primera.status).toBe(201);
 
-    const otroCliente = await registrarClienteParticular({ documento: '1010101099' });
+    const otroCliente = await registrarClienteParticular();
     const otroVehiculo = await registrarVehiculo(otroCliente.id, { placa: 'XYZ789' });
 
     const respuesta = await conToken('post', '/api/ordenes-lavado').send(
@@ -439,7 +448,7 @@ describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
       datosOrden(escenario, { turno: 1 }),
     );
 
-    const otroCliente = await registrarClienteParticular({ documento: '1010101098' });
+    const otroCliente = await registrarClienteParticular();
     const otroVehiculo = await registrarVehiculo(otroCliente.id, { placa: 'XYZ789' });
     await conToken('post', '/api/ordenes-lavado').send(
       datosOrden({ ...escenario, vehiculo: otroVehiculo }, { turno: 2 }),
@@ -646,14 +655,14 @@ describe('GET /api/ordenes-lavado', () => {
     );
 
     // Orden 2: nequi (otro vehículo), se queda registrada.
-    const clienteB = await registrarClienteParticular({ documento: '1010101097' });
+    const clienteB = await registrarClienteParticular();
     const vehiculoB = await registrarVehiculo(clienteB.id, { placa: 'XYZ789' });
     await conToken('post', '/api/ordenes-lavado').send(
       datosOrden({ ...escenario, vehiculo: vehiculoB }, { turno: 2, medioPago: 'nequi' }),
     );
 
     // Orden 3: efectivo (otro vehículo), pero se cancela: NO debe sumar a nada.
-    const clienteC = await registrarClienteParticular({ documento: '1010101096' });
+    const clienteC = await registrarClienteParticular();
     const vehiculoC = await registrarVehiculo(clienteC.id, { placa: 'DEF456' });
     const orden3 = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden({ ...escenario, vehiculo: vehiculoC }, { turno: 3, medioPago: 'efectivo' }),
@@ -706,7 +715,7 @@ describe('GET /api/ordenes-lavado', () => {
       datosOrden(escenario, { turno: 1, medioPago: 'efectivo' }),
     );
 
-    const clienteB = await registrarClienteParticular({ documento: '1010101095' });
+    const clienteB = await registrarClienteParticular();
     const vehiculoB = await registrarVehiculo(clienteB.id, { placa: 'GHI789' });
     const colaboradorB = await registrarColaborador({ codigo: 402, documento: '1020304098' });
     const servicioB = await registrarServicioParaAutomovil({ numero: 2 });

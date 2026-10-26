@@ -1,6 +1,5 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
-const clientes = require('../../src/data/clientes');
 const vehiculos = require('../../src/data/vehiculos');
 const servicios = require('../../src/data/servicios');
 const colaboradores = require('../../src/data/colaboradores');
@@ -35,7 +34,6 @@ const TOKEN_SOPORTE = tokenDe('soporte');
 const TOKEN_PENDIENTE = tokenDe('pendiente');
 
 beforeEach(() => {
-  clientes.length = 0;
   vehiculos.length = 0;
   servicios.length = 0;
   colaboradores.length = 0;
@@ -59,10 +57,18 @@ const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', 
 const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
   conApiKey(metodo, ruta).set('Authorization', `Bearer ${token}`);
 
+// clientes.service.js ya escribe en el Supabase local (SCRUM-152, Etapa
+// A), no en un array que el beforeEach pudiera vaciar: el documento es
+// único (sello de tiempo + contador) para no chocar ni dentro de esta
+// corrida ni con filas de corridas anteriores sin un `db reset` de por medio.
+const selloDocumentoCliente = Date.now().toString().slice(-9);
+let contadorDocumentoCliente = 0;
+
 const registrarCliente = async () => {
+  contadorDocumentoCliente += 1;
   const respuesta = await conToken('post', '/api/clientes').send({
     nombre: 'Ana María Torres',
-    documento: '1010101010',
+    documento: `${selloDocumentoCliente}${String(contadorDocumentoCliente).padStart(3, '0')}`,
     tipo: 'particular',
     telefono: '3001234567',
   });

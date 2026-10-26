@@ -1,4 +1,3 @@
-const clientes = require('../../../src/data/clientes');
 const vehiculos = require('../../../src/data/vehiculos');
 const colaboradores = require('../../../src/data/colaboradores');
 const servicios = require('../../../src/data/servicios');
@@ -26,37 +25,45 @@ const {
 } = require('../../../src/services/ordenesLavado.service');
 const { NoEncontrado, Conflicto, SolicitudInvalida } = require('../../../src/utils/errores');
 
-let contadorDocumentoCliente;
+const USUARIO_ID_PRUEBA = 1;
+
+// clientesService.crearCliente ya escribe en el Supabase local (SCRUM-152,
+// Etapa A), no en un array que beforeEach pudiera vaciar: el documento de
+// cada cliente de prueba es único (sello de tiempo + contador) para no
+// chocar ni dentro de esta corrida ni entre corridas sin un `db reset`.
+const selloDocumento = Date.now().toString().slice(-9);
+let contadorDocumentoCliente = 0;
 
 beforeEach(() => {
-  clientes.length = 0;
   vehiculos.length = 0;
   colaboradores.length = 0;
   servicios.length = 0;
   ordenesLavado.length = 0;
   jornadas.length = 0;
-  contadorDocumentoCliente = 0;
 });
 
 /** Documento único por llamada, para no chocar con el cliente por defecto de cada vehículo de prueba. */
 const siguienteDocumentoCliente = () => {
   contadorDocumentoCliente += 1;
-  return `9001234${String(contadorDocumentoCliente).padStart(2, '0')}`;
+  return `${selloDocumento}${String(contadorDocumentoCliente).padStart(3, '0')}`;
 };
 
 const crearClienteDePrueba = (datos = {}) =>
-  clientesService.crearCliente({
-    nombre: 'Constructora Ejemplo S.A.S.',
-    documento: siguienteDocumentoCliente(),
-    tipo: 'empresa',
-    telefono: '3001234567',
-    creditoHabilitado: true,
-    ...datos,
-  });
+  clientesService.crearCliente(
+    {
+      nombre: 'Constructora Ejemplo S.A.S.',
+      documento: siguienteDocumentoCliente(),
+      tipo: 'empresa',
+      telefono: '3001234567',
+      creditoHabilitado: true,
+      ...datos,
+    },
+    USUARIO_ID_PRUEBA,
+  );
 
-const crearVehiculoDePrueba = (datos = {}) => {
+const crearVehiculoDePrueba = async (datos = {}) => {
   const { clienteId, ...resto } = datos;
-  const idCliente = clienteId ?? crearClienteDePrueba().id;
+  const idCliente = clienteId ?? (await crearClienteDePrueba()).id;
   return vehiculosService.crearVehiculo({
     placa: 'ABC123',
     tipoVehiculo: 'automovil',
@@ -87,8 +94,8 @@ const crearServicioDePrueba = (datos = {}) =>
   });
 
 /** Crea vehículo, colaborador y servicio compatibles entre sí (mismo tipo de vehículo que cubre la tarifa). */
-const construirEscenarioValido = () => ({
-  vehiculo: crearVehiculoDePrueba(),
+const construirEscenarioValido = async () => ({
+  vehiculo: await crearVehiculoDePrueba(),
   colaborador: crearColaboradorDePrueba(),
   servicio: crearServicioDePrueba(),
 });
@@ -131,13 +138,12 @@ const abrirJornadaConFecha = (fecha) => {
 
 describe('ordenesLavado.service', () => {
   describe('crearOrden', () => {
-    it('crea una orden con el valor calculado desde la tarifa del servicio (ignora datos.valor)', () => {
+    it('crea una orden con el valor calculado desde la tarifa del servicio (ignora datos.valor)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario, { valor: 999999999 }));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario, { valor: 999999999 }));
 
       expect(orden).toMatchObject({
-        id: 1,
         vehiculoId: escenario.vehiculo.id,
         servicioId: escenario.servicio.id,
         colaboradorId: escenario.colaborador.id,
@@ -148,253 +154,258 @@ describe('ordenesLavado.service', () => {
       expect(orden.jornadaId).toBeDefined();
     });
 
-    it('rechaza crear una orden si no hay ninguna jornada abierta (409)', () => {
-      const escenario = construirEscenarioValido();
-      expect(() => crearOrden(datosOrdenValida(escenario))).toThrow(Conflicto);
+    it('rechaza crear una orden si no hay ninguna jornada abierta (409)', async () => {
+      const escenario = await construirEscenarioValido();
+      await expect(crearOrden(datosOrdenValida(escenario))).rejects.toThrow(Conflicto);
     });
 
-    it('R1: rechaza un vehiculoId que no existe (404)', () => {
+    it('R1: rechaza un vehiculoId que no existe (404)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      expect(() => crearOrden(datosOrdenValida(escenario, { vehiculoId: 9999 }))).toThrow(
+      const escenario = await construirEscenarioValido();
+      await expect(crearOrden(datosOrdenValida(escenario, { vehiculoId: 9999 }))).rejects.toThrow(
         NoEncontrado,
       );
     });
 
-    it('R1: rechaza un servicioId que no existe (404)', () => {
+    it('R1: rechaza un servicioId que no existe (404)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      expect(() => crearOrden(datosOrdenValida(escenario, { servicioId: 9999 }))).toThrow(
+      const escenario = await construirEscenarioValido();
+      await expect(crearOrden(datosOrdenValida(escenario, { servicioId: 9999 }))).rejects.toThrow(
         NoEncontrado,
       );
     });
 
-    it('R1: rechaza un colaboradorId que no existe (404)', () => {
+    it('R1: rechaza un colaboradorId que no existe (404)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      expect(() => crearOrden(datosOrdenValida(escenario, { colaboradorId: 9999 }))).toThrow(
-        NoEncontrado,
-      );
+      const escenario = await construirEscenarioValido();
+      await expect(
+        crearOrden(datosOrdenValida(escenario, { colaboradorId: 9999 })),
+      ).rejects.toThrow(NoEncontrado);
     });
 
-    it('R2: rechaza un colaborador inactivo (409)', () => {
+    it('R2: rechaza un colaborador inactivo (409)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
+      const escenario = await construirEscenarioValido();
       colaboradoresService.cambiarEstadoColaborador(escenario.colaborador.id, 'inactivo');
 
-      expect(() => crearOrden(datosOrdenValida(escenario))).toThrow(Conflicto);
+      await expect(crearOrden(datosOrdenValida(escenario))).rejects.toThrow(Conflicto);
     });
 
-    it('R3: rechaza un servicio inactivo (409)', () => {
+    it('R3: rechaza un servicio inactivo (409)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
+      const escenario = await construirEscenarioValido();
       serviciosService.actualizarServicio(escenario.servicio.id, { activo: false });
 
-      expect(() => crearOrden(datosOrdenValida(escenario))).toThrow(Conflicto);
+      await expect(crearOrden(datosOrdenValida(escenario))).rejects.toThrow(Conflicto);
     });
 
-    it('R3: rechaza un servicio sin tarifa para el tipo de vehículo (409)', () => {
+    it('R3: rechaza un servicio sin tarifa para el tipo de vehículo (409)', async () => {
       abrirJornadaDePrueba();
-      const vehiculo = crearVehiculoDePrueba({ tipoVehiculo: 'automovil' });
+      const vehiculo = await crearVehiculoDePrueba({ tipoVehiculo: 'automovil' });
       const colaborador = crearColaboradorDePrueba();
       const servicio = crearServicioDePrueba({
         tarifas: [{ tipoVehiculo: 'camioneta', valor: 20000 }],
       });
 
-      expect(() => crearOrden(datosOrdenValida({ vehiculo, colaborador, servicio }))).toThrow(
-        Conflicto,
-      );
+      await expect(
+        crearOrden(datosOrdenValida({ vehiculo, colaborador, servicio })),
+      ).rejects.toThrow(Conflicto);
     });
 
-    it('R7: rechaza un servicio con lavado de motor sin autorizaMotor (409)', () => {
+    it('R7: rechaza un servicio con lavado de motor sin autorizaMotor (409)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
+      const escenario = await construirEscenarioValido();
       serviciosService.actualizarServicio(escenario.servicio.id, { numero: 5 });
 
-      expect(() => crearOrden(datosOrdenValida(escenario))).toThrow(Conflicto);
+      await expect(crearOrden(datosOrdenValida(escenario))).rejects.toThrow(Conflicto);
     });
 
-    it('R7: permite un servicio con lavado de motor cuando autorizaMotor es true', () => {
+    it('R7: permite un servicio con lavado de motor cuando autorizaMotor es true', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
+      const escenario = await construirEscenarioValido();
       serviciosService.actualizarServicio(escenario.servicio.id, { numero: 5 });
 
-      const orden = crearOrden(datosOrdenValida(escenario, { autorizaMotor: true }));
+      const orden = await crearOrden(datosOrdenValida(escenario, { autorizaMotor: true }));
       expect(orden.autorizaMotor).toBe(true);
     });
 
-    it('R8: rechaza medioPago credito sin clienteId (409)', () => {
+    it('R8: rechaza medioPago credito sin clienteId (409)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      expect(() => crearOrden(datosOrdenValida(escenario, { medioPago: 'credito' }))).toThrow(
-        Conflicto,
-      );
+      const escenario = await construirEscenarioValido();
+      await expect(
+        crearOrden(datosOrdenValida(escenario, { medioPago: 'credito' })),
+      ).rejects.toThrow(Conflicto);
     });
 
-    it('R8: rechaza medioPago credito con un clienteId que no existe (404)', () => {
+    it('R8: rechaza medioPago credito con un clienteId que no existe (404)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      expect(() =>
-        crearOrden(datosOrdenValida(escenario, { medioPago: 'credito', clienteId: 9999 })),
-      ).toThrow(NoEncontrado);
+      const escenario = await construirEscenarioValido();
+      await expect(
+        crearOrden(datosOrdenValida(escenario, { medioPago: 'credito', clienteId: 999999999 })),
+      ).rejects.toThrow(NoEncontrado);
     });
 
-    it('R8: rechaza medioPago credito si el cliente no tiene crédito habilitado (409)', () => {
+    it('R8: rechaza medioPago credito si el cliente no tiene crédito habilitado (409)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const clienteSinCredito = crearClienteDePrueba({
-        documento: '900999999',
-        creditoHabilitado: false,
-      });
+      const escenario = await construirEscenarioValido();
+      const clienteSinCredito = await crearClienteDePrueba({ creditoHabilitado: false });
 
-      expect(() =>
+      await expect(
         crearOrden(
           datosOrdenValida(escenario, { medioPago: 'credito', clienteId: clienteSinCredito.id }),
         ),
-      ).toThrow(Conflicto);
+      ).rejects.toThrow(Conflicto);
     });
 
-    it('R8: rechaza medioPago credito si el cliente es particular (409)', () => {
+    it('R8: rechaza medioPago credito si el cliente es particular (409)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const clienteParticular = clientesService.crearCliente({
-        nombre: 'Ana María Torres',
-        documento: '1010101010',
-        tipo: 'particular',
-        telefono: '3009999999',
-      });
+      const escenario = await construirEscenarioValido();
+      const clienteParticular = await clientesService.crearCliente(
+        {
+          nombre: 'Ana María Torres',
+          documento: siguienteDocumentoCliente(),
+          tipo: 'particular',
+          telefono: '3009999999',
+        },
+        USUARIO_ID_PRUEBA,
+      );
 
-      expect(() =>
+      await expect(
         crearOrden(
           datosOrdenValida(escenario, { medioPago: 'credito', clienteId: clienteParticular.id }),
         ),
-      ).toThrow(Conflicto);
+      ).rejects.toThrow(Conflicto);
     });
 
-    it('R8: acepta medioPago credito con un cliente empresa activo y con crédito habilitado', () => {
+    it('R8: acepta medioPago credito con un cliente empresa activo y con crédito habilitado', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const clienteCredito = crearClienteDePrueba({ documento: '900888888' });
+      const escenario = await construirEscenarioValido();
+      const clienteCredito = await crearClienteDePrueba();
 
-      const orden = crearOrden(
+      const orden = await crearOrden(
         datosOrdenValida(escenario, { medioPago: 'credito', clienteId: clienteCredito.id }),
       );
       expect(orden.clienteId).toBe(clienteCredito.id);
     });
 
-    it('ignora clienteId si medioPago no es credito (queda en null)', () => {
+    it('ignora clienteId si medioPago no es credito (queda en null)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const otroCliente = crearClienteDePrueba({ documento: '900777777' });
+      const escenario = await construirEscenarioValido();
+      const otroCliente = await crearClienteDePrueba();
 
-      const orden = crearOrden(
+      const orden = await crearOrden(
         datosOrdenValida(escenario, { medioPago: 'efectivo', clienteId: otroCliente.id }),
       );
       expect(orden.clienteId).toBeNull();
     });
 
-    it('R5: rechaza un turno ya ocupado en la misma jornada (409)', () => {
+    it('R5: rechaza un turno ya ocupado en la misma jornada (409)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      crearOrden(datosOrdenValida(escenario, { turno: 1 }));
+      const escenario = await construirEscenarioValido();
+      await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
-      const otroVehiculo = crearVehiculoDePrueba({ placa: 'XYZ789' });
-      expect(() =>
+      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
+      await expect(
         crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 1 })),
-      ).toThrow(Conflicto);
+      ).rejects.toThrow(Conflicto);
     });
 
-    it('dos turnos distintos en la misma jornada no chocan entre sí', () => {
+    it('dos turnos distintos en la misma jornada no chocan entre sí', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      crearOrden(datosOrdenValida(escenario, { turno: 1 }));
+      const escenario = await construirEscenarioValido();
+      await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
-      const otroVehiculo = crearVehiculoDePrueba({ placa: 'XYZ789' });
-      expect(() =>
-        crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 2 })),
-      ).not.toThrow();
+      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
+      await crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 2 }));
     });
 
-    it('R6: rechaza una segunda orden abierta para el mismo vehículo (409)', () => {
+    it('R6: rechaza una segunda orden abierta para el mismo vehículo (409)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      crearOrden(datosOrdenValida(escenario, { turno: 1 }));
+      const escenario = await construirEscenarioValido();
+      await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
-      expect(() => crearOrden(datosOrdenValida(escenario, { turno: 2 }))).toThrow(Conflicto);
+      await expect(crearOrden(datosOrdenValida(escenario, { turno: 2 }))).rejects.toThrow(
+        Conflicto,
+      );
     });
 
-    it('permite una nueva orden para el mismo vehículo tras cerrar la anterior', () => {
+    it('permite una nueva orden para el mismo vehículo tras cerrar la anterior', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const primera = crearOrden(datosOrdenValida(escenario, { turno: 1 }));
+      const escenario = await construirEscenarioValido();
+      const primera = await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
       cambiarEstadoOrden(primera.id, 'cancelada', 'Cliente canceló');
 
-      expect(() => crearOrden(datosOrdenValida(escenario, { turno: 2 }))).not.toThrow();
+      await crearOrden(datosOrdenValida(escenario, { turno: 2 }));
     });
   });
 
   describe('editarOrden', () => {
-    it('"valor" es inmutable: no se recalcula aunque suba la tarifa del servicio', () => {
+    it('"valor" es inmutable: no se recalcula aunque suba la tarifa del servicio', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario));
 
       // Sube la tarifa del servicio después de crear la orden.
       serviciosService.actualizarServicio(escenario.servicio.id, {
         tarifas: [{ tipoVehiculo: 'automovil', valor: 99999 }],
       });
 
-      const editada = editarOrden(orden.id, { observaciones: 'actualizado' });
+      const editada = await editarOrden(orden.id, { observaciones: 'actualizado' });
 
       expect(editada.valor).toBe(15000);
     });
 
-    it('R3: permite editar a un vehículo de otro tipo que el servicio sí cubre (200), sin recalcular "valor"', () => {
+    it('R3: permite editar a un vehículo de otro tipo que el servicio sí cubre (200), sin recalcular "valor"', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
+      const escenario = await construirEscenarioValido();
       serviciosService.actualizarServicio(escenario.servicio.id, {
         tarifas: [
           { tipoVehiculo: 'automovil', valor: 15000 },
           { tipoVehiculo: 'camioneta', valor: 20000 },
         ],
       });
-      const orden = crearOrden(datosOrdenValida(escenario));
+      const orden = await crearOrden(datosOrdenValida(escenario));
 
-      const nuevoVehiculo = crearVehiculoDePrueba({ placa: 'XYZ789', tipoVehiculo: 'camioneta' });
-      const editada = editarOrden(orden.id, { vehiculoId: nuevoVehiculo.id });
+      const nuevoVehiculo = await crearVehiculoDePrueba({
+        placa: 'XYZ789',
+        tipoVehiculo: 'camioneta',
+      });
+      const editada = await editarOrden(orden.id, { vehiculoId: nuevoVehiculo.id });
 
       expect(editada.vehiculoId).toBe(nuevoVehiculo.id);
       expect(editada.valor).toBe(15000);
     });
 
-    it('R3: rechaza editar a un vehículo de un tipo que el servicio no cubre (409)', () => {
+    it('R3: rechaza editar a un vehículo de un tipo que el servicio no cubre (409)', async () => {
       abrirJornadaDePrueba();
       // escenario.servicio solo tiene tarifa para 'automovil'.
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario));
 
-      const vehiculoMoto = crearVehiculoDePrueba({
+      const vehiculoMoto = await crearVehiculoDePrueba({
         placa: 'XYZ12D',
         tipoVehiculo: 'moto_hasta_150cc',
       });
 
-      expect(() => editarOrden(orden.id, { vehiculoId: vehiculoMoto.id })).toThrow(Conflicto);
+      await expect(editarOrden(orden.id, { vehiculoId: vehiculoMoto.id })).rejects.toThrow(
+        Conflicto,
+      );
     });
 
-    it('permite editar aunque el servicio original haya quedado inactivo (ya no se revalida al editar)', () => {
+    it('permite editar aunque el servicio original haya quedado inactivo (ya no se revalida al editar)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario));
 
       serviciosService.actualizarServicio(escenario.servicio.id, { activo: false });
 
-      expect(() => editarOrden(orden.id, { observaciones: 'actualizado' })).not.toThrow();
+      await editarOrden(orden.id, { observaciones: 'actualizado' });
     });
 
-    it('rechaza editar a un colaborador inactivo (409)', () => {
+    it('rechaza editar a un colaborador inactivo (409)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario));
 
       const otroColaborador = crearColaboradorDePrueba({
         codigo: 402,
@@ -402,63 +413,67 @@ describe('ordenesLavado.service', () => {
       });
       colaboradoresService.cambiarEstadoColaborador(otroColaborador.id, 'inactivo');
 
-      expect(() => editarOrden(orden.id, { colaboradorId: otroColaborador.id })).toThrow(Conflicto);
+      await expect(editarOrden(orden.id, { colaboradorId: otroColaborador.id })).rejects.toThrow(
+        Conflicto,
+      );
     });
 
-    it('rechaza editar vehiculoId a uno que ya tiene otra orden abierta (409)', () => {
+    it('rechaza editar vehiculoId a uno que ya tiene otra orden abierta (409)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario, { turno: 1 }));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
-      const otroVehiculo = crearVehiculoDePrueba({ placa: 'XYZ789' });
-      crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 2 }));
+      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
+      await crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 2 }));
 
-      expect(() => editarOrden(orden.id, { vehiculoId: otroVehiculo.id })).toThrow(Conflicto);
+      await expect(editarOrden(orden.id, { vehiculoId: otroVehiculo.id })).rejects.toThrow(
+        Conflicto,
+      );
     });
 
-    it('rechaza editar una orden ya entregada (409)', () => {
+    it('rechaza editar una orden ya entregada (409)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario));
       cambiarEstadoOrden(orden.id, 'en_proceso');
       cambiarEstadoOrden(orden.id, 'terminada');
       cambiarEstadoOrden(orden.id, 'entregada');
 
-      expect(() => editarOrden(orden.id, { observaciones: 'tarde' })).toThrow(Conflicto);
+      await expect(editarOrden(orden.id, { observaciones: 'tarde' })).rejects.toThrow(Conflicto);
     });
 
-    it('rechaza editar una orden ya cancelada (409)', () => {
+    it('rechaza editar una orden ya cancelada (409)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario));
       cambiarEstadoOrden(orden.id, 'cancelada', 'Cliente canceló');
 
-      expect(() => editarOrden(orden.id, { observaciones: 'tarde' })).toThrow(Conflicto);
+      await expect(editarOrden(orden.id, { observaciones: 'tarde' })).rejects.toThrow(Conflicto);
     });
 
-    it('rechaza editar una orden cuya jornada ya no está abierta (409)', () => {
+    it('rechaza editar una orden cuya jornada ya no está abierta (409)', async () => {
       const jornada = abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario));
       jornadasService.cerrarJornada(jornada.id);
 
-      expect(() => editarOrden(orden.id, { observaciones: 'tarde' })).toThrow(Conflicto);
+      await expect(editarOrden(orden.id, { observaciones: 'tarde' })).rejects.toThrow(Conflicto);
     });
 
-    it('rechaza editar medioPago a credito sin un cliente con crédito habilitado (409)', () => {
+    it('rechaza editar medioPago a credito sin un cliente con crédito habilitado (409)', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario));
 
-      expect(() => editarOrden(orden.id, { medioPago: 'credito' })).toThrow(Conflicto);
+      await expect(editarOrden(orden.id, { medioPago: 'credito' })).rejects.toThrow(Conflicto);
     });
 
-    it('ignora "valor" y "estado" si se envían: el service no los cambia', () => {
+    it('ignora "valor" y "estado" si se envían: el service no los cambia', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario));
 
-      const editada = editarOrden(orden.id, {
+      const editada = await editarOrden(orden.id, {
         valor: 1,
         estado: 'entregada',
         observaciones: 'actualizado',
@@ -469,46 +484,46 @@ describe('ordenesLavado.service', () => {
       expect(editada.observaciones).toBe('actualizado');
     });
 
-    it('lanza NoEncontrado si el id no existe', () => {
-      expect(() => editarOrden(999, { observaciones: 'x' })).toThrow(NoEncontrado);
+    it('lanza NoEncontrado si el id no existe', async () => {
+      await expect(editarOrden(999, { observaciones: 'x' })).rejects.toThrow(NoEncontrado);
     });
   });
 
   describe('listarOrdenes', () => {
-    it('devuelve todas las órdenes si no hay filtro', () => {
-      const escenario = construirEscenarioValido();
+    it('devuelve todas las órdenes si no hay filtro', async () => {
+      const escenario = await construirEscenarioValido();
       abrirJornadaConFecha('2026-01-10');
-      crearOrden(datosOrdenValida(escenario, { turno: 1 }));
+      await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
-      const otroVehiculo = crearVehiculoDePrueba({ placa: 'XYZ789' });
+      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
       abrirJornadaConFecha('2026-01-11');
-      crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 1 }));
+      await crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 1 }));
 
       expect(listarOrdenes()).toHaveLength(2);
     });
 
-    it('filtra por fecha exacta cuando se envía filtros.fecha', () => {
-      const escenario = construirEscenarioValido();
+    it('filtra por fecha exacta cuando se envía filtros.fecha', async () => {
+      const escenario = await construirEscenarioValido();
       abrirJornadaConFecha('2026-01-10');
-      crearOrden(datosOrdenValida(escenario, { turno: 1 }));
+      await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
-      const otroVehiculo = crearVehiculoDePrueba({ placa: 'XYZ789' });
+      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
       abrirJornadaConFecha('2026-01-11');
-      crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 1 }));
+      await crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 1 }));
 
       const resultado = listarOrdenes({ fecha: '2026-01-10' });
       expect(resultado).toHaveLength(1);
       expect(resultado[0].fecha).toBe('2026-01-10');
     });
 
-    it('filtra por colaboradorId', () => {
+    it('filtra por colaboradorId', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      crearOrden(datosOrdenValida(escenario, { turno: 1 }));
+      const escenario = await construirEscenarioValido();
+      await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
       const otroColaborador = crearColaboradorDePrueba({ codigo: 402, documento: '1020304099' });
-      const otroVehiculo = crearVehiculoDePrueba({ placa: 'XYZ789' });
-      crearOrden(
+      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
+      await crearOrden(
         datosOrdenValida(
           { ...escenario, vehiculo: otroVehiculo, colaborador: otroColaborador },
           { turno: 2 },
@@ -520,14 +535,14 @@ describe('ordenesLavado.service', () => {
       expect(resultado[0].colaboradorId).toBe(escenario.colaborador.id);
     });
 
-    it('filtra por servicioId', () => {
+    it('filtra por servicioId', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      crearOrden(datosOrdenValida(escenario, { turno: 1 }));
+      const escenario = await construirEscenarioValido();
+      await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
       const otroServicio = crearServicioDePrueba({ numero: 2 });
-      const otroVehiculo = crearVehiculoDePrueba({ placa: 'XYZ789' });
-      crearOrden(
+      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
+      await crearOrden(
         datosOrdenValida(
           { ...escenario, vehiculo: otroVehiculo, servicio: otroServicio },
           { turno: 2 },
@@ -539,13 +554,13 @@ describe('ordenesLavado.service', () => {
       expect(resultado[0].servicioId).toBe(escenario.servicio.id);
     });
 
-    it('filtra por medioPago', () => {
+    it('filtra por medioPago', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      crearOrden(datosOrdenValida(escenario, { turno: 1, medioPago: 'efectivo' }));
+      const escenario = await construirEscenarioValido();
+      await crearOrden(datosOrdenValida(escenario, { turno: 1, medioPago: 'efectivo' }));
 
-      const otroVehiculo = crearVehiculoDePrueba({ placa: 'XYZ789' });
-      crearOrden(
+      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
+      await crearOrden(
         datosOrdenValida(
           { ...escenario, vehiculo: otroVehiculo },
           { turno: 2, medioPago: 'nequi' },
@@ -557,14 +572,14 @@ describe('ordenesLavado.service', () => {
       expect(resultado[0].medioPago).toBe('nequi');
     });
 
-    it('filtra por jornadaId', () => {
-      const escenario = construirEscenarioValido();
+    it('filtra por jornadaId', async () => {
+      const escenario = await construirEscenarioValido();
       const jornada1 = abrirJornadaConFecha('2026-01-10');
-      crearOrden(datosOrdenValida(escenario, { turno: 1 }));
+      await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
-      const otroVehiculo = crearVehiculoDePrueba({ placa: 'XYZ789' });
+      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
       const jornada2 = abrirJornadaConFecha('2026-01-11');
-      crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 1 }));
+      await crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 1 }));
 
       const resultado = listarOrdenes({ jornadaId: jornada1.id });
       expect(resultado).toHaveLength(1);
@@ -572,13 +587,15 @@ describe('ordenesLavado.service', () => {
       expect(resultado[0].jornadaId).not.toBe(jornada2.id);
     });
 
-    it('combina varios filtros a la vez con AND', () => {
+    it('combina varios filtros a la vez con AND', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const primera = crearOrden(datosOrdenValida(escenario, { turno: 1, medioPago: 'efectivo' }));
+      const escenario = await construirEscenarioValido();
+      const primera = await crearOrden(
+        datosOrdenValida(escenario, { turno: 1, medioPago: 'efectivo' }),
+      );
 
-      const otroVehiculo = crearVehiculoDePrueba({ placa: 'XYZ789' });
-      crearOrden(
+      const otroVehiculo = await crearVehiculoDePrueba({ placa: 'XYZ789' });
+      await crearOrden(
         datosOrdenValida(
           { ...escenario, vehiculo: otroVehiculo },
           { turno: 2, medioPago: 'nequi' },
@@ -641,16 +658,16 @@ describe('ordenesLavado.service', () => {
   });
 
   describe('obtenerTotalesDeJornada', () => {
-    it('agrega unidades y ventaTotal solo de las órdenes de esa jornada, sin mezclar otra', () => {
-      const escenario = construirEscenarioValido();
+    it('agrega unidades y ventaTotal solo de las órdenes de esa jornada, sin mezclar otra', async () => {
+      const escenario = await construirEscenarioValido();
       const jornada1 = abrirJornadaConFecha('2026-01-10');
-      crearOrden(datosOrdenValida(escenario, { turno: 1 }));
+      await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
-      const vehiculoB = crearVehiculoDePrueba({ placa: 'XYZ789' });
-      const vehiculoC = crearVehiculoDePrueba({ placa: 'DEF456' });
+      const vehiculoB = await crearVehiculoDePrueba({ placa: 'XYZ789' });
+      const vehiculoC = await crearVehiculoDePrueba({ placa: 'DEF456' });
       const jornada2 = abrirJornadaConFecha('2026-01-11');
-      crearOrden(datosOrdenValida({ ...escenario, vehiculo: vehiculoB }, { turno: 1 }));
-      crearOrden(datosOrdenValida({ ...escenario, vehiculo: vehiculoC }, { turno: 2 }));
+      await crearOrden(datosOrdenValida({ ...escenario, vehiculo: vehiculoB }, { turno: 1 }));
+      await crearOrden(datosOrdenValida({ ...escenario, vehiculo: vehiculoC }, { turno: 2 }));
 
       const totalesJornada2 = obtenerTotalesDeJornada(jornada2.id);
       expect(totalesJornada2.unidades).toBe(2);
@@ -679,35 +696,35 @@ describe('ordenesLavado.service', () => {
   });
 
   describe('*TieneOrdenes', () => {
-    it('colaboradorTieneOrdenes cuenta órdenes sin importar el estado, incluida cancelada', () => {
+    it('colaboradorTieneOrdenes cuenta órdenes sin importar el estado, incluida cancelada', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario));
       cambiarEstadoOrden(orden.id, 'cancelada', 'Cliente canceló');
 
       expect(colaboradorTieneOrdenes(escenario.colaborador.id)).toBe(true);
     });
 
-    it('servicioTieneOrdenes cuenta órdenes sin importar el estado, incluida cancelada', () => {
+    it('servicioTieneOrdenes cuenta órdenes sin importar el estado, incluida cancelada', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario));
       cambiarEstadoOrden(orden.id, 'cancelada', 'Cliente canceló');
 
       expect(servicioTieneOrdenes(escenario.servicio.id)).toBe(true);
     });
 
-    it('vehiculoTieneOrdenes cuenta órdenes sin importar el estado, incluida cancelada', () => {
+    it('vehiculoTieneOrdenes cuenta órdenes sin importar el estado, incluida cancelada', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario));
       cambiarEstadoOrden(orden.id, 'cancelada', 'Cliente canceló');
 
       expect(vehiculoTieneOrdenes(escenario.vehiculo.id)).toBe(true);
     });
 
-    it('devuelven false cuando no hay ninguna orden asociada', () => {
-      const escenario = construirEscenarioValido();
+    it('devuelven false cuando no hay ninguna orden asociada', async () => {
+      const escenario = await construirEscenarioValido();
       expect(colaboradorTieneOrdenes(escenario.colaborador.id)).toBe(false);
       expect(servicioTieneOrdenes(escenario.servicio.id)).toBe(false);
       expect(vehiculoTieneOrdenes(escenario.vehiculo.id)).toBe(false);
@@ -721,10 +738,10 @@ describe('ordenesLavado.service', () => {
       ['en_proceso', 'terminada'],
       ['en_proceso', 'cancelada'],
       ['terminada', 'entregada'],
-    ])('permite la transición de %s a %s', (estadoInicial, estadoFinal) => {
+    ])('permite la transición de %s a %s', async (estadoInicial, estadoFinal) => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario));
 
       // Avanza la orden hasta estadoInicial recorriendo transiciones válidas.
       const camino = {
@@ -739,17 +756,17 @@ describe('ordenesLavado.service', () => {
       expect(actualizada.estado).toBe(estadoFinal);
     });
 
-    it('rechaza saltar de registrada a entregada', () => {
+    it('rechaza saltar de registrada a entregada', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario));
       expect(() => cambiarEstadoOrden(orden.id, 'entregada')).toThrow(Conflicto);
     });
 
-    it('rechaza retroceder de entregada a en_proceso', () => {
+    it('rechaza retroceder de entregada a en_proceso', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario));
       cambiarEstadoOrden(orden.id, 'en_proceso');
       cambiarEstadoOrden(orden.id, 'terminada');
       cambiarEstadoOrden(orden.id, 'entregada');
@@ -757,10 +774,10 @@ describe('ordenesLavado.service', () => {
       expect(() => cambiarEstadoOrden(orden.id, 'en_proceso')).toThrow(Conflicto);
     });
 
-    it('una orden entregada nunca puede volver a cambiar de estado', () => {
+    it('una orden entregada nunca puede volver a cambiar de estado', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario));
       cambiarEstadoOrden(orden.id, 'en_proceso');
       cambiarEstadoOrden(orden.id, 'terminada');
       cambiarEstadoOrden(orden.id, 'entregada');
@@ -768,10 +785,10 @@ describe('ordenesLavado.service', () => {
       expect(() => cambiarEstadoOrden(orden.id, 'cancelada', 'motivo')).toThrow(Conflicto);
     });
 
-    it('una orden cancelada nunca puede volver a cambiar de estado', () => {
+    it('una orden cancelada nunca puede volver a cambiar de estado', async () => {
       abrirJornadaDePrueba();
-      const escenario = construirEscenarioValido();
-      const orden = crearOrden(datosOrdenValida(escenario));
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario));
       cambiarEstadoOrden(orden.id, 'cancelada', 'Cliente canceló');
 
       expect(() => cambiarEstadoOrden(orden.id, 'en_proceso')).toThrow(Conflicto);
@@ -782,18 +799,18 @@ describe('ordenesLavado.service', () => {
     });
 
     describe('cancelación con motivo', () => {
-      it('rechaza cancelar sin motivo (400, SolicitudInvalida)', () => {
+      it('rechaza cancelar sin motivo (400, SolicitudInvalida)', async () => {
         abrirJornadaDePrueba();
-        const escenario = construirEscenarioValido();
-        const orden = crearOrden(datosOrdenValida(escenario));
+        const escenario = await construirEscenarioValido();
+        const orden = await crearOrden(datosOrdenValida(escenario));
 
         expect(() => cambiarEstadoOrden(orden.id, 'cancelada')).toThrow(SolicitudInvalida);
       });
 
-      it('cancela con motivo y lo guarda en la orden', () => {
+      it('cancela con motivo y lo guarda en la orden', async () => {
         abrirJornadaDePrueba();
-        const escenario = construirEscenarioValido();
-        const orden = crearOrden(datosOrdenValida(escenario));
+        const escenario = await construirEscenarioValido();
+        const orden = await crearOrden(datosOrdenValida(escenario));
 
         const cancelada = cambiarEstadoOrden(orden.id, 'cancelada', 'El cliente no llegó');
 
@@ -801,10 +818,10 @@ describe('ordenesLavado.service', () => {
         expect(cancelada.motivo).toBe('El cliente no llegó');
       });
 
-      it('cambiar a cualquier otro estado no exige ni guarda motivo', () => {
+      it('cambiar a cualquier otro estado no exige ni guarda motivo', async () => {
         abrirJornadaDePrueba();
-        const escenario = construirEscenarioValido();
-        const orden = crearOrden(datosOrdenValida(escenario));
+        const escenario = await construirEscenarioValido();
+        const orden = await crearOrden(datosOrdenValida(escenario));
 
         const actualizada = cambiarEstadoOrden(orden.id, 'en_proceso');
 

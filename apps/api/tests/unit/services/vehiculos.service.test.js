@@ -1,4 +1,3 @@
-const clientes = require('../../../src/data/clientes');
 const vehiculos = require('../../../src/data/vehiculos');
 const clientesService = require('../../../src/services/clientes.service');
 const {
@@ -12,18 +11,28 @@ const {
 } = require('../../../src/services/vehiculos.service');
 const { NoEncontrado, Conflicto, SolicitudInvalida } = require('../../../src/utils/errores');
 
+const USUARIO_ID_PRUEBA = 1;
+
 beforeEach(() => {
-  clientes.length = 0;
   vehiculos.length = 0;
 });
 
+// clientesService.crearCliente ya escribe en el Supabase local (SCRUM-152,
+// Etapa A), no en un array que este beforeEach pudiera vaciar: el
+// documento de cada cliente de prueba es único (sello de tiempo +
+// contador) para no chocar entre pruebas ni entre corridas.
+const selloDocumento = Date.now().toString().slice(-9);
+let contadorDocumento = 0;
 const crearClienteDePrueba = () =>
-  clientesService.crearCliente({
-    nombre: 'Ana María Torres',
-    documento: '1010101010',
-    tipo: 'particular',
-    telefono: '3001234567',
-  });
+  clientesService.crearCliente(
+    {
+      nombre: 'Ana María Torres',
+      documento: `${selloDocumento}${String((contadorDocumento += 1)).padStart(3, '0')}`,
+      tipo: 'particular',
+      telefono: '3001234567',
+    },
+    USUARIO_ID_PRUEBA,
+  );
 
 const datosVehiculo = (clienteId) => ({
   placa: 'ABC123',
@@ -33,49 +42,50 @@ const datosVehiculo = (clienteId) => ({
 
 describe('vehiculos.service', () => {
   describe('crearVehiculo', () => {
-    it('crea un vehículo con id 1', () => {
-      const cliente = crearClienteDePrueba();
-      const vehiculo = crearVehiculo(datosVehiculo(cliente.id));
-      expect(vehiculo).toMatchObject({ id: 1, placa: 'ABC123', clienteId: cliente.id });
+    it('crea un vehículo con un id numérico', async () => {
+      const cliente = await crearClienteDePrueba();
+      const vehiculo = await crearVehiculo(datosVehiculo(cliente.id));
+      expect(vehiculo).toMatchObject({ placa: 'ABC123', clienteId: cliente.id });
+      expect(typeof vehiculo.id).toBe('number');
     });
 
-    it('un vehículo sin marca ni color guarda null', () => {
-      const cliente = crearClienteDePrueba();
-      const vehiculo = crearVehiculo(datosVehiculo(cliente.id));
+    it('un vehículo sin marca ni color guarda null', async () => {
+      const cliente = await crearClienteDePrueba();
+      const vehiculo = await crearVehiculo(datosVehiculo(cliente.id));
       expect(vehiculo.marca).toBeNull();
       expect(vehiculo.color).toBeNull();
     });
 
-    it('rechaza una placa duplicada (409)', () => {
-      const cliente = crearClienteDePrueba();
-      crearVehiculo(datosVehiculo(cliente.id));
-      expect(() => crearVehiculo(datosVehiculo(cliente.id))).toThrow(Conflicto);
+    it('rechaza una placa duplicada (409)', async () => {
+      const cliente = await crearClienteDePrueba();
+      await crearVehiculo(datosVehiculo(cliente.id));
+      await expect(crearVehiculo(datosVehiculo(cliente.id))).rejects.toThrow(Conflicto);
     });
 
-    it('rechaza un clienteId que no existe (404)', () => {
-      expect(() => crearVehiculo(datosVehiculo(9999))).toThrow(NoEncontrado);
+    it('rechaza un clienteId que no existe (404)', async () => {
+      await expect(crearVehiculo(datosVehiculo(999999999))).rejects.toThrow(NoEncontrado);
     });
 
-    it('rechaza una placa de moto para un vehículo tipo automovil (400)', () => {
-      const cliente = crearClienteDePrueba();
-      expect(() =>
+    it('rechaza una placa de moto para un vehículo tipo automovil (400)', async () => {
+      const cliente = await crearClienteDePrueba();
+      await expect(
         crearVehiculo({ placa: 'ABC12D', tipoVehiculo: 'automovil', clienteId: cliente.id }),
-      ).toThrow(SolicitudInvalida);
+      ).rejects.toThrow(SolicitudInvalida);
     });
 
-    it('rechaza una placa de carro para un vehículo tipo moto (400)', () => {
-      const cliente = crearClienteDePrueba();
-      expect(() =>
+    it('rechaza una placa de carro para un vehículo tipo moto (400)', async () => {
+      const cliente = await crearClienteDePrueba();
+      await expect(
         crearVehiculo({ placa: 'ABC123', tipoVehiculo: 'moto_hasta_150cc', clienteId: cliente.id }),
-      ).toThrow(SolicitudInvalida);
+      ).rejects.toThrow(SolicitudInvalida);
     });
   });
 
   describe('listarVehiculos / obtenerVehiculoPorId', () => {
-    it('lista todos los vehículos creados', () => {
-      const cliente = crearClienteDePrueba();
-      crearVehiculo(datosVehiculo(cliente.id));
-      crearVehiculo({ ...datosVehiculo(cliente.id), placa: 'XYZ789' });
+    it('lista todos los vehículos creados', async () => {
+      const cliente = await crearClienteDePrueba();
+      await crearVehiculo(datosVehiculo(cliente.id));
+      await crearVehiculo({ ...datosVehiculo(cliente.id), placa: 'XYZ789' });
       expect(listarVehiculos()).toHaveLength(2);
     });
 
@@ -91,44 +101,46 @@ describe('vehiculos.service', () => {
   });
 
   describe('clienteTieneVehiculos', () => {
-    it('devuelve true si el cliente tiene al menos un vehículo', () => {
-      const cliente = crearClienteDePrueba();
-      crearVehiculo(datosVehiculo(cliente.id));
+    it('devuelve true si el cliente tiene al menos un vehículo', async () => {
+      const cliente = await crearClienteDePrueba();
+      await crearVehiculo(datosVehiculo(cliente.id));
       expect(clienteTieneVehiculos(cliente.id)).toBe(true);
     });
 
-    it('devuelve false si el cliente no tiene vehículos', () => {
-      const cliente = crearClienteDePrueba();
+    it('devuelve false si el cliente no tiene vehículos', async () => {
+      const cliente = await crearClienteDePrueba();
       expect(clienteTieneVehiculos(cliente.id)).toBe(false);
     });
   });
 
   describe('actualizarVehiculo', () => {
-    it('actualiza el color', () => {
-      const cliente = crearClienteDePrueba();
-      const creado = crearVehiculo(datosVehiculo(cliente.id));
-      const actualizado = actualizarVehiculo(creado.id, { color: 'rojo' });
+    it('actualiza el color', async () => {
+      const cliente = await crearClienteDePrueba();
+      const creado = await crearVehiculo(datosVehiculo(cliente.id));
+      const actualizado = await actualizarVehiculo(creado.id, { color: 'rojo' });
       expect(actualizado.color).toBe('rojo');
     });
 
-    it('rechaza reasignar a un clienteId que no existe', () => {
-      const cliente = crearClienteDePrueba();
-      const creado = crearVehiculo(datosVehiculo(cliente.id));
-      expect(() => actualizarVehiculo(creado.id, { clienteId: 9999 })).toThrow(NoEncontrado);
+    it('rechaza reasignar a un clienteId que no existe', async () => {
+      const cliente = await crearClienteDePrueba();
+      const creado = await crearVehiculo(datosVehiculo(cliente.id));
+      await expect(actualizarVehiculo(creado.id, { clienteId: 999999999 })).rejects.toThrow(
+        NoEncontrado,
+      );
     });
 
-    it('rechaza cambiar a una placa que ya usa otro vehículo', () => {
-      const cliente = crearClienteDePrueba();
-      crearVehiculo(datosVehiculo(cliente.id));
-      const segundo = crearVehiculo({ ...datosVehiculo(cliente.id), placa: 'XYZ789' });
-      expect(() => actualizarVehiculo(segundo.id, { placa: 'ABC123' })).toThrow(Conflicto);
+    it('rechaza cambiar a una placa que ya usa otro vehículo', async () => {
+      const cliente = await crearClienteDePrueba();
+      await crearVehiculo(datosVehiculo(cliente.id));
+      const segundo = await crearVehiculo({ ...datosVehiculo(cliente.id), placa: 'XYZ789' });
+      await expect(actualizarVehiculo(segundo.id, { placa: 'ABC123' })).rejects.toThrow(Conflicto);
     });
   });
 
   describe('eliminarVehiculo', () => {
-    it('elimina un vehículo existente', () => {
-      const cliente = crearClienteDePrueba();
-      const creado = crearVehiculo(datosVehiculo(cliente.id));
+    it('elimina un vehículo existente', async () => {
+      const cliente = await crearClienteDePrueba();
+      const creado = await crearVehiculo(datosVehiculo(cliente.id));
       eliminarVehiculo(creado.id);
       expect(obtenerVehiculoPorId(creado.id)).toBeNull();
     });
