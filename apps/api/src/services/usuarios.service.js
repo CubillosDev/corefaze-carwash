@@ -139,44 +139,10 @@ const asignarRol = (id, rol) => {
   return sinPasswordHash(usuario);
 };
 
-/**
- * Crea la cuenta "superadmin" inicial, SOLO si:
- * - aún no existe ningún usuario con ese email, y
- * - se llama explícitamente desde el arranque del servidor (server.js) con
- *   credenciales tomadas de variables de entorno.
- *
- * No se invoca nunca desde `crearApp`/los tests: así ninguna prueba de
- * integración se ve afectada por este bootstrap, y la tabla en memoria de
- * los tests sigue empezando genuinamente vacía.
- *
- * @param {{ nombre: string, email: string, password: string }} datos
- * @returns {Promise<object | null>} el superadmin creado, o null si el email ya existía
- */
-const crearSuperAdministradorInicial = async (datos) => {
-  if (buscarPorEmail(datos.email)) {
-    return null;
-  }
-
-  const passwordHash = await generarPasswordHash(datos.password);
-
-  const nuevoUsuario = {
-    id: usuarios.length > 0 ? Math.max(...usuarios.map((usuario) => usuario.id)) + 1 : 1,
-    nombre: datos.nombre,
-    email: datos.email.toLowerCase(),
-    passwordHash,
-    rol: 'superadmin',
-    activo: true,
-  };
-
-  usuarios.push(nuevoUsuario);
-  return sinPasswordHash(nuevoUsuario);
-};
-
 module.exports = {
   obtenerUsuarioPorEmail,
   obtenerUsuarioPorId,
   crearUsuario,
   verificarCredenciales,
   asignarRol,
-  crearSuperAdministradorInicial,
 };

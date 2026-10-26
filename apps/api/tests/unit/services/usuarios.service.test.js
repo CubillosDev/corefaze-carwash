@@ -5,7 +5,6 @@ const {
   crearUsuario,
   verificarCredenciales,
   asignarRol,
-  crearSuperAdministradorInicial,
 } = require('../../../src/services/usuarios.service');
 const { Conflicto } = require('../../../src/utils/errores');
 
@@ -198,33 +197,6 @@ describe('usuarios.service', () => {
 
         expect(() => asignarRol(1, 'superadmin')).not.toThrow();
       });
-    });
-  });
-
-  describe('crearSuperAdministradorInicial', () => {
-    const datosSuperAdmin = {
-      nombre: 'Super Administrador',
-      email: 'superadmin@lavadero.com',
-      password: 'ClaveSuperSegura2026!',
-    };
-
-    it('crea el usuario con rol "superadmin"', async () => {
-      const creado = await crearSuperAdministradorInicial(datosSuperAdmin);
-      expect(creado.rol).toBe('superadmin');
-      expect(creado.activo).toBe(true);
-    });
-
-    it('es idempotente: si el email ya existe, no crea un duplicado y devuelve null', async () => {
-      await crearSuperAdministradorInicial(datosSuperAdmin);
-      const segundoIntento = await crearSuperAdministradorInicial(datosSuperAdmin);
-
-      expect(segundoIntento).toBeNull();
-      expect(usuarios).toHaveLength(1);
-    });
-
-    it('nunca devuelve passwordHash', async () => {
-      const creado = await crearSuperAdministradorInicial(datosSuperAdmin);
-      expect(creado.passwordHash).toBeUndefined();
     });
   });
 });
