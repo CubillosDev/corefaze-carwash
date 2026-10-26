@@ -1,0 +1,35 @@
+name: Base de datos
+
+on:
+  pull_request:
+    paths:
+      - "supabase/**"
+  push:
+    paths:
+      - "supabase/**"
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Levantar la base local
+        run: supabase start
+
+      - name: Resetear la base (migraciones + seed)
+        run: supabase db reset
+
+      - name: Correr las pruebas pgTAP
+        run: supabase test db --local
+
+      - name: Revisar el esquema (db lint)
+        run: supabase db lint --local --fail-on warning
