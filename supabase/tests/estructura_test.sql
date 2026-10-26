@@ -1,17 +1,14 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(13);
 
--- Fase 1: solo las 9 tablas que existen hasta la migración 11. En Fase 2
--- se agregan 'auditoria' y 'parametros_negocio' y este chequeo sube a las
--- 11 tablas completas.
 select tables_are(
   'public',
   array[
-    'clientes', 'colaboradores', 'jornadas', 'ordenes_lavado',
+    'auditoria', 'clientes', 'colaboradores', 'jornadas', 'ordenes_lavado', 'parametros_negocio',
     'reaperturas_jornada', 'servicios', 'tarifas_servicio', 'usuarios', 'vehiculos'
   ],
-  'El esquema public tiene exactamente las tablas de la Fase 1'
+  'El esquema public tiene exactamente las tablas del modelo'
 );
 
 select is_empty($q$
@@ -113,10 +110,15 @@ select is_empty($q$
     )
 $q$, 'Toda tabla con actualizado_en tiene el trigger que lo asigna');
 
--- Omitido en Fase 1: "Toda tabla de negocio se audita y auditoria no se
--- audita a sí misma". Ni la tabla auditoria ni registrar_auditoria()
--- existen todavía (llegan en la migración 14, Fase 2); con plan(12) este
--- chequeo no cuenta.
+select is_empty($q$
+  select t.relname
+  from pg_class t join pg_namespace n on n.oid = t.relnamespace
+  where n.nspname = 'public' and t.relkind = 'r'
+    and (t.relname = 'auditoria') = exists (
+      select 1 from pg_trigger g join pg_proc p on p.oid = g.tgfoid
+      where g.tgrelid = t.oid and p.proname = 'registrar_auditoria' and not g.tgisinternal
+    )
+$q$, 'Toda tabla de negocio se audita y auditoria no se audita a sí misma');
 
 select is_empty($q$
   select p.proname
