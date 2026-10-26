@@ -33,9 +33,9 @@ const obtenerPorId = (req, res, next) => {
 };
 
 /** POST /api/ordenes-lavado */
-const crear = (req, res, next) => {
+const crear = async (req, res, next) => {
   try {
-    const orden = ordenesLavadoService.crearOrden(req.datos.cuerpo);
+    const orden = await ordenesLavadoService.crearOrden(req.datos.cuerpo);
     return res.status(201).json({ mensaje: 'Orden de lavado registrada correctamente', orden });
   } catch (error) {
     return next(error);
@@ -43,10 +43,10 @@ const crear = (req, res, next) => {
 };
 
 /** PATCH /api/ordenes-lavado/:id */
-const editar = (req, res, next) => {
+const editar = async (req, res, next) => {
   try {
     const { id } = req.datos.parametros;
-    const orden = ordenesLavadoService.editarOrden(id, req.datos.cuerpo);
+    const orden = await ordenesLavadoService.editarOrden(id, req.datos.cuerpo);
     return res.status(200).json({ mensaje: 'Orden de lavado actualizada correctamente', orden });
   } catch (error) {
     return next(error);

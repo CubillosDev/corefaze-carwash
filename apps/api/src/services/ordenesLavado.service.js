@@ -189,13 +189,16 @@ const validarAutorizacionMotor = (servicio, autorizaMotor) => {
  * crédito. La usan crearOrden y editarOrden cuando medioPago o
  * clienteId cambian.
  *
+ * async porque clientesService.obtenerClienteOFallar ya consulta Supabase
+ * (SCRUM-152); este service sigue 100% en memoria, solo espera ese resultado.
+ *
  * @param {string} medioPago
  * @param {number|string|undefined} clienteId
- * @returns {number|null} el clienteId final de la orden
+ * @returns {Promise<number|null>} el clienteId final de la orden
  * @throws {Conflicto} si falta clienteId, o el cliente no tiene crédito habilitado
  * @throws {NoEncontrado} si el clienteId no existe
  */
-const resolverClienteCredito = (medioPago, clienteId) => {
+const resolverClienteCredito = async (medioPago, clienteId) => {
   if (medioPago !== MEDIOS_PAGO.CREDITO) {
     return null;
   }
@@ -204,7 +207,7 @@ const resolverClienteCredito = (medioPago, clienteId) => {
     throw new Conflicto('El pago a crédito requiere un clienteId');
   }
 
-  const cliente = clientesService.obtenerClienteOFallar(clienteId);
+  const cliente = await clientesService.obtenerClienteOFallar(clienteId);
   if (
     cliente.estado !== ESTADOS_ACTIVIDAD.ACTIVO ||
     cliente.tipo !== TIPOS_CLIENTE.EMPRESA ||
@@ -261,11 +264,13 @@ const validarVehiculoSinOtraOrdenAbierta = (vehiculoId, idOrdenAExcluir) => {
  * las siguientes. La orden queda amarrada a la jornada abierta en ese
  * momento; su fecha es siempre la de esa jornada.
  *
+ * async porque resolverClienteCredito (R8) ya espera a clientesService.
+ *
  * @param {{ turno: number, vehiculoId: number, servicioId: number, colaboradorId: number, medioPago: string, clienteId?: number, autorizaMotor?: boolean, observaciones?: string }} datos
- * @returns {object} la orden creada
+ * @returns {Promise<object>} la orden creada
  * @throws {Conflicto} si no hay ninguna jornada abierta
  */
-const crearOrden = (datos) => {
+const crearOrden = async (datos) => {
   const jornada = jornadasService.obtenerJornadaAbierta();
   if (!jornada) {
     throw new Conflicto('No hay una jornada abierta para registrar órdenes');
@@ -279,7 +284,7 @@ const crearOrden = (datos) => {
   validarColaboradorActivo(colaborador); // R2
   const valor = calcularValorServicio(servicio, vehiculo.tipoVehiculo); // R3
   validarAutorizacionMotor(servicio, datos.autorizaMotor); // R7
-  const clienteId = resolverClienteCredito(datos.medioPago, datos.clienteId); // R8
+  const clienteId = await resolverClienteCredito(datos.medioPago, datos.clienteId); // R8
 
   // R5: un turno solo puede tener una orden por fecha.
   if (existeTurnoOcupado(jornada.fecha, datos.turno)) {
@@ -332,13 +337,15 @@ const crearOrden = (datos) => {
  * tenga tarifa para el tipo de vehículo nuevo (R3), sin importar si el
  * tipo coincide con el anterior o no.
  *
+ * async por la misma razón que crearOrden: espera a resolverClienteCredito.
+ *
  * @param {number|string} id
  * @param {{ vehiculoId?: number, colaboradorId?: number, medioPago?: string, clienteId?: number, observaciones?: string }} datos
- * @returns {object} la orden editada
+ * @returns {Promise<object>} la orden editada
  * @throws {NoEncontrado} si el id no existe, o el nuevo vehiculoId/colaboradorId no existen
  * @throws {Conflicto} si la orden está cerrada, su jornada ya no está abierta, o viola R2/R3/R6/R8
  */
-const editarOrden = (id, datos) => {
+const editarOrden = async (id, datos) => {
   const orden = obtenerOrdenOFallar(id);
 
   if (ESTADOS_ORDEN_CERRADOS.includes(orden.estado)) {
@@ -369,7 +376,7 @@ const editarOrden = (id, datos) => {
 
   let clienteIdResuelto = orden.clienteId;
   if (medioPagoFinal !== orden.medioPago || clienteIdFinal !== orden.clienteId) {
-    clienteIdResuelto = resolverClienteCredito(medioPagoFinal, clienteIdFinal); // R8
+    clienteIdResuelto = await resolverClienteCredito(medioPagoFinal, clienteIdFinal); // R8
   }
 
   Object.assign(orden, {

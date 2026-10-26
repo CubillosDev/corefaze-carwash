@@ -85,10 +85,13 @@ const validarPlacaCorrespondeATipo = (placa, tipoVehiculo) => {
  * - La placa debe corresponder al tipoVehiculo (400 si no).
  * - clienteId debe existir (404 si no) — se delega a clientesService.
  *
+ * async porque clientesService.obtenerClienteOFallar ya consulta Supabase
+ * (SCRUM-152); este service sigue 100% en memoria, solo espera ese resultado.
+ *
  * @param {{ placa: string, tipoVehiculo: string, marca?: string, color?: string, clienteId: number }} datos
- * @returns {object} el vehículo creado
+ * @returns {Promise<object>} el vehículo creado
  */
-const crearVehiculo = (datos) => {
+const crearVehiculo = async (datos) => {
   if (buscarPorPlaca(datos.placa)) {
     throw new Conflicto('Ya existe un vehículo con esa placa');
   }
@@ -96,7 +99,7 @@ const crearVehiculo = (datos) => {
   validarPlacaCorrespondeATipo(datos.placa, datos.tipoVehiculo);
 
   // Lanza NoEncontrado (404) si el cliente no existe; no seguimos si falla.
-  clientesService.obtenerClienteOFallar(datos.clienteId);
+  await clientesService.obtenerClienteOFallar(datos.clienteId);
 
   const nuevoVehiculo = {
     id: vehiculos.length > 0 ? Math.max(...vehiculos.map((vehiculo) => vehiculo.id)) + 1 : 1,
@@ -114,14 +117,16 @@ const crearVehiculo = (datos) => {
 /**
  * Actualiza un vehículo existente.
  *
+ * async por la misma razón que crearVehiculo: espera a clientesService.
+ *
  * @param {number|string} id
  * @param {{ placa?: string, tipoVehiculo?: string, marca?: string, color?: string, clienteId?: number }} datos
- * @returns {object} el vehículo actualizado
+ * @returns {Promise<object>} el vehículo actualizado
  * @throws {NoEncontrado} si el vehículo o el nuevo clienteId no existen
  * @throws {Conflicto} si la placa nueva ya pertenece a otro vehículo
  * @throws {SolicitudInvalida} si la placa resultante no corresponde al tipoVehiculo resultante
  */
-const actualizarVehiculo = (id, datos) => {
+const actualizarVehiculo = async (id, datos) => {
   const vehiculo = obtenerVehiculoOFallar(id);
 
   if (datos.placa && datos.placa !== vehiculo.placa) {
@@ -136,7 +141,7 @@ const actualizarVehiculo = (id, datos) => {
   validarPlacaCorrespondeATipo(placaResultante, tipoVehiculoResultante);
 
   if (datos.clienteId !== undefined) {
-    clientesService.obtenerClienteOFallar(datos.clienteId);
+    await clientesService.obtenerClienteOFallar(datos.clienteId);
   }
 
   Object.assign(vehiculo, {

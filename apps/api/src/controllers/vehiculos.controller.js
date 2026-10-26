@@ -23,9 +23,9 @@ const obtenerPorId = (req, res, next) => {
 };
 
 /** POST /api/vehiculos */
-const crear = (req, res, next) => {
+const crear = async (req, res, next) => {
   try {
-    const vehiculo = vehiculosService.crearVehiculo(req.datos.cuerpo);
+    const vehiculo = await vehiculosService.crearVehiculo(req.datos.cuerpo);
     return res.status(201).json({ mensaje: 'Vehículo registrado correctamente', vehiculo });
   } catch (error) {
     return next(error);
@@ -33,10 +33,10 @@ const crear = (req, res, next) => {
 };
 
 /** PUT /api/vehiculos/:id */
-const actualizar = (req, res, next) => {
+const actualizar = async (req, res, next) => {
   try {
     const { id } = req.datos.parametros;
-    const vehiculo = vehiculosService.actualizarVehiculo(id, req.datos.cuerpo);
+    const vehiculo = await vehiculosService.actualizarVehiculo(id, req.datos.cuerpo);
     return res.status(200).json({ mensaje: 'Vehículo actualizado correctamente', vehiculo });
   } catch (error) {
     return next(error);
