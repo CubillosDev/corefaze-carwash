@@ -2,7 +2,7 @@
 
 Esquema de la base de datos del proyecto, como migraciones versionadas de Supabase CLI. Ver también [`docs/arquitectura/diagramas/modelo-datos.md`](../docs/arquitectura/diagramas/modelo-datos.md) para el diagrama ER y la matriz BD vs. API.
 
-**Estado actual: Fase 1 (SCRUM-145)**, 11 migraciones (9 tablas + funciones comunes + triggers de `ordenes_lavado`). La Fase 2 (SCRUM-146) agrega `parametros_negocio`, `auditoria` y los triggers de auditoría.
+**Estado actual: Fase 2 (SCRUM-146) completa**, 14 migraciones (11 tablas + funciones comunes + triggers de `ordenes_lavado` + auditoría). El esquema queda cerrado.
 
 ## Requisitos
 
@@ -43,15 +43,15 @@ npx supabase db reset && npx supabase test db && npx supabase db lint
 | 09 | `crear_reaperturas_jornada` | `reaperturas_jornada` | 2 | 1 |
 | 10 | `crear_ordenes_lavado` | `ordenes_lavado` | 2 | 1 |
 | 11 | `crear_reglas_ordenes_lavado` | triggers de órdenes | — | 1 |
-| 12 | `crear_parametros_negocio` | `parametros_negocio` | 1 | 2 (pendiente) |
-| 13 | `crear_auditoria` | `auditoria` | 1 | 2 (pendiente) |
-| 14 | `activar_auditoria` | `registrar_auditoria()` y triggers | — | 2 (pendiente) |
+| 12 | `crear_parametros_negocio` | `parametros_negocio` | 1 | 2 |
+| 13 | `crear_auditoria` | `auditoria` | 1 | 2 |
+| 14 | `activar_auditoria` | `registrar_auditoria()` y triggers | — | 2 |
 
 Detalle de qué depende de qué, y por qué `usuarios` se adelantó a la Fase 1: ver la tabla de niveles en `docs/arquitectura/diagramas/modelo-datos.md`.
 
 ## Seed — solo local
 
-`supabase/seed.sql` corre automáticamente en cada `db reset`. Contiene **solo datos ficticios** (usuarios, colaboradores, clientes, vehículos, jornadas y órdenes de prueba) y **nunca se aplica al proyecto remoto**: el remoto no recibe seed, ni usuarios de prueba, ni datos ficticios bajo ninguna circunstancia. La contraseña de los 4 usuarios de prueba del seed no está en el repositorio; la tiene el equipo por fuera (informe de la Fase 1).
+`supabase/seed.sql` corre automáticamente en cada `db reset`. Contiene **solo datos ficticios** (usuarios, colaboradores, clientes, vehículos, jornadas, órdenes de prueba, y un `UPDATE` sobre la fila única de `parametros_negocio`) y **nunca se aplica al proyecto remoto**: el remoto no recibe seed, ni usuarios de prueba, ni datos ficticios bajo ninguna circunstancia. La contraseña de los 4 usuarios de prueba del seed no está en el repositorio; la tiene el equipo por fuera (informes de la Fase 1 y la Fase 2).
 
 ## El proyecto remoto no se gestiona desde aquí
 
