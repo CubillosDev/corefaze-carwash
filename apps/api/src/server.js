@@ -1,37 +1,7 @@
 const { env } = require('./config/env');
 const { crearApp } = require('./app');
-const { crearSuperAdministradorInicial } = require('./services/usuarios.service');
 
 const app = crearApp(env);
-
-/**
- * Bootstrap opcional del primer "superadmin" (RBAC, Bloque 6).
- *
- * No hay otra forma de arrancar RBAC sin una cuenta con privilegios ya
- * creada: el registro público siempre nace "pendiente" (ver
- * usuarios.service.js) y asignar un rol requiere YA ser superadmin. Por
- * eso este bootstrap vive solo aquí (nunca en `crearApp`/los tests) y solo
- * se ejecuta si el entorno trae credenciales explícitas para ello.
- *
- * Lee `env.superadmin` (ya validado por `cargarConfiguracion`), nunca
- * `process.env` directo: si alguien define solo una parte de las
- * SUPERADMIN_*, o deja el valor de ejemplo de `.env.example`, la API ya
- * se negó a arrancar — este bootstrap nunca ve una credencial insegura.
- */
-const arrancarSuperAdministradorInicial = async () => {
-  if (!env.superadmin) {
-    return;
-  }
-
-  const creado = await crearSuperAdministradorInicial(env.superadmin);
-
-  if (creado) {
-    // eslint-disable-next-line no-console
-    console.log(`Superadmin inicial creado: ${creado.email}`);
-  }
-};
-
-arrancarSuperAdministradorInicial();
 
 const servidor = app.listen(env.puerto, () => {
   // Único console.log permitido: avisa que el servidor arrancó
