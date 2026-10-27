@@ -30,7 +30,7 @@ Se adopta el catálogo de roles ya vigente en `dominio.json`, mapeado a la inten
 | Servicios (catálogo/tarifas) | superadmin, administrador, soporte | superadmin, administrador | Las tarifas se tratan como "operación", no como "configuración" del negocio. Si el equipo prefiere restringir la mutación solo a `superadmin`, es un cambio futuro sobre este ADR, no una ambigüedad resuelta aquí. |
 | Colaboradores | superadmin, administrador, soporte | superadmin, administrador | Sin cambios respecto al alcance inicial (commit `cfaa495`). |
 | Órdenes de lavado | superadmin, administrador, soporte | **Registrar y editar:** superadmin, administrador, soporte (es el trabajo central del operador). **Anular (cancelar):** superadmin, administrador únicamente — exige `motivo`, regla ya validada en R10. | `soporte` puede avanzar una orden por cualquier transición de estado excepto cancelarla. |
-| Jornadas | superadmin, administrador, soporte | **Abrir/cerrar:** superadmin, administrador, soporte. **Reabrir:** superadmin únicamente (criterio de aceptación explícito de SCRUM-139). | `abiertaPor`/`cerradaPor` quedan con el email del usuario autenticado (antes, siempre `null`). |
+| Jornadas | superadmin, administrador, soporte | **Abrir/cerrar:** superadmin, administrador, soporte. **Reabrir:** superadmin únicamente (criterio de aceptación explícito de SCRUM-139). | `abiertaPor`/`cerradaPor` quedan con el id del usuario autenticado (antes, siempre `null`). |
 | Asignación de roles (`PATCH /api/auth/usuarios/:id/rol`) | — | superadmin únicamente | Sin cambios respecto al alcance inicial. |
 
 ### Por qué una regla condicional en vez de un middleware estático en dos casos
