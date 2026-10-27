@@ -30,6 +30,21 @@ const MODULOS_POR_ROL = Object.freeze({
   pendiente: Object.freeze([]),
 });
 
+/**
+ * En qué módulos puede cada rol crear, editar y eliminar registros, además de
+ * consultarlos. Sigue la matriz del ADR 0003 de roles (RBAC, SCRUM-139):
+ * soporte consulta clientes y vehículos, pero solo superadmin y administrador
+ * los gestionan; la API le responde 403 a soporte si lo intenta. Soporte sí
+ * registra y edita órdenes de lavado (anularlas no: ese caso lo resuelve el
+ * módulo de órdenes).
+ */
+const MODULOS_GESTIONABLES_POR_ROL = Object.freeze({
+  superadmin: TODOS_LOS_MODULOS,
+  administrador: TODOS_LOS_MODULOS,
+  soporte: Object.freeze([RUTAS.ORDENES_LAVADO]),
+  pendiente: Object.freeze([]),
+});
+
 /** Rutas que solo existen en desarrollo y se abren a cualquier rol con acceso. */
 const RUTAS_DE_DESARROLLO = Object.freeze([RUTAS.SISTEMA_DISENO]);
 
@@ -75,4 +90,16 @@ export function rolPuedeAcceder(rol, direccion) {
 
   const moduloDeLaDireccion = TODOS_LOS_MODULOS.find(pertenece);
   return moduloDeLaDireccion === undefined || modulos.includes(moduloDeLaDireccion);
+}
+
+/**
+ * ¿Puede el rol crear, editar y eliminar registros de este módulo? Sirve para
+ * ocultar los botones de esas acciones; consultar el módulo lo decide
+ * rolPuedeAcceder.
+ *
+ * @param {string|null|undefined} rol
+ * @param {string} modulo Ruta del módulo, por ejemplo RUTAS.VEHICULOS.
+ */
+export function rolPuedeGestionar(rol, modulo) {
+  return (MODULOS_GESTIONABLES_POR_ROL[rol] ?? []).includes(modulo);
 }

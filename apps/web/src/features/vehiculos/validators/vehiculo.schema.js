@@ -16,6 +16,16 @@ export function normalizarPlaca(valor) {
 const esMoto = (tipoVehiculo) => TIPOS_VEHICULO_MOTO.includes(tipoVehiculo);
 
 /**
+ * ¿El vehículo que se edita ya tenía un valor en este campo?
+ *
+ * @param {{ marca?: string|null, color?: string|null }|null} anterior
+ * @param {'marca'|'color'} campo
+ */
+export function tieneValorAnterior(anterior, campo) {
+  return String(anterior?.[campo] ?? '').trim() !== '';
+}
+
+/**
  * Valida el formulario de vehículo. Es solo una ayuda para quien escribe: la
  * API vuelve a validar todo (formato, correspondencia placa-tipo, unicidad).
  *
@@ -25,14 +35,17 @@ const esMoto = (tipoVehiculo) => TIPOS_VEHICULO_MOTO.includes(tipoVehiculo);
  * - marca y color: opcionales; si se escriben, entre 2 y 30 caracteres.
  * - clienteId: obligatorio (la API lo exige).
  *
- * En modo "crear" la marca y el color vacíos no se envían; en modo "editar" se
- * envían vacíos para que se pueda borrar un valor anterior.
+ * Marca y color vacíos nunca se envían. Al editar, una marca o un color que el
+ * vehículo ya tenía no se pueden dejar vacíos: la API ignora el valor vacío y
+ * conserva el anterior, así que el panel diría "actualizado" sin haber borrado
+ * nada. Si algún día la API acepta borrarlos, se quita esa regla.
  *
  * @param {{ placa?: string, tipoVehiculo?: string, marca?: string, color?: string, clienteId?: string|number }} valores
- * @param {{ modo?: 'crear'|'editar' }} [opciones]
+ * @param {{ anterior?: { marca?: string|null, color?: string|null }|null }} [opciones]
+ *   `anterior` es el vehículo que se está editando; null o ausente al registrar.
  * @returns {{ valido: boolean, errores: Record<string, string>, datos: object }}
  */
-export function validarVehiculo(valores, { modo = 'crear' } = {}) {
+export function validarVehiculo(valores, { anterior = null } = {}) {
   const placa = normalizarPlaca(valores.placa);
   const tipoVehiculo = valores.tipoVehiculo ?? '';
   const marca = String(valores.marca ?? '').trim();
@@ -57,12 +70,16 @@ export function validarVehiculo(valores, { modo = 'crear' } = {}) {
     }
   }
 
-  for (const [campo, valor, nombre] of [
-    ['marca', marca, 'La marca'],
-    ['color', color, 'El color'],
+  for (const [campo, valor, nombre, mensajeNoBorrar] of [
+    ['marca', marca, 'La marca', 'La marca no se puede borrar. Escribe la correcta.'],
+    ['color', color, 'El color', 'El color no se puede borrar. Escribe el correcto.'],
   ]) {
     const { min, max } = LIMITES.marcaColor;
-    if (valor !== '' && (valor.length < min || valor.length > max)) {
+    if (valor === '') {
+      if (tieneValorAnterior(anterior, campo)) {
+        errores[campo] = mensajeNoBorrar;
+      }
+    } else if (valor.length < min || valor.length > max) {
       errores[campo] = `${nombre} debe tener entre ${min} y ${max} caracteres.`;
     }
   }
@@ -72,10 +89,10 @@ export function validarVehiculo(valores, { modo = 'crear' } = {}) {
   }
 
   const datos = { placa, tipoVehiculo, clienteId };
-  if (modo === 'editar' || marca !== '') {
+  if (marca !== '') {
     datos.marca = marca;
   }
-  if (modo === 'editar' || color !== '') {
+  if (color !== '') {
     datos.color = color;
   }
 

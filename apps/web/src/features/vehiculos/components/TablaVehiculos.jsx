@@ -8,13 +8,15 @@ const SIN_DATO = '—';
 /**
  * Tabla de vehículos con las acciones de cada fila: historial, editar y
  * eliminar. Cada botón nombra la placa para quien usa lector de pantalla.
+ * Editar y eliminar solo aparecen si se reciben sus funciones (el rol puede
+ * gestionar vehículos).
  *
  * @param {object} props
  * @param {object[]} props.vehiculos
  * @param {(clienteId: number) => string} props.nombreDeCliente
  * @param {(vehiculo: object) => void} props.alVerHistorial
- * @param {(vehiculo: object) => void} props.alEditar
- * @param {(vehiculo: object) => void} props.alEliminar
+ * @param {(vehiculo: object) => void} [props.alEditar]
+ * @param {(vehiculo: object) => void} [props.alEliminar]
  * @param {string} [props.mensajeVacio]
  */
 export function TablaVehiculos({
@@ -61,23 +63,27 @@ export function TablaVehiculos({
             >
               Historial
             </Boton>
-            <Boton
-              variante="fantasma"
-              tamano="pequeno"
-              aria-label={`Editar vehículo ${placa}`}
-              onClick={() => alEditar(vehiculo)}
-            >
-              Editar
-            </Boton>
-            <Boton
-              variante="fantasma"
-              tamano="pequeno"
-              aria-label={`Eliminar vehículo ${placa}`}
-              onClick={() => alEliminar(vehiculo)}
-              className="text-error hover:not-disabled:bg-error-suave active:not-disabled:bg-error-suave focus-visible:outline-error"
-            >
-              Eliminar
-            </Boton>
+            {alEditar ? (
+              <Boton
+                variante="fantasma"
+                tamano="pequeno"
+                aria-label={`Editar vehículo ${placa}`}
+                onClick={() => alEditar(vehiculo)}
+              >
+                Editar
+              </Boton>
+            ) : null}
+            {alEliminar ? (
+              <Boton
+                variante="fantasma"
+                tamano="pequeno"
+                aria-label={`Eliminar vehículo ${placa}`}
+                onClick={() => alEliminar(vehiculo)}
+                className="text-error hover:not-disabled:bg-error-suave active:not-disabled:bg-error-suave focus-visible:outline-error"
+              >
+                Eliminar
+              </Boton>
+            ) : null}
           </div>
         );
       },

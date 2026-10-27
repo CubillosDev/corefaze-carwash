@@ -25,23 +25,39 @@ describe('validarVehiculo', () => {
     expect(datos).toEqual({ placa: 'ABC123', tipoVehiculo: 'automovil', clienteId: 3 });
   });
 
-  it('en modo crear no envía marca ni color vacíos', () => {
-    const { datos } = validarVehiculo(CARRO, { modo: 'crear' });
+  it('no envía marca ni color vacíos', () => {
+    for (const opciones of [undefined, { anterior: { marca: null, color: '' } }]) {
+      const { datos, valido } = validarVehiculo(CARRO, opciones);
 
-    expect(datos).not.toHaveProperty('marca');
-    expect(datos).not.toHaveProperty('color');
+      expect(valido).toBe(true);
+      expect(datos).not.toHaveProperty('marca');
+      expect(datos).not.toHaveProperty('color');
+    }
   });
 
-  it('en modo crear envía marca y color si se escribieron (recortados)', () => {
+  it('envía marca y color si se escribieron (recortados)', () => {
     const { datos } = validarVehiculo({ ...CARRO, marca: ' Mazda ', color: 'Rojo' });
 
     expect(datos).toMatchObject({ marca: 'Mazda', color: 'Rojo' });
   });
 
-  it('en modo editar envía marca y color aunque estén vacíos, para poder borrarlos', () => {
-    const { datos } = validarVehiculo(CARRO, { modo: 'editar' });
+  it('al editar, no deja vaciar una marca o un color que el vehículo ya tenía', () => {
+    const anterior = { marca: 'Mazda', color: 'Rojo' };
 
-    expect(datos).toMatchObject({ marca: '', color: '' });
+    const { valido, errores } = validarVehiculo({ ...CARRO, marca: '  ', color: '' }, { anterior });
+
+    expect(valido).toBe(false);
+    expect(errores.marca).toBe('La marca no se puede borrar. Escribe la correcta.');
+    expect(errores.color).toBe('El color no se puede borrar. Escribe el correcto.');
+  });
+
+  it('al editar, sí deja cambiar la marca y el color por otros', () => {
+    const anterior = { marca: 'Mazda', color: 'Rojo' };
+
+    const { valido, datos } = validarVehiculo({ ...CARRO, marca: 'Kia', color: 'Azul' }, { anterior });
+
+    expect(valido).toBe(true);
+    expect(datos).toMatchObject({ marca: 'Kia', color: 'Azul' });
   });
 
   it('exige placa, tipo y cliente', () => {

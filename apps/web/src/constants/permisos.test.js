@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { esRolPendiente, etiquetaDeRol, rolPuedeAcceder } from '@/constants/permisos';
+import {
+  esRolPendiente,
+  etiquetaDeRol,
+  rolPuedeAcceder,
+  rolPuedeGestionar,
+} from '@/constants/permisos';
 import { RUTAS } from '@/constants/rutas';
 import { ROLES } from '@/constants/dominio';
 
@@ -52,5 +57,19 @@ describe('permisos', () => {
   it('el inicio solo coincide con "/" y no abre todo lo demás', () => {
     expect(rolPuedeAcceder('soporte', RUTAS.INICIO)).toBe(true);
     expect(rolPuedeAcceder('soporte', '/reportes')).toBe(false);
+  });
+
+  it('solo superadmin y administrador gestionan clientes y vehículos', () => {
+    for (const modulo of [RUTAS.CLIENTES, RUTAS.VEHICULOS]) {
+      expect(rolPuedeGestionar('superadmin', modulo)).toBe(true);
+      expect(rolPuedeGestionar('administrador', modulo)).toBe(true);
+      expect(rolPuedeGestionar('soporte', modulo)).toBe(false);
+      expect(rolPuedeGestionar('pendiente', modulo)).toBe(false);
+      expect(rolPuedeGestionar(undefined, modulo)).toBe(false);
+    }
+  });
+
+  it('soporte gestiona las órdenes de lavado', () => {
+    expect(rolPuedeGestionar('soporte', RUTAS.ORDENES_LAVADO)).toBe(true);
   });
 });

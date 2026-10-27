@@ -4,6 +4,9 @@ import { Alerta } from '@/components/ui/Alerta';
 import { Boton } from '@/components/ui/Boton';
 import { CampoTexto } from '@/components/ui/CampoTexto';
 import { IconoCargando } from '@/components/ui/iconos/IconoCargando';
+import { rolPuedeGestionar } from '@/constants/permisos';
+import { RUTAS } from '@/constants/rutas';
+import { useSesion } from '@/features/autenticacion';
 import {
   actualizarVehiculo,
   crearVehiculo,
@@ -21,9 +24,15 @@ import { formatoPlaca } from '@/utils/formatoPlaca';
  * Vehículos: listado, búsqueda por placa, registro, edición, eliminación y
  * historial de lavados. La página solo compone; los datos viven en los hooks y
  * las llamadas HTTP en api/.
+ *
+ * Registrar, editar y eliminar solo se muestran a los roles que pueden
+ * gestionar vehículos (constants/permisos.js); los demás consultan y ven el
+ * historial. La API vuelve a validar el rol en cada operación.
  */
 export function VehiculosPage() {
   const datos = useVehiculos();
+  const { usuario } = useSesion();
+  const puedeGestionar = rolPuedeGestionar(usuario?.rol, RUTAS.VEHICULOS);
   // Una sola ventana a la vez: { tipo: 'formulario'|'eliminar'|'historial', vehiculo }
   const [ventana, setVentana] = useState(null);
   const [aviso, setAviso] = useState('');
@@ -58,12 +67,16 @@ export function VehiculosPage() {
         <div className="flex flex-col gap-1">
           <h1 className="text-titulo text-neutro-900">Vehículos</h1>
           <p className="text-detalle text-neutro-600">
-            Busca un vehículo por su placa, registra uno nuevo o revisa su historial de lavados.
+            {puedeGestionar
+              ? 'Busca un vehículo por su placa, registra uno nuevo o revisa su historial de lavados.'
+              : 'Busca un vehículo por su placa y revisa su historial de lavados.'}
           </p>
         </div>
-        <Boton onClick={() => setVentana({ tipo: 'formulario', vehiculo: null })}>
-          Nuevo vehículo
-        </Boton>
+        {puedeGestionar ? (
+          <Boton onClick={() => setVentana({ tipo: 'formulario', vehiculo: null })}>
+            Nuevo vehículo
+          </Boton>
+        ) : null}
       </header>
 
       {aviso ? (
@@ -111,13 +124,13 @@ export function VehiculosPage() {
             vehiculos={datos.coincidencias}
             nombreDeCliente={datos.nombreDeCliente}
             alVerHistorial={(vehiculo) => setVentana({ tipo: 'historial', vehiculo })}
-            alEditar={(vehiculo) => setVentana({ tipo: 'formulario', vehiculo })}
-            alEliminar={(vehiculo) => setVentana({ tipo: 'eliminar', vehiculo })}
-            mensajeVacio={
-              hayBusqueda
-                ? 'Ningún vehículo coincide con esa placa.'
-                : 'Todavía no hay vehículos registrados. Usa «Nuevo vehículo» para agregar el primero.'
+            alEditar={
+              puedeGestionar ? (vehiculo) => setVentana({ tipo: 'formulario', vehiculo }) : undefined
             }
+            alEliminar={
+              puedeGestionar ? (vehiculo) => setVentana({ tipo: 'eliminar', vehiculo }) : undefined
+            }
+            mensajeVacio={mensajeVacio({ hayBusqueda, puedeGestionar })}
           />
         </>
       ) : null}
@@ -144,4 +157,13 @@ export function VehiculosPage() {
       ) : null}
     </div>
   );
+}
+
+function mensajeVacio({ hayBusqueda, puedeGestionar }) {
+  if (hayBusqueda) {
+    return 'Ningún vehículo coincide con esa placa.';
+  }
+  return puedeGestionar
+    ? 'Todavía no hay vehículos registrados. Usa «Nuevo vehículo» para agregar el primero.'
+    : 'Todavía no hay vehículos registrados.';
 }

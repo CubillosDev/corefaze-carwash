@@ -9,6 +9,7 @@ import { TIPOS_VEHICULO } from '@/constants/dominio';
 import { ETIQUETAS_TIPO_VEHICULO } from '@/constants/etiquetas';
 import {
   normalizarPlaca,
+  tieneValorAnterior,
   validarVehiculo,
 } from '@/features/vehiculos/validators/vehiculo.schema';
 import { ErrorHttp } from '@/lib/httpCliente';
@@ -38,6 +39,9 @@ function valoresIniciales(vehiculo) {
  * errores por campo (400) o de placa repetida (409) se muestran junto al campo
  * correspondiente. Cualquier otro error aparece arriba del formulario.
  *
+ * Al editar, la marca y el color que el vehículo ya tenía se pueden cambiar
+ * pero no dejar vacíos (ver validarVehiculo).
+ *
  * Se monta solo mientras está abierta, así que cada apertura empieza limpia.
  *
  * @param {object} props
@@ -65,7 +69,7 @@ export function FormularioVehiculo({ vehiculo, clientes, alGuardar, alCerrar }) 
   async function enviar(evento) {
     evento.preventDefault();
 
-    const resultado = validarVehiculo(valores, { modo });
+    const resultado = validarVehiculo(valores, { anterior: vehiculo });
     setErrores(resultado.errores);
     setErrorGeneral('');
     if (!resultado.valido) {
@@ -146,6 +150,9 @@ export function FormularioVehiculo({ vehiculo, clientes, alGuardar, alCerrar }) 
             value={valores.marca}
             onChange={cambiar('marca')}
             error={errores.marca}
+            ayuda={
+              tieneValorAnterior(vehiculo, 'marca') ? 'Puedes cambiarla, pero no dejarla vacía.' : undefined
+            }
           />
           <CampoTexto
             etiqueta="Color"
@@ -154,6 +161,9 @@ export function FormularioVehiculo({ vehiculo, clientes, alGuardar, alCerrar }) 
             value={valores.color}
             onChange={cambiar('color')}
             error={errores.color}
+            ayuda={
+              tieneValorAnterior(vehiculo, 'color') ? 'Puedes cambiarlo, pero no dejarlo vacío.' : undefined
+            }
           />
         </div>
         <CampoSeleccion

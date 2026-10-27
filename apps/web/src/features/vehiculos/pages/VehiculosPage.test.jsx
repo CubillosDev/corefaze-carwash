@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ProveedorSesion } from '@/features/autenticacion';
 import { listarClientes } from '@/features/clientes';
 import { listarOrdenesDeVehiculo } from '@/features/ordenes-lavado';
 import { listarServicios } from '@/features/servicios';
@@ -31,6 +32,19 @@ const CLIENTES = [
 const MAZDA = { id: 1, placa: 'ABC123', tipoVehiculo: 'automovil', marca: 'Mazda', color: 'Rojo', clienteId: 1 };
 const MOTO = { id: 2, placa: 'XYZ98K', tipoVehiculo: 'moto_hasta_150cc', marca: null, color: null, clienteId: 2 };
 
+const sesionCon = (rol) => ({
+  usuario: { id: 1, nombre: 'Persona de prueba', email: 'persona@lavadero.test', rol },
+  token: 'token-de-prueba',
+});
+
+/** Monta la página con una sesión del rol indicado (por defecto, administrador). */
+const renderPagina = (rol = 'administrador') =>
+  render(
+    <ProveedorSesion sesionInicial={sesionCon(rol)}>
+      <VehiculosPage />
+    </ProveedorSesion>,
+  );
+
 beforeEach(() => {
   vi.resetAllMocks();
   listarVehiculos.mockResolvedValue([MAZDA, MOTO]);
@@ -39,9 +53,9 @@ beforeEach(() => {
   listarOrdenesDeVehiculo.mockResolvedValue([]);
 });
 
-const abrirPagina = async () => {
+const abrirPagina = async (rol) => {
   const usuario = userEvent.setup();
-  render(<VehiculosPage />);
+  renderPagina(rol);
   await screen.findByRole('table');
   return usuario;
 };
@@ -51,7 +65,7 @@ const dialogo = () => screen.getByRole('dialog');
 
 describe('VehiculosPage: lista', () => {
   it('muestra el estado de carga y luego los vehículos con placa formateada, tipo y cliente', async () => {
-    render(<VehiculosPage />);
+    renderPagina();
 
     expect(screen.getByRole('status')).toHaveTextContent('Cargando vehículos');
 
@@ -77,7 +91,7 @@ describe('VehiculosPage: lista', () => {
   it('muestra el error de carga y permite reintentar', async () => {
     listarVehiculos.mockRejectedValueOnce(new ErrorHttp('El servidor presentó un error.', { estado: 500 }));
     const usuario = userEvent.setup();
-    render(<VehiculosPage />);
+    renderPagina();
 
     expect(await screen.findByRole('alert')).toHaveTextContent('El servidor presentó un error.');
 
@@ -346,5 +360,71 @@ describe('VehiculosPage: historial', () => {
     await usuario.click(screen.getByRole('button', { name: 'Ver historial del vehículo ABC 123' }));
 
     expect(await within(dialogo()).findByText('Servicio 99')).toBeInTheDocument();
+  });
+});
+
+describe('VehiculosPage: marca y color ya registrados', () => {
+  it('no deja guardar si se borra la marca o el color que el vehículo tenía', async () => {
+    const usuario = await abrirPagina();
+
+    await usuario.click(screen.getByRole('button', { name: 'Editar vehículo ABC 123' }));
+    expect(screen.getByLabelText(/^marca/i)).toHaveAccessibleDescription(
+      'Puedes cambiarla, pero no dejarla vacía.',
+    );
+    await usuario.clear(screen.getByLabelText(/^marca/i));
+    await usuario.clear(screen.getByLabelText(/^color/i));
+    await usuario.click(within(dialogo()).getByRole('button', { name: 'Guardar cambios' }));
+
+    expect(actualizarVehiculo).not.toHaveBeenCalled();
+    expect(within(dialogo()).getByText('La marca no se puede borrar. Escribe la correcta.')).toBeInTheDocument();
+    expect(within(dialogo()).getByText('El color no se puede borrar. Escribe el correcto.')).toBeInTheDocument();
+  });
+
+  it('un vehículo sin marca ni color se edita sin enviarlos y sin la pista de "no dejarla vacía"', async () => {
+    actualizarVehiculo.mockResolvedValue({ ...MOTO, clienteId: 1 });
+    const usuario = await abrirPagina();
+
+    await usuario.click(screen.getByRole('button', { name: 'Editar vehículo XYZ 98K' }));
+    expect(screen.getByLabelText(/^marca/i)).not.toHaveAccessibleDescription();
+    await usuario.selectOptions(screen.getByLabelText(/^cliente/i), '1');
+    await usuario.click(within(dialogo()).getByRole('button', { name: 'Guardar cambios' }));
+
+    expect(actualizarVehiculo).toHaveBeenCalledWith(2, {
+      placa: 'XYZ98K',
+      tipoVehiculo: 'moto_hasta_150cc',
+      clienteId: 1,
+    });
+  });
+});
+
+describe('VehiculosPage: acciones según el rol', () => {
+  it('soporte consulta y ve el historial, pero no ve registrar, editar ni eliminar', async () => {
+    await abrirPagina('soporte');
+
+    expect(screen.queryByRole('button', { name: 'Nuevo vehículo' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^editar vehículo/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^eliminar vehículo/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ver historial del vehículo ABC 123' })).toBeInTheDocument();
+    expect(screen.getByText('Busca un vehículo por su placa y revisa su historial de lavados.')).toBeInTheDocument();
+  });
+
+  it('a soporte, la lista vacía no lo invita a registrar', async () => {
+    listarVehiculos.mockResolvedValue([]);
+
+    await abrirPagina('soporte');
+
+    expect(screen.getByText('Todavía no hay vehículos registrados.')).toBeInTheDocument();
+  });
+
+  it('superadmin y administrador ven registrar, editar y eliminar', async () => {
+    for (const rol of ['superadmin', 'administrador']) {
+      const { unmount } = renderPagina(rol);
+      await screen.findByRole('table');
+
+      expect(screen.getByRole('button', { name: 'Nuevo vehículo' }), rol).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Editar vehículo ABC 123' }), rol).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Eliminar vehículo ABC 123' }), rol).toBeInTheDocument();
+      unmount();
+    }
   });
 });
