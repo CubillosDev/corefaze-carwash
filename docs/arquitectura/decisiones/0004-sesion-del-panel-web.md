@@ -1,4 +1,4 @@
-# 0003 · Dónde vive la sesión del panel web
+# 0004 · Dónde vive la sesión del panel web
 
 - **Estado:** aceptada (provisional hasta coordinar con la API; ver "Siguiente paso")
 - **Tarea:** SCRUM-148
