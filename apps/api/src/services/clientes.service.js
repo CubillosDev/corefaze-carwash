@@ -1,7 +1,8 @@
 const { supabase, crearClienteConUsuario } = require('../db/supabaseCliente');
 const { aCamelCase } = require('../utils/mapearCampos');
 const { TIPOS_CLIENTE } = require('../constants/dominio');
-const { Conflicto, NoEncontrado, SolicitudInvalida } = require('../utils/errores');
+const { Conflicto, NoEncontrado } = require('../utils/errores');
+const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
 
 // Nunca *: así nunca se filtran creado_en/actualizado_en mientras el
 // contrato HTTP no las incluya (ver supabase/README.md, "Contrato de
@@ -13,24 +14,16 @@ const COLUMNAS = 'id, nombre, documento, tipo, telefono, email, credito_habilita
  * utils/errores.js. Los códigos son los que la migración de `clientes`
  * puede disparar (ver docs/arquitectura/diagramas/modelo-datos.md).
  */
-const traducirErrorPostgres = (error) => {
-  // 23505 unique_violation: documento duplicado (clientes_documento_key).
-  if (error.code === '23505') {
-    return new Conflicto('Ya existe un cliente con ese documento');
-  }
-
-  // 23503 foreign_key_violation al borrar: vehiculos.cliente_id (restrict).
-  if (error.code === '23503') {
-    return new Conflicto('No se puede eliminar un cliente con vehículos asociados');
-  }
-
-  // 23514 check_violation: formato o regla de negocio de la tabla clientes.
-  if (error.code === '23514') {
-    return new SolicitudInvalida([], 'Datos de cliente inválidos');
-  }
-
-  return new Error(`Error de base de datos en clientes: ${error.message}`);
-};
+const traducirErrorPostgres = crearTraductorErroresPostgres({
+  tabla: 'clientes',
+  etiqueta: 'cliente',
+  mapeo: {
+    // 23505 unique_violation: documento duplicado (clientes_documento_key).
+    23505: () => new Conflicto('Ya existe un cliente con ese documento'),
+    // 23503 foreign_key_violation al borrar: vehiculos.cliente_id (restrict).
+    23503: () => new Conflicto('No se puede eliminar un cliente con vehículos asociados'),
+  },
+});
 
 /**
  * Lista todos los clientes.

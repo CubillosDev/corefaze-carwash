@@ -14,6 +14,7 @@ const {
   MEDIOS_PAGO,
 } = require('../constants/dominio');
 const { Conflicto, NoEncontrado, SolicitudInvalida } = require('../utils/errores');
+const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
 
 // Nunca *: porcentaje_comision nunca se selecciona mientras el contrato
 // HTTP no la incluya (igual que creado_en/actualizado_en); tampoco se
@@ -28,35 +29,29 @@ const COLUMNAS =
  * Traduce un error de Postgres (vía supabase-js) a una de las clases de
  * utils/errores.js. Los códigos son los que la tabla y las reglas
  * (triggers) de `ordenes_lavado` pueden disparar.
+ *
+ * 23514 (check_violation) incluye las que protege proteger_orden_lavado()
+ * (campos congelados, orden cerrada): tampoco debería dispararse en la
+ * práctica, el service ya valida esas reglas antes; queda como defensa
+ * adicional, con el mensaje genérico por defecto del helper.
  */
-const traducirErrorPostgres = (error) => {
-  // 23505 unique_violation: dos posibles índices únicos.
-  if (error.code === '23505') {
-    if (error.message.includes('idx_ordenes_lavado_vehiculo_abierta')) {
-      return new Conflicto('El vehículo ya tiene una orden abierta'); // R6
-    }
-    // ordenes_lavado_fecha_turno_key
-    return new Conflicto('El turno ya está ocupado para esa fecha'); // R5
-  }
-
-  // 23503 foreign_key_violation al insertar/actualizar: el vehículo,
-  // servicio, colaborador, jornada o cliente referenciado no existe. En la
-  // práctica no debería dispararse (R1 ya los valida con obtener...OFallar
-  // antes de llegar aquí); queda como defensa adicional.
-  if (error.code === '23503') {
-    return new NoEncontrado('El recurso referenciado no existe');
-  }
-
-  // 23514 check_violation: formato o regla de negocio de ordenes_lavado,
-  // incluidas las que protege proteger_orden_lavado() (campos congelados,
-  // orden cerrada). Tampoco debería dispararse en la práctica: el service
-  // ya valida esas reglas antes; queda como defensa adicional.
-  if (error.code === '23514') {
-    return new SolicitudInvalida([], 'Datos de orden de lavado inválidos');
-  }
-
-  return new Error(`Error de base de datos en ordenes_lavado: ${error.message}`);
-};
+const traducirErrorPostgres = crearTraductorErroresPostgres({
+  tabla: 'ordenes_lavado',
+  etiqueta: 'orden de lavado',
+  mapeo: {
+    // 23505 unique_violation: dos posibles índices únicos.
+    23505: (error) =>
+      error.message.includes('idx_ordenes_lavado_vehiculo_abierta')
+        ? new Conflicto('El vehículo ya tiene una orden abierta') // R6
+        : // ordenes_lavado_fecha_turno_key
+          new Conflicto('El turno ya está ocupado para esa fecha'), // R5
+    // 23503 foreign_key_violation al insertar/actualizar: el vehículo,
+    // servicio, colaborador, jornada o cliente referenciado no existe. En
+    // la práctica no debería dispararse (R1 ya los valida con
+    // obtener...OFallar antes de llegar aquí); queda como defensa adicional.
+    23503: () => new NoEncontrado('El recurso referenciado no existe'),
+  },
+});
 
 /**
  * Lista las órdenes de lavado. Cada filtro es opcional y se aplica solo

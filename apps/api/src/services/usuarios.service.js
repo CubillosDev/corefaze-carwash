@@ -1,7 +1,8 @@
 const { supabase, crearClienteConUsuario } = require('../db/supabaseCliente');
 const { aCamelCase } = require('../utils/mapearCampos');
 const { generarPasswordHash, verificarPassword } = require('../utils/password.util');
-const { Conflicto, NoEncontrado, SolicitudInvalida } = require('../utils/errores');
+const { Conflicto, NoEncontrado } = require('../utils/errores');
+const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
 
 // Nunca *: así nunca se filtra password_hash (ni intentos_fallidos ni
 // bloqueado_hasta — columnas de un bloqueo por intentos fallidos que la
@@ -18,19 +19,14 @@ const sinPasswordHash = ({ password_hash: _passwordHash, ...resto }) => resto;
  * utils/errores.js. Los códigos son los que la migración de `usuarios`
  * puede disparar.
  */
-const traducirErrorPostgres = (error) => {
-  // 23505 unique_violation: usuarios_email_key.
-  if (error.code === '23505') {
-    return new Conflicto('Ya existe un usuario con ese correo electrónico');
-  }
-
-  // 23514 check_violation: formato o regla de negocio de usuarios.
-  if (error.code === '23514') {
-    return new SolicitudInvalida([], 'Datos de usuario inválidos');
-  }
-
-  return new Error(`Error de base de datos en usuarios: ${error.message}`);
-};
+const traducirErrorPostgres = crearTraductorErroresPostgres({
+  tabla: 'usuarios',
+  etiqueta: 'usuario',
+  mapeo: {
+    // 23505 unique_violation: usuarios_email_key.
+    23505: () => new Conflicto('Ya existe un usuario con ese correo electrónico'),
+  },
+});
 
 /**
  * Obtiene un usuario por email (sin distinguir mayúsculas/minúsculas), ya

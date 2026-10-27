@@ -1,6 +1,6 @@
 const { supabase, crearClienteConUsuario } = require('../db/supabaseCliente');
 const { aCamelCase } = require('../utils/mapearCampos');
-const { SolicitudInvalida } = require('../utils/errores');
+const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
 
 // parametros_negocio es una tabla de una sola fila: la crea la propia
 // migración (id = 1) y la BD le revoca insert/delete incluso a
@@ -36,17 +36,14 @@ const COLUMNAS = [
 
 /**
  * Traduce un error de Postgres (vía supabase-js) a una de las clases de
- * utils/errores.js. Los códigos son los que la migración de
- * `parametros_negocio` puede disparar.
+ * utils/errores.js. El único código que la migración de
+ * `parametros_negocio` puede disparar hoy es 23514 (check_violation),
+ * cubierto por el mensaje por defecto del helper.
  */
-const traducirErrorPostgres = (error) => {
-  // 23514 check_violation: formato o regla de negocio de parametros_negocio.
-  if (error.code === '23514') {
-    return new SolicitudInvalida([], 'Datos de parámetros de negocio inválidos');
-  }
-
-  return new Error(`Error de base de datos en parametros_negocio: ${error.message}`);
-};
+const traducirErrorPostgres = crearTraductorErroresPostgres({
+  tabla: 'parametros_negocio',
+  etiqueta: 'parámetros de negocio',
+});
 
 /**
  * Obtiene los parámetros de negocio. La fila (id = 1) siempre existe —

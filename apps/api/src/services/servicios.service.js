@@ -2,6 +2,7 @@ const { supabase, crearClienteConUsuario } = require('../db/supabaseCliente');
 const { aCamelCase } = require('../utils/mapearCampos');
 const { SERVICIOS_CON_LAVADO_MOTOR } = require('../constants/dominio');
 const { Conflicto, NoEncontrado, SolicitudInvalida } = require('../utils/errores');
+const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
 
 // Nunca *: así nunca se filtran creado_en/actualizado_en mientras el
 // contrato HTTP no las incluya. El alias de tarifas es el select anidado
@@ -45,30 +46,25 @@ const validarTarifasSinDuplicados = (tarifas) => {
  * utils/errores.js. Los códigos son los que las migraciones de
  * `servicios`/`tarifas_servicio` pueden disparar.
  */
-const traducirErrorPostgres = (error) => {
-  // 23505 unique_violation: dos posibles índices únicos.
-  if (error.code === '23505') {
-    if (error.message.includes('tarifas_servicio_servicio_tipo_key')) {
-      return new SolicitudInvalida([
-        { campo: 'tarifas', mensaje: 'No puede haber dos tarifas para el mismo tipo de vehículo' },
-      ]);
-    }
-    // servicios_numero_key
-    return new Conflicto('Ya existe un servicio con ese número');
-  }
-
-  // 23503 foreign_key_violation al borrar: ordenes_lavado.servicio_id (restrict).
-  if (error.code === '23503') {
-    return new Conflicto('No se puede eliminar un servicio con órdenes de lavado asociadas');
-  }
-
-  // 23514 check_violation: formato o regla de negocio de servicios/tarifas_servicio.
-  if (error.code === '23514') {
-    return new SolicitudInvalida([], 'Datos de servicio inválidos');
-  }
-
-  return new Error(`Error de base de datos en servicios: ${error.message}`);
-};
+const traducirErrorPostgres = crearTraductorErroresPostgres({
+  tabla: 'servicios',
+  etiqueta: 'servicio',
+  mapeo: {
+    // 23505 unique_violation: dos posibles índices únicos.
+    23505: (error) =>
+      error.message.includes('tarifas_servicio_servicio_tipo_key')
+        ? new SolicitudInvalida([
+            {
+              campo: 'tarifas',
+              mensaje: 'No puede haber dos tarifas para el mismo tipo de vehículo',
+            },
+          ])
+        : // servicios_numero_key
+          new Conflicto('Ya existe un servicio con ese número'),
+    // 23503 foreign_key_violation al borrar: ordenes_lavado.servicio_id (restrict).
+    23503: () => new Conflicto('No se puede eliminar un servicio con órdenes de lavado asociadas'),
+  },
+});
 
 /**
  * Lista todos los servicios.

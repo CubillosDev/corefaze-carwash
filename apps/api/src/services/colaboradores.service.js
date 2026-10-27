@@ -1,7 +1,8 @@
 const { supabase, crearClienteConUsuario } = require('../db/supabaseCliente');
 const { aCamelCase } = require('../utils/mapearCampos');
 const { ESTADOS_ACTIVIDAD, DIAS_GRACIA_CODIGO_COLABORADOR } = require('../constants/dominio');
-const { Conflicto, NoEncontrado, SolicitudInvalida } = require('../utils/errores');
+const { Conflicto, NoEncontrado } = require('../utils/errores');
+const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
 
 // Nunca *: así nunca se filtran creado_en/actualizado_en mientras el
 // contrato HTTP no las incluya (ver supabase/README.md, "Contrato de
@@ -69,28 +70,21 @@ const codigoEstaOcupado = async (codigo, idAExcluir = null) => {
  * utils/errores.js. Los códigos son los que la migración de
  * `colaboradores` puede disparar (ver docs/arquitectura/diagramas/modelo-datos.md).
  */
-const traducirErrorPostgres = (error) => {
-  // 23505 unique_violation: dos posibles índices únicos.
-  if (error.code === '23505') {
-    if (error.message.includes('idx_colaboradores_codigo_activo')) {
-      return new Conflicto('Ese código pertenece a un colaborador activo o en período de gracia');
-    }
-    // colaboradores_documento_key
-    return new Conflicto('Ya existe un colaborador con ese documento');
-  }
-
-  // 23503 foreign_key_violation al borrar: ordenes_lavado.colaborador_id (restrict).
-  if (error.code === '23503') {
-    return new Conflicto('No se puede eliminar un colaborador con órdenes de lavado asociadas');
-  }
-
-  // 23514 check_violation: formato o regla de negocio de la tabla colaboradores.
-  if (error.code === '23514') {
-    return new SolicitudInvalida([], 'Datos de colaborador inválidos');
-  }
-
-  return new Error(`Error de base de datos en colaboradores: ${error.message}`);
-};
+const traducirErrorPostgres = crearTraductorErroresPostgres({
+  tabla: 'colaboradores',
+  etiqueta: 'colaborador',
+  mapeo: {
+    // 23505 unique_violation: dos posibles índices únicos.
+    23505: (error) =>
+      error.message.includes('idx_colaboradores_codigo_activo')
+        ? new Conflicto('Ese código pertenece a un colaborador activo o en período de gracia')
+        : // colaboradores_documento_key
+          new Conflicto('Ya existe un colaborador con ese documento'),
+    // 23503 foreign_key_violation al borrar: ordenes_lavado.colaborador_id (restrict).
+    23503: () =>
+      new Conflicto('No se puede eliminar un colaborador con órdenes de lavado asociadas'),
+  },
+});
 
 /**
  * Lista todos los colaboradores.

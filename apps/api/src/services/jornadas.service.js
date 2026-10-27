@@ -1,7 +1,8 @@
 const { supabase, crearClienteConUsuario } = require('../db/supabaseCliente');
 const { aCamelCase } = require('../utils/mapearCampos');
 const { ESTADOS_JORNADA } = require('../constants/dominio');
-const { Conflicto, NoEncontrado, SolicitudInvalida } = require('../utils/errores');
+const { Conflicto, NoEncontrado } = require('../utils/errores');
+const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
 
 // El alias de reaperturas es el select anidado documentado en el contrato
 // de integración (supabase/README.md): la API sigue devolviendo
@@ -15,23 +16,18 @@ const COLUMNAS =
  * utils/errores.js. Los códigos son los que las migraciones de
  * `jornadas`/`reaperturas_jornada` pueden disparar.
  */
-const traducirErrorPostgres = (error) => {
-  // 23505 unique_violation: dos posibles índices únicos.
-  if (error.code === '23505') {
-    if (error.message.includes('idx_jornadas_una_abierta')) {
-      return new Conflicto('Ya existe una jornada abierta');
-    }
-    // jornadas_fecha_key
-    return new Conflicto('Ya existe una jornada registrada para hoy');
-  }
-
-  // 23514 check_violation: formato o regla de negocio de jornadas.
-  if (error.code === '23514') {
-    return new SolicitudInvalida([], 'Datos de jornada inválidos');
-  }
-
-  return new Error(`Error de base de datos en jornadas: ${error.message}`);
-};
+const traducirErrorPostgres = crearTraductorErroresPostgres({
+  tabla: 'jornadas',
+  etiqueta: 'jornada',
+  mapeo: {
+    // 23505 unique_violation: dos posibles índices únicos.
+    23505: (error) =>
+      error.message.includes('idx_jornadas_una_abierta')
+        ? new Conflicto('Ya existe una jornada abierta')
+        : // jornadas_fecha_key
+          new Conflicto('Ya existe una jornada registrada para hoy'),
+  },
+});
 
 /**
  * YYYY-MM-DD en la zona horaria del negocio (America/Bogota), nunca en

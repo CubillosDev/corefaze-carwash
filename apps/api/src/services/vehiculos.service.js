@@ -3,6 +3,7 @@ const { aCamelCase } = require('../utils/mapearCampos');
 const clientesService = require('./clientes.service');
 const { TIPOS_VEHICULO_MOTO, PATRONES_PLACA } = require('../constants/dominio');
 const { Conflicto, NoEncontrado, SolicitudInvalida } = require('../utils/errores');
+const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
 
 // Nunca *: así nunca se filtran creado_en/actualizado_en mientras el
 // contrato HTTP no las incluya (ver supabase/README.md, "Contrato de
@@ -14,24 +15,16 @@ const COLUMNAS = 'id, placa, tipo_vehiculo, marca, color, cliente_id';
  * utils/errores.js. Los códigos son los que la migración de `vehiculos`
  * puede disparar (ver docs/arquitectura/diagramas/modelo-datos.md).
  */
-const traducirErrorPostgres = (error) => {
-  // 23505 unique_violation: placa duplicada (vehiculos_placa_key).
-  if (error.code === '23505') {
-    return new Conflicto('Ya existe un vehículo con esa placa');
-  }
-
-  // 23503 foreign_key_violation al borrar: ordenes_lavado.vehiculo_id (restrict).
-  if (error.code === '23503') {
-    return new Conflicto('No se puede eliminar un vehículo con órdenes de lavado asociadas');
-  }
-
-  // 23514 check_violation: formato o regla de negocio de la tabla vehiculos.
-  if (error.code === '23514') {
-    return new SolicitudInvalida([], 'Datos de vehículo inválidos');
-  }
-
-  return new Error(`Error de base de datos en vehiculos: ${error.message}`);
-};
+const traducirErrorPostgres = crearTraductorErroresPostgres({
+  tabla: 'vehiculos',
+  etiqueta: 'vehículo',
+  mapeo: {
+    // 23505 unique_violation: placa duplicada (vehiculos_placa_key).
+    23505: () => new Conflicto('Ya existe un vehículo con esa placa'),
+    // 23503 foreign_key_violation al borrar: ordenes_lavado.vehiculo_id (restrict).
+    23503: () => new Conflicto('No se puede eliminar un vehículo con órdenes de lavado asociadas'),
+  },
+});
 
 /**
  * Lista todos los vehículos.
