@@ -228,3 +228,29 @@ join public.vehiculos v on v.placa = d.placa
 join public.servicios s on s.numero = d.numero_servicio
 join public.colaboradores c on c.codigo = d.codigo_colaborador
 join public.tarifas_servicio ts on ts.servicio_id = s.id and ts.tipo_vehiculo = v.tipo_vehiculo;
+
+-- ============================================================
+-- Parámetros del negocio (Fase 2): la fila (id = 1) ya la crea la
+-- migración 12 — aquí solo se actualiza con valores ficticios redondos.
+-- ============================================================
+
+update public.parametros_negocio
+set
+  nombre_negocio = 'Car Wash Demo',
+  nit = '900999888-1',
+  direccion = 'Calle Falsa 123',
+  telefono = '3000000000',
+  porcentaje_comision = 0.37,
+  descontar_comision_diaria = false,
+  costo_arriendo = 2000000,
+  costo_luz = 300000,
+  costo_agua = 200000,
+  costo_nomina_fija = 1500000,
+  costo_depreciacion = 100000,
+  costo_insumos = 500000,
+  costo_variable_lavado = 5000,
+  precio_promedio_referencia = 40000,
+  tope_prestamo_colaborador = 200000,
+  dias_operacion_mes = 30,
+  actualizado_por = (select id from public.usuarios where email = 'administrador@carwash.test')
+where id = 1;

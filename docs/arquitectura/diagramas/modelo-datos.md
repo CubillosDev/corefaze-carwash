@@ -2,7 +2,7 @@
 
 Esquema de la base de datos del Car Wash, construido como migraciones versionadas de Supabase (`supabase/migrations/`). Este documento se actualiza al cerrar cada fase de SCRUM-145/SCRUM-146.
 
-**Estado actual: Fase 1 (SCRUM-145) — 9 tablas.** La Fase 2 (SCRUM-146) agrega `parametros_negocio` y `auditoria`, y se documentará aquí cuando se confirme.
+**Estado actual: Fase 2 (SCRUM-146) completa — 11 tablas.** El esquema queda cerrado: `usuarios`, `colaboradores`, `servicios`, `tarifas_servicio`, `clientes`, `vehiculos`, `jornadas`, `reaperturas_jornada`, `ordenes_lavado` (Fase 1) + `parametros_negocio`, `auditoria` (Fase 2).
 
 ## Diagrama entidad-relación
 
@@ -91,6 +91,22 @@ erDiagram
         text estado
         varchar motivo
     }
+    PARAMETROS_NEGOCIO {
+        smallint id PK
+        varchar nombre_negocio
+        numeric porcentaje_comision
+        boolean descontar_comision_diaria
+        bigint actualizado_por FK
+    }
+    AUDITORIA {
+        bigint id PK
+        bigint usuario_id FK
+        text tabla
+        bigint registro_id
+        text accion
+        jsonb valor_anterior
+        jsonb valor_nuevo
+    }
 
     SERVICIOS ||--o{ TARIFAS_SERVICIO : "tiene (cascade)"
     CLIENTES ||--o{ VEHICULOS : "posee (restrict)"
@@ -103,6 +119,8 @@ erDiagram
     SERVICIOS ||--o{ ORDENES_LAVADO : "se presta en (restrict)"
     COLABORADORES ||--o{ ORDENES_LAVADO : "atiende (restrict)"
     CLIENTES ||--o{ ORDENES_LAVADO : "paga a crédito (restrict)"
+    USUARIOS ||--o{ PARAMETROS_NEGOCIO : "actualiza (restrict)"
+    USUARIOS ||--o{ AUDITORIA : "autor de (restrict)"
 ```
 
 ## Grafo de dependencias por niveles
@@ -122,9 +140,9 @@ El esquema es un grafo acíclico: cada FK apunta de un nivel mayor a uno menor. 
 | 09 | `crear_reaperturas_jornada` | `reaperturas_jornada` | jornadas, usuarios | 2 | 1 |
 | 10 | `crear_ordenes_lavado` | `ordenes_lavado` | jornadas, vehiculos, servicios, colaboradores, clientes | 2 | 1 |
 | 11 | `crear_reglas_ordenes_lavado` | triggers de órdenes | 10 | — | 1 |
-| 12 | `crear_parametros_negocio` | `parametros_negocio` | usuarios | 1 | 2 (pendiente) |
-| 13 | `crear_auditoria` | `auditoria` | usuarios | 1 | 2 (pendiente) |
-| 14 | `activar_auditoria` | `registrar_auditoria()` y triggers | todas | — | 2 (pendiente) |
+| 12 | `crear_parametros_negocio` | `parametros_negocio` | usuarios | 1 | 2 |
+| 13 | `crear_auditoria` | `auditoria` | usuarios | 1 | 2 |
+| 14 | `activar_auditoria` | `registrar_auditoria()` y triggers | todas | — | 2 |
 
 `usuarios` se adelanta a la Fase 1 (su historia es SCRUM-146) porque `jornadas` y `reaperturas_jornada` dependen de ella: así ninguna migración de la Fase 1 queda con una FK pendiente.
 
@@ -153,3 +171,14 @@ Principio de diseño: la BD solo protege invariantes de **dinero** y de **integr
 | R10 | Una orden entregada o cancelada no puede volver a cambiar de estado | BD | Trigger `proteger_orden_lavado` (bloquea cualquier `UPDATE` si `old.estado in ('entregada','cancelada')`) y `impedir_eliminacion` (ninguna orden se borra) |
 
 Además, el porcentaje de comisión de una orden (`porcentaje_comision`) se copia del colaborador al crearla y queda congelado — lo asigna el trigger `preparar_orden_lavado` e ignora cualquier valor que llegue en el `INSERT`; solo se recalcula si `colaborador_id` cambia mientras la orden sigue abierta (`proteger_orden_lavado`).
+
+## Auditoría (Fase 2)
+
+`registrar_auditoria()` corre `AFTER INSERT OR UPDATE OR DELETE` en **todas** las tablas de negocio (`usuarios`, `colaboradores`, `servicios`, `tarifas_servicio`, `clientes`, `vehiculos`, `jornadas`, `reaperturas_jornada`, `ordenes_lavado`, `parametros_negocio`) — nunca en `auditoria` misma, para no auditarse a sí misma (verificado por `estructura_test.sql`, chequeo 12).
+
+- **Quién hizo el cambio**: `coalesce(request.headers->>'x-usuario-id', app.usuario_id)`. En producción, PostgREST llega con el primero (el `sub` del JWT, vía el header que envía la API); `app.usuario_id` es solo para pruebas y para el seed.
+- **Qué acción quedó registrada**: `crear` (INSERT), `editar` (UPDATE), `eliminar` (DELETE) y, como excepción, `anular` cuando el UPDATE en `ordenes_lavado` cambia `estado` a `'cancelada'`.
+- **Ruido descartado**: si un UPDATE solo cambia columnas técnicas (`actualizado_en`, `intentos_fallidos`, `bloqueado_hasta`), el trigger no inserta nada — evita llenar la auditoría de cambios de `actualizado_en` o de intentos de login fallidos.
+- **Dato sensible excluido**: en `usuarios`, `password_hash` se quita del jsonb antes de guardarlo (ni en `valor_anterior` ni en `valor_nuevo`).
+- **La auditoría es inmutable**: `UPDATE` sobre `auditoria` → `23514`; `DELETE` o `TRUNCATE` → `23001`. Ninguno de los dos se puede evitar con un rol superusuario, porque son triggers, no RLS.
+- **`service_role` no escribe auditoría directamente**: solo la función `registrar_auditoria()` (que corre `security definer`) puede insertar en `auditoria`; `service_role` tiene `INSERT`/`UPDATE`/`DELETE`/`TRUNCATE` revocados sobre esa tabla.
