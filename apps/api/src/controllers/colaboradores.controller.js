@@ -59,7 +59,7 @@ const cambiarEstado = async (req, res) => {
 const eliminar = async (req, res) => {
   const { id } = req.datos.parametros;
 
-  if (ordenesLavadoService.colaboradorTieneOrdenes(id)) {
+  if (await ordenesLavadoService.colaboradorTieneOrdenes(id)) {
     throw new Conflicto('No se puede eliminar un colaborador con órdenes de lavado asociadas');
   }
 

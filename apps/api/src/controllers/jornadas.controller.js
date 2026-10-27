@@ -12,29 +12,44 @@ const { ESTADOS_JORNADA } = require('../constants/dominio');
  * Agrega a la jornada sus totales (SCRUM-38): unidades y ventaTotal
  * vienen de sus propias órdenes; diferenciaCaja queda en null hasta que
  * exista el cierre de caja (arqueo), que todavía no está construido.
- * Devuelve un objeto nuevo: la jornada guardada en memoria nunca queda
- * con estos campos derivados pegados permanentemente.
+ * Devuelve un objeto nuevo: la jornada que devuelve el service nunca
+ * queda con estos campos derivados pegados permanentemente.
  *
  * @param {object} jornada
+ * @param {{ unidades: number, ventaTotal: number }} totales
  * @returns {object}
  */
-const agregarTotales = (jornada) => {
-  const { unidades, ventaTotal } = ordenesLavadoService.obtenerTotalesDeJornada(jornada.id);
-  return { ...jornada, unidades, ventaTotal, diferenciaCaja: null };
-};
+const conTotales = (jornada, totales) => ({
+  ...jornada,
+  unidades: totales.unidades,
+  ventaTotal: totales.ventaTotal,
+  diferenciaCaja: null,
+});
 
-/** GET /api/jornadas */
+/**
+ * GET /api/jornadas
+ * Pide los totales de TODAS las jornadas listadas en una sola consulta
+ * (obtenerTotalesPorJornada), no una por jornada: con las jornadas ya
+ * reales y permanentes en Supabase (SCRUM-152), una consulta aparte por
+ * cada una de la lista sería un N+1 que crece sin límite con el tiempo.
+ */
 const listar = async (req, res) => {
   const { desde, hasta } = req.datos.consulta;
-  const jornadas = (await jornadasService.listarJornadas({ desde, hasta })).map(agregarTotales);
-  return res.status(200).json({ jornadas });
+  const jornadas = await jornadasService.listarJornadas({ desde, hasta });
+  const totalesPorJornada = await ordenesLavadoService.obtenerTotalesPorJornada(
+    jornadas.map((jornada) => jornada.id),
+  );
+  return res.status(200).json({
+    jornadas: jornadas.map((jornada) => conTotales(jornada, totalesPorJornada.get(jornada.id))),
+  });
 };
 
-/** GET /api/jornadas/:id */
+/** GET /api/jornadas/:id: una sola jornada, así que un solo obtenerTotalesDeJornada basta. */
 const obtenerPorId = async (req, res) => {
   const { id } = req.datos.parametros;
   const jornada = await jornadasService.obtenerJornadaOFallar(id);
-  return res.status(200).json({ jornada: agregarTotales(jornada) });
+  const totales = await ordenesLavadoService.obtenerTotalesDeJornada(jornada.id);
+  return res.status(200).json({ jornada: conTotales(jornada, totales) });
 };
 
 /** POST /api/jornadas: crea (abre) la jornada del día. */

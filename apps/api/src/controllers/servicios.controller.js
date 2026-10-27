@@ -41,7 +41,7 @@ const actualizar = async (req, res) => {
 const eliminar = async (req, res) => {
   const { id } = req.datos.parametros;
 
-  if (ordenesLavadoService.servicioTieneOrdenes(id)) {
+  if (await ordenesLavadoService.servicioTieneOrdenes(id)) {
     throw new Conflicto('No se puede eliminar un servicio con órdenes de lavado asociadas');
   }
 
