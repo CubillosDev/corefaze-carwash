@@ -229,10 +229,13 @@ const resolverClienteCredito = async (medioPago, clienteId) => {
  *
  * @param {number|string} servicioId
  * @param {string} tipoVehiculo
+ * async porque serviciosService.obtenerServicioOFallar ya consulta
+ * Supabase (SCRUM-152).
+ *
  * @throws {Conflicto} si el servicio no tiene tarifa para ese tipo de vehículo
  */
-const validarServicioAplicaATipo = (servicioId, tipoVehiculo) => {
-  const servicio = serviciosService.obtenerServicioOFallar(servicioId);
+const validarServicioAplicaATipo = async (servicioId, tipoVehiculo) => {
+  const servicio = await serviciosService.obtenerServicioOFallar(servicioId);
   serviciosService.obtenerTarifaParaTipoVehiculo(servicio, tipoVehiculo);
 };
 
@@ -278,7 +281,7 @@ const crearOrden = async (datos) => {
 
   // R1: vehículo, servicio y colaborador deben existir (404 si no).
   const vehiculo = await vehiculosService.obtenerVehiculoOFallar(datos.vehiculoId);
-  const servicio = serviciosService.obtenerServicioOFallar(datos.servicioId);
+  const servicio = await serviciosService.obtenerServicioOFallar(datos.servicioId);
   const colaborador = await colaboradoresService.obtenerColaboradorOFallar(datos.colaboradorId);
 
   validarColaboradorActivo(colaborador); // R2
@@ -366,7 +369,7 @@ const editarOrden = async (id, datos) => {
   if (vehiculoIdFinal !== orden.vehiculoId) {
     const vehiculo = await vehiculosService.obtenerVehiculoOFallar(vehiculoIdFinal); // R1
     validarVehiculoSinOtraOrdenAbierta(vehiculoIdFinal, orden.id); // R6
-    validarServicioAplicaATipo(orden.servicioId, vehiculo.tipoVehiculo); // R3 (aplicabilidad)
+    await validarServicioAplicaATipo(orden.servicioId, vehiculo.tipoVehiculo); // R3 (aplicabilidad)
   }
 
   if (colaboradorIdFinal !== orden.colaboradorId) {
