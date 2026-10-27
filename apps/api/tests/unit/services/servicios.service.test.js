@@ -9,6 +9,7 @@ const {
   eliminarServicio,
 } = require('../../../src/services/servicios.service');
 const { NoEncontrado, Conflicto, SolicitudInvalida } = require('../../../src/utils/errores');
+const { crearGeneradorDeValorUnico } = require('../../utils/valorUnico');
 
 const USUARIO_ID_PRUEBA = 1;
 
@@ -19,11 +20,7 @@ const USUARIO_ID_PRUEBA = 1;
 // del código de colaboradores, `numero` no tiene un rango acotado (solo
 // exige >= 1), así que un sorteo amplio basta sin consultar la BD antes.
 const selloNumero = 1000 + Math.floor(Math.random() * 20000);
-let contadorNumero = 0;
-const numeroUnico = () => {
-  contadorNumero += 1;
-  return selloNumero + contadorNumero;
-};
+const numeroUnico = crearGeneradorDeValorUnico(selloNumero, (sello, contador) => sello + contador);
 
 const servicioValido = (overrides = {}) => ({
   numero: numeroUnico(),

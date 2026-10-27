@@ -2,6 +2,7 @@ const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const { supabase } = require('../../src/db/supabaseCliente');
 const { generarToken } = require('../../src/utils/jwt.util');
+const { generarSello, crearGeneradorDeValorUnico } = require('../utils/valorUnico');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -38,14 +39,11 @@ const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
 // se consulta qué códigos ya existen antes de sortear uno libre. Un
 // `db reset` periódico sigue siendo necesario para que el rango no se
 // agote del todo con el tiempo.
-const selloDocumento = Math.floor(Math.random() * 1e6)
-  .toString()
-  .padStart(6, '0');
-let contadorDocumento = 0;
-const documentoUnico = () => {
-  contadorDocumento += 1;
-  return `${selloDocumento}${String(contadorDocumento).padStart(3, '0')}`;
-};
+const selloDocumento = generarSello();
+const documentoUnico = crearGeneradorDeValorUnico(
+  selloDocumento,
+  (sello, contador) => `${sello}${String(contador).padStart(3, '0')}`,
+);
 
 const codigosOcupados = new Set();
 let siguienteIntentoCodigo = Math.floor(Math.random() * 900);

@@ -2,6 +2,7 @@ const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const { supabase } = require('../../src/db/supabaseCliente');
 const { generarToken } = require('../../src/utils/jwt.util');
+const { generarSello, crearGeneradorDeValorUnico } = require('../utils/valorUnico');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -21,14 +22,11 @@ const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', 
 // email es único para siempre (usuarios_email_key), no en un array que
 // un beforeEach pudiera vaciar. Cada prueba (y cada registro dentro de
 // una misma prueba) necesita el suyo.
-const selloEmail = Math.floor(Math.random() * 1e6)
-  .toString()
-  .padStart(6, '0');
-let contadorEmail = 0;
-const emailUnico = () => {
-  contadorEmail += 1;
-  return `prueba.auth.${selloEmail}.${contadorEmail}@lavadero.com`;
-};
+const selloEmail = generarSello();
+const emailUnico = crearGeneradorDeValorUnico(
+  selloEmail,
+  (sello, contador) => `prueba.auth.${sello}.${contador}@lavadero.com`,
+);
 
 const datosDeRegistro = () => ({
   nombre: 'Administrador Lavadero',

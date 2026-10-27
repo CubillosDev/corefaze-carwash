@@ -7,6 +7,7 @@ const {
   eliminarCliente,
 } = require('../../../src/services/clientes.service');
 const { NoEncontrado, Conflicto } = require('../../../src/utils/errores');
+const { generarSello, crearGeneradorDeValorUnico } = require('../../utils/valorUnico');
 
 // clientes.service.js ya consulta el Supabase local (SCRUM-152, Etapa A),
 // no un array en memoria: estas pruebas corren contra ese stack
@@ -14,14 +15,10 @@ const { NoEncontrado, Conflicto } = require('../../../src/utils/errores');
 // El documento es único por llamada (salto aleatorio + contador) porque la
 // tabla ya no se puede "vaciar" entre pruebas como el array anterior.
 const USUARIO_ID_PRUEBA = 1;
-const selloDocumento = Math.floor(Math.random() * 1e6)
-  .toString()
-  .padStart(6, '0');
-let contadorDocumento = 0;
-const documentoUnico = () => {
-  contadorDocumento += 1;
-  return `${selloDocumento}${String(contadorDocumento).padStart(3, '0')}`;
-};
+const documentoUnico = crearGeneradorDeValorUnico(
+  generarSello(),
+  (sello, contador) => `${sello}${String(contador).padStart(3, '0')}`,
+);
 
 const clienteParticular = () => ({
   nombre: 'Ana María Torres',

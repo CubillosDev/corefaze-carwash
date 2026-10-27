@@ -1,6 +1,7 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const { generarToken } = require('../../src/utils/jwt.util');
+const { generarSello, crearGeneradorDeValorUnico } = require('../utils/valorUnico');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -36,14 +37,11 @@ const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
 // aleatorio, no Date.now(): Jest corre archivos en paralelo en workers
 // distintos y dos pueden arrancar en el mismo milisegundo (causó una
 // colisión real entre este archivo y otro al migrar clientes).
-const selloDocumento = Math.floor(Math.random() * 1e6)
-  .toString()
-  .padStart(6, '0');
-let contadorDocumento = 0;
-const documentoUnico = () => {
-  contadorDocumento += 1;
-  return `${selloDocumento}${String(contadorDocumento).padStart(3, '0')}`;
-};
+const selloDocumento = generarSello();
+const documentoUnico = crearGeneradorDeValorUnico(
+  selloDocumento,
+  (sello, contador) => `${sello}${String(contador).padStart(3, '0')}`,
+);
 
 const clienteParticular = (overrides = {}) => ({
   nombre: 'Ana María Torres',

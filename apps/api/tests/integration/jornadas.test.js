@@ -2,6 +2,7 @@ const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const { supabase } = require('../../src/db/supabaseCliente');
 const { generarToken } = require('../../src/utils/jwt.util');
+const { generarSello, crearGeneradorDeValorUnico } = require('../utils/valorUnico');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -144,10 +145,10 @@ const abrirJornadaDePruebaConOrdenes = async () => {
 // A), no en un array que el beforeEach pudiera vaciar: el documento es
 // único (salto aleatorio + contador) para no chocar ni dentro de esta
 // corrida ni con filas de corridas anteriores sin un `db reset` de por medio.
-const selloDocumentoCliente = Math.floor(Math.random() * 1e6)
-  .toString()
-  .padStart(6, '0');
-let contadorDocumentoCliente = 0;
+const documentoUnicoCliente = crearGeneradorDeValorUnico(
+  generarSello(),
+  (sello, contador) => `${sello}${String(contador).padStart(3, '0')}`,
+);
 
 // vehiculos.service.js ya escribe en el Supabase local (SCRUM-152), no en
 // un array que el beforeEach pudiera vaciar: la placa es única (letras
@@ -163,11 +164,10 @@ const siguientePlaca = () => {
 };
 
 const registrarVehiculoDePrueba = async (overrides = {}) => {
-  contadorDocumentoCliente += 1;
   const { placa, ...resto } = overrides;
   const cliente = await conToken('post', '/api/clientes').send({
     nombre: 'Ana María Torres',
-    documento: `${selloDocumentoCliente}${String(contadorDocumentoCliente).padStart(3, '0')}`,
+    documento: documentoUnicoCliente(),
     tipo: 'particular',
     telefono: '3001234567',
   });
@@ -189,10 +189,10 @@ const registrarVehiculoDePrueba = async (overrides = {}) => {
 // consulta qué códigos ya existen antes de sortear uno libre. Un
 // `db reset` periódico sigue siendo necesario para que el rango no se
 // agote del todo con el tiempo.
-const selloColaborador = Math.floor(Math.random() * 1e6)
-  .toString()
-  .padStart(6, '0');
-let contadorColaborador = 0;
+const documentoUnicoColaborador = crearGeneradorDeValorUnico(
+  generarSello(),
+  (sello, contador) => `${sello}${String(contador).padStart(3, '0')}`,
+);
 
 const codigosOcupadosColaborador = new Set();
 let siguienteIntentoCodigoColaborador = Math.floor(Math.random() * 900);
@@ -220,12 +220,11 @@ const codigoUnicoColaborador = () => {
 };
 
 const registrarColaboradorDePrueba = async (overrides = {}) => {
-  contadorColaborador += 1;
   const { codigo, documento, ...resto } = overrides;
   const respuesta = await conToken('post', '/api/colaboradores').send({
     codigo: codigo ?? codigoUnicoColaborador(),
     nombre: 'Juan Pérez',
-    documento: documento ?? `${selloColaborador}${String(contadorColaborador).padStart(3, '0')}`,
+    documento: documento ?? documentoUnicoColaborador(),
     telefono: '3001234567',
     porcentajeComision: 0.15,
     tipoVinculacion: 'fijo',
@@ -239,11 +238,10 @@ const registrarColaboradorDePrueba = async (overrides = {}) => {
 // aleatorio + contador) para no chocar ni dentro de esta corrida ni con
 // otro archivo que Jest ejecute en paralelo.
 const selloNumeroServicio = 1000 + Math.floor(Math.random() * 20000);
-let contadorNumeroServicio = 0;
-const numeroUnicoServicio = () => {
-  contadorNumeroServicio += 1;
-  return selloNumeroServicio + contadorNumeroServicio;
-};
+const numeroUnicoServicio = crearGeneradorDeValorUnico(
+  selloNumeroServicio,
+  (sello, contador) => sello + contador,
+);
 
 const registrarServicioDePrueba = async (overrides = {}) => {
   const respuesta = await conToken('post', '/api/servicios').send({

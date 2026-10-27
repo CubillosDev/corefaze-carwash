@@ -21,6 +21,7 @@ const {
   obtenerTotalesPorJornada,
 } = require('../../../src/services/ordenesLavado.service');
 const { NoEncontrado, Conflicto, SolicitudInvalida } = require('../../../src/utils/errores');
+const { generarSello, crearGeneradorDeValorUnico } = require('../../utils/valorUnico');
 
 const USUARIO_ID_PRUEBA = 1;
 
@@ -28,10 +29,9 @@ const USUARIO_ID_PRUEBA = 1;
 // Etapa A), no en un array que beforeEach pudiera vaciar: el documento de
 // cada cliente de prueba es único (salto aleatorio + contador) para no
 // chocar ni dentro de esta corrida ni entre corridas sin un `db reset`.
-const selloDocumento = Math.floor(Math.random() * 1e6)
-  .toString()
-  .padStart(6, '0');
-let contadorDocumentoCliente = 0;
+// El colaborador de prueba reusa este mismo sello para su documento (con
+// un sufijo "C" distinto, ver documentoUnicoColaborador más abajo).
+const selloDocumento = generarSello();
 
 // idx_jornadas_una_abierta es GLOBAL (una sola jornada abierta en todo el
 // sistema, sin importar su fecha): este archivo deja la última jornada
@@ -58,10 +58,10 @@ beforeEach(async () => {
 });
 
 /** Documento único por llamada, para no chocar con el cliente por defecto de cada vehículo de prueba. */
-const siguienteDocumentoCliente = () => {
-  contadorDocumentoCliente += 1;
-  return `${selloDocumento}${String(contadorDocumentoCliente).padStart(3, '0')}`;
-};
+const siguienteDocumentoCliente = crearGeneradorDeValorUnico(
+  selloDocumento,
+  (sello, contador) => `${sello}${String(contador).padStart(3, '0')}`,
+);
 
 const crearClienteDePrueba = (datos = {}) =>
   clientesService.crearCliente(
@@ -116,7 +116,10 @@ const crearVehiculoDePrueba = async (datos = {}) => {
 // consulta qué códigos ya existen antes de sortear uno libre. Un
 // `db reset` periódico sigue siendo necesario para que el rango no se
 // agote del todo con el tiempo.
-let contadorColaborador = 0;
+const documentoUnicoColaborador = crearGeneradorDeValorUnico(
+  selloDocumento,
+  (sello, contador) => `${sello}C${String(contador).padStart(3, '0')}`,
+);
 const codigosOcupadosColaborador = new Set();
 let siguienteIntentoCodigoColaborador = Math.floor(Math.random() * 900);
 
@@ -143,13 +146,12 @@ const codigoUnicoColaborador = () => {
 };
 
 const crearColaboradorDePrueba = (datos = {}) => {
-  contadorColaborador += 1;
   const { codigo, documento, ...resto } = datos;
   return colaboradoresService.crearColaborador(
     {
       codigo: codigo ?? codigoUnicoColaborador(),
       nombre: 'Juan Pérez',
-      documento: documento ?? `${selloDocumento}C${String(contadorColaborador).padStart(3, '0')}`,
+      documento: documento ?? documentoUnicoColaborador(),
       telefono: '3001234567',
       porcentajeComision: 0.15,
       tipoVinculacion: 'fijo',
@@ -165,11 +167,10 @@ const crearColaboradorDePrueba = (datos = {}) => {
 // corrida ni con otro archivo que Jest ejecute en paralelo. `numero` no
 // tiene un rango acotado (solo exige >= 1), así que un sorteo amplio basta.
 const selloNumeroServicio = 1000 + Math.floor(Math.random() * 20000);
-let contadorNumeroServicio = 0;
-const numeroUnicoServicio = () => {
-  contadorNumeroServicio += 1;
-  return selloNumeroServicio + contadorNumeroServicio;
-};
+const numeroUnicoServicio = crearGeneradorDeValorUnico(
+  selloNumeroServicio,
+  (sello, contador) => sello + contador,
+);
 
 const crearServicioDePrueba = (datos = {}) =>
   serviciosService.crearServicio(

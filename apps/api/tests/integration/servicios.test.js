@@ -1,6 +1,7 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const { generarToken } = require('../../src/utils/jwt.util');
+const { crearGeneradorDeValorUnico } = require('../utils/valorUnico');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -34,11 +35,7 @@ const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
 // con otro archivo que Jest ejecute en paralelo. `numero` no tiene un
 // rango acotado (solo exige >= 1), así que un sorteo amplio basta.
 const selloNumero = 1000 + Math.floor(Math.random() * 20000);
-let contadorNumero = 0;
-const numeroUnico = () => {
-  contadorNumero += 1;
-  return selloNumero + contadorNumero;
-};
+const numeroUnico = crearGeneradorDeValorUnico(selloNumero, (sello, contador) => sello + contador);
 
 const servicioValido = (overrides = {}) => ({
   numero: numeroUnico(),

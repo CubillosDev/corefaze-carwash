@@ -9,22 +9,23 @@ const {
   eliminarVehiculo,
 } = require('../../../src/services/vehiculos.service');
 const { NoEncontrado, Conflicto, SolicitudInvalida } = require('../../../src/utils/errores');
+const { generarSello, crearGeneradorDeValorUnico } = require('../../utils/valorUnico');
 
 // vehiculos.service.js y clientes.service.js ya escriben en el Supabase
 // local (SCRUM-152), no en arrays que un beforeEach pudiera vaciar: el
 // salto es aleatorio, no Date.now() — Jest corre archivos en paralelo en
 // workers distintos y dos pueden arrancar en el mismo milisegundo.
 const USUARIO_ID_PRUEBA = 1;
-const sello = Math.floor(Math.random() * 1e6)
-  .toString()
-  .padStart(6, '0');
-let contadorDocumento = 0;
+const documentoUnico = crearGeneradorDeValorUnico(
+  generarSello(),
+  (sello, contador) => `${sello}${String(contador).padStart(3, '0')}`,
+);
 
 const crearClienteDePrueba = () =>
   clientesService.crearCliente(
     {
       nombre: 'Ana María Torres',
-      documento: `${sello}${String((contadorDocumento += 1)).padStart(3, '0')}`,
+      documento: documentoUnico(),
       tipo: 'particular',
       telefono: '3001234567',
     },

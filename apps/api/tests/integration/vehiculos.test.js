@@ -5,6 +5,7 @@ const serviciosService = require('../../src/services/servicios.service');
 const colaboradoresService = require('../../src/services/colaboradores.service');
 const ordenesLavadoService = require('../../src/services/ordenesLavado.service');
 const { generarToken } = require('../../src/utils/jwt.util');
+const { generarSello, crearGeneradorDeValorUnico } = require('../utils/valorUnico');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -77,16 +78,15 @@ const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
 // para no chocar ni dentro de esta corrida, ni con otro archivo que Jest
 // ejecute en paralelo, ni con filas de corridas anteriores sin un
 // `db reset` de por medio.
-const selloDocumentoCliente = Math.floor(Math.random() * 1e6)
-  .toString()
-  .padStart(6, '0');
-let contadorDocumentoCliente = 0;
+const documentoUnicoCliente = crearGeneradorDeValorUnico(
+  generarSello(),
+  (sello, contador) => `${sello}${String(contador).padStart(3, '0')}`,
+);
 
 const registrarCliente = async () => {
-  contadorDocumentoCliente += 1;
   const respuesta = await conToken('post', '/api/clientes').send({
     nombre: 'Ana María Torres',
-    documento: `${selloDocumentoCliente}${String(contadorDocumentoCliente).padStart(3, '0')}`,
+    documento: documentoUnicoCliente(),
     tipo: 'particular',
     telefono: '3001234567',
   });

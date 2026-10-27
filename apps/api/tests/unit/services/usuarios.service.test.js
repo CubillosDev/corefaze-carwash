@@ -7,6 +7,7 @@ const {
   asignarRol,
 } = require('../../../src/services/usuarios.service');
 const { Conflicto, NoEncontrado } = require('../../../src/utils/errores');
+const { generarSello, crearGeneradorDeValorUnico } = require('../../utils/valorUnico');
 
 jest.setTimeout(10000);
 
@@ -16,14 +17,10 @@ const EMAIL_DUENO = 'dueno@carwash.test';
 // un array que beforeEach pudiera vaciar: el email es único (salto
 // aleatorio + contador) para no chocar ni dentro de esta corrida ni con
 // filas de corridas anteriores sin un `db reset` de por medio.
-const selloEmail = Math.floor(Math.random() * 1e6)
-  .toString()
-  .padStart(6, '0');
-let contadorEmail = 0;
-const emailUnico = () => {
-  contadorEmail += 1;
-  return `prueba.usuarios.${selloEmail}.${contadorEmail}@lavadero.com`;
-};
+const emailUnico = crearGeneradorDeValorUnico(
+  generarSello(),
+  (sello, contador) => `prueba.usuarios.${sello}.${contador}@lavadero.com`,
+);
 
 const datosDeEjemplo = () => ({
   nombre: 'Administrador Lavadero',

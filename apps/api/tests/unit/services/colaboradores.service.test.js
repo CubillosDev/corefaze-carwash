@@ -9,6 +9,7 @@ const {
   eliminarColaborador,
 } = require('../../../src/services/colaboradores.service');
 const { NoEncontrado, Conflicto } = require('../../../src/utils/errores');
+const { generarSello, crearGeneradorDeValorUnico } = require('../../utils/valorUnico');
 
 const USUARIO_ID_PRUEBA = 1;
 
@@ -24,14 +25,10 @@ const USUARIO_ID_PRUEBA = 1;
 // Por eso aquí se consulta qué códigos ya existen antes de sortear uno
 // libre, en vez de solo confiar en el azar. Un `db reset` periódico sigue
 // siendo necesario para que el rango no se agote del todo con el tiempo.
-const sello = Math.floor(Math.random() * 1e6)
-  .toString()
-  .padStart(6, '0');
-let contadorDocumento = 0;
-const documentoUnico = () => {
-  contadorDocumento += 1;
-  return `${sello}${String(contadorDocumento).padStart(3, '0')}`;
-};
+const documentoUnico = crearGeneradorDeValorUnico(
+  generarSello(),
+  (sello, contador) => `${sello}${String(contador).padStart(3, '0')}`,
+);
 
 const codigosOcupados = new Set();
 let siguienteIntentoCodigo = Math.floor(Math.random() * 900);
