@@ -57,6 +57,10 @@ npx supabase start   # desde la raíz del monorepo; deja Docker corriendo Postgr
 
 La CLI imprime `API_URL` y `SERVICE_ROLE_KEY`: pégalos en `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` de tu `.env`. Los tests (`tests/setupEnv.js`) ya traen fijos la URL (`http://127.0.0.1:54321`) y la service_role key del stack local — es un valor fijo y conocido de cualquier instalación local de la CLI, no un secreto real, así que nunca apuntan al remoto.
 
+**Jest corre en serie (`maxWorkers: 1`)**, a propósito: varios archivos de prueba comparten la misma tabla `colaboradores` del Supabase local, y su código (`codigo`) solo tiene 900 valores posibles. En paralelo, dos workers de Jest pueden sortear y escribir el mismo código casi al mismo tiempo (condición de carrera entre procesos), lo que generaba fallos intermitentes. Nunca se validó este límite para `clientes`/`vehiculos` porque su espacio de valores únicos es prácticamente ilimitado.
+
+Las pruebas no limpian los datos que crean (no hay un `TRUNCATE` entre corridas): si acumulan demasiados colaboradores "activos" — sobre todo tras muchas corridas seguidas sin `npx supabase db reset` —, el rango de 900 códigos puede agotarse y las pruebas de colaboradores empiezan a fallar con "código ocupado" sin que haya ningún bug real. Si eso pasa, corre `npx supabase db reset`.
+
 El primer `superadmin` ya no se crea al arrancar el servidor: corre, de forma explícita,
 
 ```bash

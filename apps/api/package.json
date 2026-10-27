@@ -30,7 +30,8 @@
       "!src/server.js",
       "!src/data/**"
     ],
-    "clearMocks": true
+    "clearMocks": true,
+    "maxWorkers": 1
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
