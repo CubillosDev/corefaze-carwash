@@ -40,9 +40,9 @@ const obtenerPorId = (req, res, next) => {
 };
 
 /** POST /api/jornadas: crea (abre) la jornada del día. */
-const abrir = (_req, res, next) => {
+const abrir = (req, res, next) => {
   try {
-    const jornada = jornadasService.abrirJornada();
+    const jornada = jornadasService.abrirJornada(req.usuario.email);
     return res.status(201).json({ mensaje: 'Jornada abierta correctamente', jornada });
   } catch (error) {
     return next(error);
@@ -63,7 +63,7 @@ const cambiarEstado = (req, res, next) => {
     const { estado } = req.datos.cuerpo;
 
     if (estado === ESTADOS_JORNADA.CERRADA) {
-      const jornada = jornadasService.cerrarJornada(id);
+      const jornada = jornadasService.cerrarJornada(id, req.usuario.email);
       return res.status(200).json({ mensaje: 'Jornada cerrada correctamente', jornada });
     }
 

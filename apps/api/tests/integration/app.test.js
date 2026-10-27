@@ -5,7 +5,7 @@ const LLAVE = 'k'.repeat(40);
 const ORIGEN = 'http://localhost:5173';
 
 const app = crearApp({
-  apiKeys: { postman: LLAVE, admin: 'a'.repeat(40), movil: 'm'.repeat(40) },
+  apiKeys: { postman: LLAVE, admin: 'a'.repeat(40), movil: 'm'.repeat(40), web: 'w'.repeat(40) },
   origenPermitido: ORIGEN,
 });
 describe('aplicación', () => {
@@ -49,6 +49,18 @@ describe('aplicación', () => {
       expect(respuesta.body).toEqual({
         mensaje: 'Cliente autenticado',
         cliente: { id: 1, nombre: 'Postman / Laboratorio' },
+      });
+    });
+
+    it('SCRUM-140: la API Key del panel web (API_KEY_WEB) también identifica correctamente (200)', async () => {
+      const respuesta = await request(app)
+        .get('/api/seguridad/cliente')
+        .set('X-API-Key', 'w'.repeat(40));
+
+      expect(respuesta.status).toBe(200);
+      expect(respuesta.body).toEqual({
+        mensaje: 'Cliente autenticado',
+        cliente: { id: 4, nombre: 'Panel web' },
       });
     });
   });

@@ -17,6 +17,8 @@ apps/movil/.dart_tool/
 # Supabase local
 supabase/.temp/
 supabase/.branches/
+# Respaldos de datos reales (sección 11 del estándar de BD): nunca se versionan
+respaldo_*.sql
 
 # Sistema operativo y editores
 .DS_Store

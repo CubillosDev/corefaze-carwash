@@ -5,7 +5,7 @@ const usuarios = require('../../src/data/usuarios');
 const LLAVE = 'k'.repeat(40);
 
 const app = crearApp({
-  apiKeys: { postman: LLAVE, admin: 'a'.repeat(40), movil: 'm'.repeat(40) },
+  apiKeys: { postman: LLAVE, admin: 'a'.repeat(40), movil: 'm'.repeat(40), web: 'w'.repeat(40) },
   origenPermitido: 'http://localhost:5173',
 });
 
@@ -247,6 +247,140 @@ describe('POST /api/auth/login', () => {
 
       expect(respuesta.status).toBe(401);
       expect(respuesta.body).toEqual({ mensaje: 'Token expirado' });
+    });
+  });
+});
+
+describe('PATCH /api/auth/usuarios/:id/rol', () => {
+  const registrarYObtenerToken = async (email, rol) => {
+    await conApiKey('post', '/api/auth/registro').send({ ...datosDeRegistro, email });
+    const usuario = usuarios.find((candidato) => candidato.email === email);
+    usuario.rol = rol;
+
+    const login = await conApiKey('post', '/api/auth/login').send({
+      email,
+      password: datosDeRegistro.password,
+    });
+    return login.body.token;
+  };
+
+  it('superadmin asigna un rol a un usuario "pendiente" (200)', async () => {
+    const tokenSuperAdmin = await registrarYObtenerToken('super@lavadero.com', 'superadmin');
+    await conApiKey('post', '/api/auth/registro').send({
+      ...datosDeRegistro,
+      email: 'nuevo@lavadero.com',
+    });
+    const nuevo = usuarios.find((candidato) => candidato.email === 'nuevo@lavadero.com');
+
+    const respuesta = await conApiKey('patch', `/api/auth/usuarios/${nuevo.id}/rol`)
+      .set('Authorization', `Bearer ${tokenSuperAdmin}`)
+      .send({ rol: 'administrador' });
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body.usuario.rol).toBe('administrador');
+  });
+
+  it('un rol fuera del catálogo del dominio responde 400', async () => {
+    const tokenSuperAdmin = await registrarYObtenerToken('super2@lavadero.com', 'superadmin');
+
+    const respuesta = await conApiKey('patch', '/api/auth/usuarios/1/rol')
+      .set('Authorization', `Bearer ${tokenSuperAdmin}`)
+      .send({ rol: 'medico' });
+
+    expect(respuesta.status).toBe(400);
+  });
+
+  it('un usuario inexistente responde 404', async () => {
+    const tokenSuperAdmin = await registrarYObtenerToken('super3@lavadero.com', 'superadmin');
+
+    const respuesta = await conApiKey('patch', '/api/auth/usuarios/9999/rol')
+      .set('Authorization', `Bearer ${tokenSuperAdmin}`)
+      .send({ rol: 'administrador' });
+
+    expect(respuesta.status).toBe(404);
+  });
+
+  it('un administrador (no superadmin) no puede asignar roles (403)', async () => {
+    const tokenAdministrador = await registrarYObtenerToken('admin2@lavadero.com', 'administrador');
+
+    const respuesta = await conApiKey('patch', '/api/auth/usuarios/1/rol')
+      .set('Authorization', `Bearer ${tokenAdministrador}`)
+      .send({ rol: 'soporte' });
+
+    expect(respuesta.status).toBe(403);
+  });
+
+  it('sin JWT responde 401', async () => {
+    const respuesta = await conApiKey('patch', '/api/auth/usuarios/1/rol').send({
+      rol: 'administrador',
+    });
+
+    expect(respuesta.status).toBe(401);
+  });
+
+  describe('el rol se revoca de inmediato, sin esperar a que el token expire (hallazgo de revisión del PR #7)', () => {
+    it('un token viejo responde según el rol NUEVO tras una reasignación, no el rol con el que se emitió', async () => {
+      const tokenSuperAdmin = await registrarYObtenerToken(
+        'superadmin4@lavadero.com',
+        'superadmin',
+      );
+
+      await conApiKey('post', '/api/auth/registro').send({
+        ...datosDeRegistro,
+        email: 'cambia@lavadero.com',
+      });
+      const loginOriginal = await conApiKey('post', '/api/auth/login').send({
+        email: 'cambia@lavadero.com',
+        password: datosDeRegistro.password,
+      });
+      const tokenViejo = loginOriginal.body.token;
+      const usuarioACambiar = usuarios.find(
+        (candidato) => candidato.email === 'cambia@lavadero.com',
+      );
+
+      // Antes de la reasignación: el token viejo todavía ve su rol original.
+      const perfilAntes = await conApiKey('get', '/api/auth/perfil').set(
+        'Authorization',
+        `Bearer ${tokenViejo}`,
+      );
+      expect(perfilAntes.body.usuario.rol).toBe('pendiente');
+
+      await conApiKey('patch', `/api/auth/usuarios/${usuarioACambiar.id}/rol`)
+        .set('Authorization', `Bearer ${tokenSuperAdmin}`)
+        .send({ rol: 'administrador' });
+
+      // Mismo token viejo, misma firma, sin reloguear: ya refleja el rol nuevo.
+      const perfilDespues = await conApiKey('get', '/api/auth/perfil').set(
+        'Authorization',
+        `Bearer ${tokenViejo}`,
+      );
+      expect(perfilDespues.body.usuario.rol).toBe('administrador');
+    });
+  });
+
+  describe('no puede quedar el sistema sin ningún superadmin activo (hallazgo de revisión del PR #7)', () => {
+    it('rechaza degradar al único superadmin activo (409)', async () => {
+      const tokenSuperAdmin = await registrarYObtenerToken('unico@lavadero.com', 'superadmin');
+      const unico = usuarios.find((candidato) => candidato.email === 'unico@lavadero.com');
+
+      const respuesta = await conApiKey('patch', `/api/auth/usuarios/${unico.id}/rol`)
+        .set('Authorization', `Bearer ${tokenSuperAdmin}`)
+        .send({ rol: 'administrador' });
+
+      expect(respuesta.status).toBe(409);
+    });
+
+    it('permite degradar a un superadmin si queda otro superadmin activo (200)', async () => {
+      const tokenSuperAdmin = await registrarYObtenerToken('primero@lavadero.com', 'superadmin');
+      await registrarYObtenerToken('segundo@lavadero.com', 'superadmin');
+      const primero = usuarios.find((candidato) => candidato.email === 'primero@lavadero.com');
+
+      const respuesta = await conApiKey('patch', `/api/auth/usuarios/${primero.id}/rol`)
+        .set('Authorization', `Bearer ${tokenSuperAdmin}`)
+        .send({ rol: 'administrador' });
+
+      expect(respuesta.status).toBe(200);
+      expect(respuesta.body.usuario.rol).toBe('administrador');
     });
   });
 });

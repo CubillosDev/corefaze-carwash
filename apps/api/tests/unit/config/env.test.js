@@ -6,6 +6,7 @@ const variablesValidas = Object.freeze({
   API_KEY_POSTMAN: 'a'.repeat(32),
   API_KEY_ADMIN: 'b'.repeat(32),
   API_KEY_MOVIL: 'c'.repeat(32),
+  API_KEY_WEB: 'e'.repeat(32),
   JWT_SECRET: 'd'.repeat(32),
   ALLOWED_ORIGIN: 'http://localhost:5173',
 });
@@ -19,9 +20,15 @@ describe('cargarConfiguracion', () => {
       expect(cargarConfiguracion(variablesValidas)).toEqual({
         entorno: 'development',
         puerto: 3000,
-        apiKeys: { postman: 'a'.repeat(32), admin: 'b'.repeat(32), movil: 'c'.repeat(32) },
+        apiKeys: {
+          postman: 'a'.repeat(32),
+          admin: 'b'.repeat(32),
+          movil: 'c'.repeat(32),
+          web: 'e'.repeat(32),
+        },
         jwt: { secret: 'd'.repeat(32), expiresIn: '1h' },
         origenPermitido: 'http://localhost:5173',
+        superadmin: null,
       });
     });
 
@@ -62,6 +69,7 @@ describe('cargarConfiguracion', () => {
       ['API_KEY_POSTMAN ausente', { API_KEY_POSTMAN: undefined }, /API_KEY_POSTMAN es obligatoria/],
       ['API_KEY_ADMIN ausente', { API_KEY_ADMIN: undefined }, /API_KEY_ADMIN es obligatoria/],
       ['API_KEY_MOVIL ausente', { API_KEY_MOVIL: undefined }, /API_KEY_MOVIL es obligatoria/],
+      ['API_KEY_WEB ausente', { API_KEY_WEB: undefined }, /API_KEY_WEB es obligatoria/],
       ['JWT_SECRET ausente', { JWT_SECRET: undefined }, /JWT_SECRET es obligatoria/],
       ['JWT_SECRET demasiado corto', { JWT_SECRET: 'corto' }, /JWT_SECRET.*al menos 32 caracteres/],
       [
@@ -103,6 +111,68 @@ describe('cargarConfiguracion', () => {
           message: expect.not.stringContaining(llaveSecreta),
         }),
       );
+    });
+  });
+
+  describe('variables SUPERADMIN_* (bootstrap opcional, hallazgo de revisión del PR #7)', () => {
+    it('ausentes las tres: superadmin queda en null, sin error (comportamiento actual)', () => {
+      const configuracion = cargarConfiguracion(variablesValidas);
+      expect(configuracion.superadmin).toBeNull();
+    });
+
+    it('presentes y válidas: arma el objeto superadmin con nombre, email y password', () => {
+      const configuracion = cargarConfiguracion(
+        conCambios({
+          SUPERADMIN_NOMBRE: 'Super Administrador',
+          SUPERADMIN_EMAIL: 'superadmin@lavadero.com',
+          SUPERADMIN_PASSWORD: 'ClaveSuperSegura2026',
+        }),
+      );
+
+      expect(configuracion.superadmin).toEqual({
+        nombre: 'Super Administrador',
+        email: 'superadmin@lavadero.com',
+        password: 'ClaveSuperSegura2026',
+      });
+    });
+
+    it('presentes pero sin SUPERADMIN_NOMBRE: usa "Super Administrador" por defecto', () => {
+      const configuracion = cargarConfiguracion(
+        conCambios({
+          SUPERADMIN_EMAIL: 'superadmin@lavadero.com',
+          SUPERADMIN_PASSWORD: 'ClaveSuperSegura2026',
+        }),
+      );
+
+      expect(configuracion.superadmin.nombre).toBe('Super Administrador');
+    });
+
+    it.each([
+      [
+        'solo SUPERADMIN_NOMBRE presente (parcial)',
+        { SUPERADMIN_NOMBRE: 'Super Administrador' },
+        /SUPERADMIN_EMAIL es obligatoria/,
+      ],
+      [
+        'solo SUPERADMIN_EMAIL presente (parcial)',
+        { SUPERADMIN_EMAIL: 'superadmin@lavadero.com' },
+        /SUPERADMIN_PASSWORD es obligatoria/,
+      ],
+      [
+        'SUPERADMIN_PASSWORD con el valor de ejemplo de .env.example',
+        {
+          SUPERADMIN_EMAIL: 'superadmin@lavadero.com',
+          SUPERADMIN_PASSWORD: 'REEMPLAZAR_CON_CLAVE_SEGURA',
+        },
+        /SUPERADMIN_PASSWORD.*valor de ejemplo/,
+      ],
+      [
+        'SUPERADMIN_PASSWORD demasiado corta',
+        { SUPERADMIN_EMAIL: 'superadmin@lavadero.com', SUPERADMIN_PASSWORD: 'corta123' },
+        /SUPERADMIN_PASSWORD.*al menos 12 caracteres/,
+      ],
+    ])('rechaza %s', (_descripcion, cambios, mensajeEsperado) => {
+      expect(() => cargarConfiguracion(conCambios(cambios))).toThrow(mensajeEsperado);
     });
   });
 });

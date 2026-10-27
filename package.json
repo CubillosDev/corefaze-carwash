@@ -20,5 +20,8 @@
   },
   "engines": {
     "node": ">=20.19.0"
+  },
+  "devDependencies": {
+    "supabase": "2.122.0"
   }
 }
