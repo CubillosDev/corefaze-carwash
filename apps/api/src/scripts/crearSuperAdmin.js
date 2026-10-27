@@ -34,13 +34,35 @@ const crearSuperAdmin = async () => {
     return;
   }
 
+  const emailSuperadmin = env.superadmin.email.toLowerCase();
+  const { data: usuarioConEseCorreo, error: errorConsultaCorreo } = await supabase
+    .from('usuarios')
+    .select('id, rol')
+    .eq('email', emailSuperadmin)
+    .maybeSingle();
+
+  if (errorConsultaCorreo) {
+    throw new Error(`No se pudo consultar la tabla usuarios: ${errorConsultaCorreo.message}`);
+  }
+
+  if (usuarioConEseCorreo) {
+    if (usuarioConEseCorreo.rol === 'superadmin') {
+      // eslint-disable-next-line no-console
+      console.log('Ya existe un superadmin, no se modificó nada');
+      return;
+    }
+    throw new Error(
+      `El correo configurado en SUPERADMIN_EMAIL ya pertenece a un usuario con rol ${usuarioConEseCorreo.rol}; no se eleva automáticamente`,
+    );
+  }
+
   const passwordHash = await generarPasswordHash(env.superadmin.password);
 
   const { data: creado, error: errorInsercion } = await supabase
     .from('usuarios')
     .insert({
       nombre: env.superadmin.nombre,
-      email: env.superadmin.email.toLowerCase(),
+      email: emailSuperadmin,
       password_hash: passwordHash,
       rol: 'superadmin',
       activo: true,
