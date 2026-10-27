@@ -2,8 +2,6 @@ const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const { supabase } = require('../../src/db/supabaseCliente');
 const { generarToken } = require('../../src/utils/jwt.util');
-const servicios = require('../../src/data/servicios');
-const ordenesLavado = require('../../src/data/ordenesLavado');
 const usuarios = require('../../src/data/usuarios');
 
 const LLAVE = 'k'.repeat(40);
@@ -33,34 +31,10 @@ const TOKEN_ADMINISTRADOR = tokenDe('administrador');
 const TOKEN_SOPORTE = tokenDe('soporte');
 const TOKEN_PENDIENTE = tokenDe('pendiente');
 
-// jornadas.service.js ya escribe en el Supabase local (SCRUM-152): a
-// diferencia del array en memoria de antes, jornadas_fecha_key es única
-// POR SIEMPRE para la fecha de "hoy" (abrirJornada() siempre usa la fecha
-// real del servidor, nunca una fecha de prueba). Sin limpiarla, solo la
-// PRIMERA prueba de toda la sesión podría abrir la jornada de hoy; todas
-// las demás (de este archivo y de cualquier otro) chocarían con
-// jornadas_fecha_key. Por eso cada prueba empieza borrando la jornada de
-// hoy (y sus reaperturas, que bloquean el borrado por FK) si ya existía.
-const fechaDeHoyDePrueba = () =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
-
-const limpiarJornadaDeHoy = async () => {
-  const { data: jornadaDeHoy } = await supabase
-    .from('jornadas')
-    .select('id')
-    .eq('fecha', fechaDeHoyDePrueba())
-    .maybeSingle();
-
-  if (jornadaDeHoy) {
-    await supabase.from('reaperturas_jornada').delete().eq('jornada_id', jornadaDeHoy.id);
-    await supabase.from('jornadas').delete().eq('id', jornadaDeHoy.id);
-  }
-};
-
 // idx_jornadas_una_abierta es GLOBAL (una sola jornada abierta en todo el
 // sistema, sin importar su fecha): una jornada que quedó abierta en OTRO
 // archivo de pruebas (con una fecha aleatoria cualquiera) bloquearía
-// abrir la de hoy aquí.
+// abrir la de este archivo.
 const cerrarCualquierJornadaAbierta = async () => {
   const { data: abierta } = await supabase
     .from('jornadas')
@@ -77,8 +51,6 @@ const cerrarCualquierJornadaAbierta = async () => {
 };
 
 beforeEach(async () => {
-  servicios.length = 0;
-  ordenesLavado.length = 0;
   usuarios.length = 0;
   ROLES_DE_PRUEBA.forEach((rol) => {
     usuarios.push({
@@ -91,7 +63,6 @@ beforeEach(async () => {
     });
   });
   await cerrarCualquierJornadaAbierta();
-  await limpiarJornadaDeHoy();
 });
 
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
@@ -101,9 +72,29 @@ const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
 
 // --- Helpers de setup: registran cada recurso vía sus propios endpoints HTTP ---
 
+// abrirJornada() NO usa POST /api/jornadas (que siempre abre la jornada de
+// "hoy"): casi toda prueba de este archivo crea órdenes reales contra la
+// jornada que abre, y esas órdenes quedan amarradas a ella con on delete
+// restrict y nunca se borran (impedir_eliminacion) — abrir siempre "hoy"
+// bloquearía esa fecha para siempre en la siguiente prueba (el mismo
+// problema que las reaperturas en jornadas.service.test.js). El endpoint
+// de abrir jornada en sí ya se prueba a fondo en
+// tests/integration/jornadas.test.js; aquí solo hace falta "una jornada
+// abierta cualquiera", así que se inserta directo con una fecha única.
+const anioBaseJornada = 1000 + Math.floor(Math.random() * 3000);
+let contadorDiaJornada = 0;
+
 const abrirJornada = async () => {
-  const respuesta = await conToken('post', '/api/jornadas');
-  return respuesta.body.jornada;
+  contadorDiaJornada += 1;
+  const fecha = new Date(anioBaseJornada, 0, contadorDiaJornada).toISOString().slice(0, 10);
+
+  const { error } = await supabase
+    .from('jornadas')
+    .insert({ fecha, abierta_por: idDeRolDePrueba('administrador') });
+
+  if (error) {
+    throw error;
+  }
 };
 
 // clientes.service.js ya escribe en el Supabase local (SCRUM-152, Etapa
@@ -786,9 +777,13 @@ describe('GET /api/ordenes-lavado', () => {
     const escenario = await construirEscenarioBase();
 
     // Orden 1: efectivo, se queda registrada.
-    await conToken('post', '/api/ordenes-lavado').send(
+    const orden1 = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden(escenario, { turno: 1, medioPago: 'efectivo' }),
     );
+    // Las órdenes nunca se borran (impedir_eliminacion): se acota la
+    // consulta final por jornadaId para que la suma no incluya órdenes de
+    // otras pruebas (de este archivo o de corridas anteriores sin reset).
+    const jornadaId = orden1.body.orden.jornadaId;
 
     // Orden 2: nequi (otro vehículo), se queda registrada.
     const clienteB = await registrarClienteParticular();
@@ -808,7 +803,7 @@ describe('GET /api/ordenes-lavado', () => {
       motivo: 'Cliente canceló',
     });
 
-    const respuesta = await conToken('get', '/api/ordenes-lavado');
+    const respuesta = await conToken('get', `/api/ordenes-lavado?jornadaId=${jornadaId}`);
 
     expect(respuesta.status).toBe(200);
     // Las 3 órdenes siguen apareciendo en el listado, incluida la anulada.
@@ -875,11 +870,17 @@ describe('GET /api/ordenes-lavado', () => {
     );
     expect(porServicio.body.ordenes).toHaveLength(1);
 
-    const porMedioPago = await conToken('get', '/api/ordenes-lavado?medioPago=nequi');
+    // medioPago por sí solo no es exclusivo de esta prueba (otras también
+    // usan 'nequi'), y las órdenes nunca se borran: se acota también por
+    // jornadaId, única para esta prueba.
+    const jornadaId = orden1.body.orden.jornadaId;
+    const porMedioPago = await conToken(
+      'get',
+      `/api/ordenes-lavado?medioPago=nequi&jornadaId=${jornadaId}`,
+    );
     expect(porMedioPago.body.ordenes).toHaveLength(1);
     expect(porMedioPago.body.ordenes[0].medioPago).toBe('nequi');
 
-    const jornadaId = orden1.body.orden.jornadaId;
     const porJornada = await conToken('get', `/api/ordenes-lavado?jornadaId=${jornadaId}`);
     expect(porJornada.body.ordenes).toHaveLength(2);
   });

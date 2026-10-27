@@ -2,8 +2,6 @@ const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const { supabase } = require('../../src/db/supabaseCliente');
 const { generarToken } = require('../../src/utils/jwt.util');
-const servicios = require('../../src/data/servicios');
-const ordenesLavado = require('../../src/data/ordenesLavado');
 const usuarios = require('../../src/data/usuarios');
 
 const LLAVE = 'k'.repeat(40);
@@ -94,8 +92,6 @@ const crearJornadaCerradaDeOtraFecha = async () => {
 };
 
 beforeEach(async () => {
-  servicios.length = 0;
-  ordenesLavado.length = 0;
   usuarios.length = 0;
   ROLES_DE_PRUEBA.forEach((rol) => {
     usuarios.push({
@@ -121,6 +117,35 @@ const cerrarJornada = (id, token = TOKEN_ADMINISTRADOR) =>
   conToken('patch', `/api/jornadas/${id}/estado`, token).send({ estado: 'cerrada' });
 const reabrirJornada = (id, token = TOKEN_SUPERADMIN) =>
   conToken('patch', `/api/jornadas/${id}/estado`, token).send({ estado: 'abierta' });
+
+// abrirJornada() (vía POST /api/jornadas) siempre abre la de "hoy": la
+// única prueba que de verdad crea órdenes de lavado reales (SCRUM-38) no
+// puede usarla, porque esas órdenes quedarían amarradas a "hoy" para
+// siempre (ordenes_lavado_jornada_fkey on delete restrict +
+// impedir_eliminacion: nunca se borran) — el mismo problema que
+// crearJornadaCerradaDeOtraFecha evita arriba para las reaperturas. Se
+// inserta directo, con una fecha única, igual que esa.
+const anioBaseJornadaDePrueba = 1000 + Math.floor(Math.random() * 3000);
+let contadorDiaJornadaDePrueba = 0;
+
+const abrirJornadaDePruebaConOrdenes = async () => {
+  contadorDiaJornadaDePrueba += 1;
+  const fecha = new Date(anioBaseJornadaDePrueba, 0, contadorDiaJornadaDePrueba)
+    .toISOString()
+    .slice(0, 10);
+
+  const { data, error } = await supabase
+    .from('jornadas')
+    .insert({ fecha, abierta_por: idDeRolDePrueba('administrador') })
+    .select('id')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data.id;
+};
 
 // --- Helpers mínimos para probar los agregados de SCRUM-38 ---
 
@@ -329,8 +354,7 @@ describe('GET /api/jornadas', () => {
   });
 
   it('SCRUM-38: incluye unidades, ventaTotal (agregados de sus propias órdenes) y diferenciaCaja en null', async () => {
-    const jornadaAbierta = await abrirJornada();
-    const jornadaId = jornadaAbierta.body.jornada.id;
+    const jornadaId = await abrirJornadaDePruebaConOrdenes();
 
     await crearOrdenDePrueba({ turno: 1 });
     await crearOrdenDePrueba({ turno: 2 });

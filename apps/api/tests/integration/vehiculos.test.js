@@ -1,12 +1,9 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const { supabase } = require('../../src/db/supabaseCliente');
-const servicios = require('../../src/data/servicios');
-const ordenesLavado = require('../../src/data/ordenesLavado');
 const serviciosService = require('../../src/services/servicios.service');
 const colaboradoresService = require('../../src/services/colaboradores.service');
 const ordenesLavadoService = require('../../src/services/ordenesLavado.service');
-const jornadasService = require('../../src/services/jornadas.service');
 const usuarios = require('../../src/data/usuarios');
 const { generarToken } = require('../../src/utils/jwt.util');
 
@@ -31,34 +28,10 @@ const TOKEN_ADMINISTRADOR = tokenDe('administrador');
 const TOKEN_SOPORTE = tokenDe('soporte');
 const TOKEN_PENDIENTE = tokenDe('pendiente');
 
-// jornadas.service.js ya escribe en el Supabase local (SCRUM-152): a
-// diferencia del array en memoria de antes, jornadas_fecha_key es única
-// POR SIEMPRE para la fecha de "hoy" (abrirJornada() siempre usa la fecha
-// real del servidor, nunca una fecha de prueba). Sin limpiarla, solo la
-// PRIMERA prueba de toda la sesión podría abrir la jornada de hoy; todas
-// las demás (de este archivo y de cualquier otro) chocarían con
-// jornadas_fecha_key. Por eso cada prueba empieza borrando la jornada de
-// hoy (y sus reaperturas, que bloquean el borrado por FK) si ya existía.
-const fechaDeHoyDePrueba = () =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
-
-const limpiarJornadaDeHoy = async () => {
-  const { data: jornadaDeHoy } = await supabase
-    .from('jornadas')
-    .select('id')
-    .eq('fecha', fechaDeHoyDePrueba())
-    .maybeSingle();
-
-  if (jornadaDeHoy) {
-    await supabase.from('reaperturas_jornada').delete().eq('jornada_id', jornadaDeHoy.id);
-    await supabase.from('jornadas').delete().eq('id', jornadaDeHoy.id);
-  }
-};
-
 // idx_jornadas_una_abierta es GLOBAL (una sola jornada abierta en todo el
 // sistema, sin importar su fecha): una jornada que quedó abierta en OTRO
-// archivo de pruebas (con una fecha aleatoria cualquiera) bloquearía
-// abrir la de hoy aquí.
+// archivo de pruebas (con una fecha aleatoria cualquiera) bloquearía abrir
+// la de este archivo.
 const cerrarCualquierJornadaAbierta = async () => {
   const { data: abierta } = await supabase
     .from('jornadas')
@@ -75,8 +48,6 @@ const cerrarCualquierJornadaAbierta = async () => {
 };
 
 beforeEach(async () => {
-  servicios.length = 0;
-  ordenesLavado.length = 0;
   usuarios.length = 0;
   ROLES_DE_PRUEBA.forEach((rol) => {
     usuarios.push({
@@ -89,8 +60,23 @@ beforeEach(async () => {
     });
   });
   await cerrarCualquierJornadaAbierta();
-  await limpiarJornadaDeHoy();
 });
+
+// abrirJornadaDePrueba() NO usa jornadasService.abrirJornada (que siempre
+// abre la jornada de "hoy"): la única prueba que la usa crea una orden de
+// lavado real contra ella, y esa orden queda amarrada a la jornada con on
+// delete restrict y nunca se borra (impedir_eliminacion) — abrir siempre
+// "hoy" bloquearía esa fecha para siempre en la siguiente prueba que la
+// necesite, de este archivo o de cualquier otro (el mismo problema que
+// las reaperturas en jornadas.service.test.js). Se inserta directo con
+// una fecha única en vez de pasar por el endpoint.
+const abrirJornadaDePrueba = async () => {
+  const fecha = `${1000 + Math.floor(Math.random() * 3000)}-01-01`;
+  const { error } = await supabase.from('jornadas').insert({ fecha, abierta_por: 1 });
+  if (error) {
+    throw error;
+  }
+};
 
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
 
@@ -391,9 +377,9 @@ describe('Integridad referencial: DELETE /api/vehiculos/:id con órdenes de lava
     const vehiculo = vehiculoCreado.body.vehiculo;
 
     // La orden de prueba se crea directamente contra los services (en vez
-    // de vía HTTP), que operan sobre los mismos arreglos en memoria que
-    // usa la app; evita repetir aquí todo el setup de los otros recursos.
-    await jornadasService.abrirJornada(1);
+    // de vía HTTP), que ya escriben en el mismo Supabase local que usa la
+    // app; evita repetir aquí todo el setup de los otros recursos.
+    await abrirJornadaDePrueba();
     const servicio = await serviciosService.crearServicio(
       {
         numero: 1000 + Math.floor(Math.random() * 20000),
@@ -426,13 +412,16 @@ describe('Integridad referencial: DELETE /api/vehiculos/:id con órdenes de lava
       },
       1,
     );
-    await ordenesLavadoService.crearOrden({
-      turno: 1,
-      vehiculoId: vehiculo.id,
-      servicioId: servicio.id,
-      colaboradorId: colaborador.id,
-      medioPago: 'efectivo',
-    });
+    await ordenesLavadoService.crearOrden(
+      {
+        turno: 1,
+        vehiculoId: vehiculo.id,
+        servicioId: servicio.id,
+        colaboradorId: colaborador.id,
+        medioPago: 'efectivo',
+      },
+      1,
+    );
 
     const respuesta = await conToken('delete', `/api/vehiculos/${vehiculo.id}`);
 

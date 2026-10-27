@@ -31,10 +31,12 @@ describe('jornadas.controller', () => {
   describe('listar', () => {
     it('responde 200 con la lista de jornadas, cada una con unidades/ventaTotal/diferenciaCaja', async () => {
       jornadasService.listarJornadas.mockResolvedValue([{ id: 1 }, { id: 2 }]);
-      ordenesLavadoService.obtenerTotalesDeJornada.mockReturnValue({
-        unidades: 3,
-        ventaTotal: 45000,
-      });
+      ordenesLavadoService.obtenerTotalesPorJornada.mockResolvedValue(
+        new Map([
+          [1, { unidades: 3, ventaTotal: 45000 }],
+          [2, { unidades: 3, ventaTotal: 45000 }],
+        ]),
+      );
 
       const res = crearRespuesta();
       await listar(crearPeticion(), res, jest.fn());
@@ -48,14 +50,19 @@ describe('jornadas.controller', () => {
       });
     });
 
-    it('pide los totales de cada jornada por su propio id', async () => {
+    it('pide los totales de todas las jornadas listadas en una sola consulta (evita N+1)', async () => {
       jornadasService.listarJornadas.mockResolvedValue([{ id: 1 }, { id: 2 }]);
-      ordenesLavadoService.obtenerTotalesDeJornada.mockReturnValue({ unidades: 0, ventaTotal: 0 });
+      ordenesLavadoService.obtenerTotalesPorJornada.mockResolvedValue(
+        new Map([
+          [1, { unidades: 0, ventaTotal: 0 }],
+          [2, { unidades: 0, ventaTotal: 0 }],
+        ]),
+      );
 
       await listar(crearPeticion(), crearRespuesta(), jest.fn());
 
-      expect(ordenesLavadoService.obtenerTotalesDeJornada).toHaveBeenCalledWith(1);
-      expect(ordenesLavadoService.obtenerTotalesDeJornada).toHaveBeenCalledWith(2);
+      expect(ordenesLavadoService.obtenerTotalesPorJornada).toHaveBeenCalledTimes(1);
+      expect(ordenesLavadoService.obtenerTotalesPorJornada).toHaveBeenCalledWith([1, 2]);
     });
 
     it('llama a listarJornadas con { desde, hasta } leídos de la consulta', async () => {
