@@ -274,7 +274,7 @@ const validarVehiculoSinOtraOrdenAbierta = (vehiculoId, idOrdenAExcluir) => {
  * @throws {Conflicto} si no hay ninguna jornada abierta
  */
 const crearOrden = async (datos) => {
-  const jornada = jornadasService.obtenerJornadaAbierta();
+  const jornada = await jornadasService.obtenerJornadaAbierta();
   if (!jornada) {
     throw new Conflicto('No hay una jornada abierta para registrar órdenes');
   }
@@ -355,7 +355,7 @@ const editarOrden = async (id, datos) => {
     throw new Conflicto('No se puede editar una orden entregada o cancelada');
   }
 
-  if (!jornadasService.jornadaEstaAbierta(orden.jornadaId)) {
+  if (!(await jornadasService.jornadaEstaAbierta(orden.jornadaId))) {
     throw new Conflicto('No se puede editar una orden de una jornada que ya no está abierta');
   }
 

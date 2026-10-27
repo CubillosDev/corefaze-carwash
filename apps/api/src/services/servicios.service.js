@@ -75,7 +75,10 @@ const traducirErrorPostgres = (error) => {
  * @returns {Promise<object[]>}
  */
 const listarServicios = async () => {
-  const { data, error } = await supabase.from('servicios').select(COLUMNAS);
+  const { data, error } = await supabase
+    .from('servicios')
+    .select(COLUMNAS)
+    .order('id', { foreignTable: 'tarifas_servicio', ascending: true });
 
   if (error) {
     throw new Error(`No se pudo listar servicios: ${error.message}`);
@@ -94,6 +97,7 @@ const obtenerServicioPorId = async (id) => {
     .from('servicios')
     .select(COLUMNAS)
     .eq('id', id)
+    .order('id', { foreignTable: 'tarifas_servicio', ascending: true })
     .maybeSingle();
 
   if (error) {
