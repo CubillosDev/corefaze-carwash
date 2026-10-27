@@ -279,7 +279,7 @@ const crearOrden = async (datos) => {
   // R1: vehículo, servicio y colaborador deben existir (404 si no).
   const vehiculo = await vehiculosService.obtenerVehiculoOFallar(datos.vehiculoId);
   const servicio = serviciosService.obtenerServicioOFallar(datos.servicioId);
-  const colaborador = colaboradoresService.obtenerColaboradorOFallar(datos.colaboradorId);
+  const colaborador = await colaboradoresService.obtenerColaboradorOFallar(datos.colaboradorId);
 
   validarColaboradorActivo(colaborador); // R2
   const valor = calcularValorServicio(servicio, vehiculo.tipoVehiculo); // R3
@@ -370,7 +370,7 @@ const editarOrden = async (id, datos) => {
   }
 
   if (colaboradorIdFinal !== orden.colaboradorId) {
-    const colaborador = colaboradoresService.obtenerColaboradorOFallar(colaboradorIdFinal); // R1
+    const colaborador = await colaboradoresService.obtenerColaboradorOFallar(colaboradorIdFinal); // R1
     validarColaboradorActivo(colaborador); // R2
   }
 

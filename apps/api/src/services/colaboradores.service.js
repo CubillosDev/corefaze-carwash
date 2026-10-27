@@ -1,6 +1,13 @@
-const colaboradores = require('../data/colaboradores');
+const { supabase, crearClienteConUsuario } = require('../db/supabaseCliente');
+const { aCamelCase } = require('../utils/mapearCampos');
 const { ESTADOS_ACTIVIDAD, DIAS_GRACIA_CODIGO_COLABORADOR } = require('../constants/dominio');
-const { Conflicto, NoEncontrado } = require('../utils/errores');
+const { Conflicto, NoEncontrado, SolicitudInvalida } = require('../utils/errores');
+
+// Nunca *: así nunca se filtran creado_en/actualizado_en mientras el
+// contrato HTTP no las incluya (ver supabase/README.md, "Contrato de
+// integración con la API").
+const COLUMNAS =
+  'id, codigo, nombre, documento, telefono, porcentaje_comision, tipo_vinculacion, estado, inactivo_desde';
 
 const MILISEGUNDOS_POR_DIA = 24 * 60 * 60 * 1000;
 
@@ -25,55 +32,107 @@ const estaDentroDelPeriodoDeGracia = (inactivoDesde) => {
  * inactivo que todavía está dentro de su período de gracia (15 días).
  * Pasado ese tiempo, el código queda libre para una persona nueva.
  *
+ * La gracia depende de now(), así que esto se valida SIEMPRE aquí, nunca
+ * solo en la BD: el índice único parcial (idx_colaboradores_codigo_activo)
+ * solo impide dos colaboradores activos con el mismo código, no reasignar
+ * uno que sigue en gracia (ver supabase/README.md).
+ *
  * @param {number} codigo
  * @param {number|null} [idAExcluir] id del propio colaborador, al actualizar
- * @returns {boolean}
+ * @returns {Promise<boolean>}
  */
-const codigoEstaOcupado = (codigo, idAExcluir = null) =>
-  colaboradores.some(
+const codigoEstaOcupado = async (codigo, idAExcluir = null) => {
+  let consulta = supabase
+    .from('colaboradores')
+    .select('id, estado, inactivo_desde')
+    .eq('codigo', codigo);
+
+  if (idAExcluir !== null) {
+    consulta = consulta.neq('id', idAExcluir);
+  }
+
+  const { data, error } = await consulta;
+
+  if (error) {
+    throw new Error(`No se pudo verificar el código del colaborador: ${error.message}`);
+  }
+
+  return data.some(
     (colaborador) =>
-      colaborador.codigo === Number(codigo) &&
-      colaborador.id !== idAExcluir &&
-      (colaborador.estado === ESTADOS_ACTIVIDAD.ACTIVO ||
-        estaDentroDelPeriodoDeGracia(colaborador.inactivoDesde)),
+      colaborador.estado === ESTADOS_ACTIVIDAD.ACTIVO ||
+      estaDentroDelPeriodoDeGracia(colaborador.inactivo_desde),
   );
+};
 
 /**
- * El documento (cédula) identifica a la persona real y es único para
- * siempre, sin importar su estado — a diferencia del código, que es un
- * "cupo" reasignable. Si alguien vuelve, se reactiva su propio registro
- * en vez de crear uno nuevo con el mismo documento.
- *
- * @param {string} documento
- * @returns {object | undefined}
+ * Traduce un error de Postgres (vía supabase-js) a una de las clases de
+ * utils/errores.js. Los códigos son los que la migración de
+ * `colaboradores` puede disparar (ver docs/arquitectura/diagramas/modelo-datos.md).
  */
-const buscarPorDocumento = (documento) =>
-  colaboradores.find((colaborador) => colaborador.documento === documento);
+const traducirErrorPostgres = (error) => {
+  // 23505 unique_violation: dos posibles índices únicos.
+  if (error.code === '23505') {
+    if (error.message.includes('idx_colaboradores_codigo_activo')) {
+      return new Conflicto('Ese código pertenece a un colaborador activo o en período de gracia');
+    }
+    // colaboradores_documento_key
+    return new Conflicto('Ya existe un colaborador con ese documento');
+  }
+
+  // 23503 foreign_key_violation al borrar: ordenes_lavado.colaborador_id (restrict).
+  if (error.code === '23503') {
+    return new Conflicto('No se puede eliminar un colaborador con órdenes de lavado asociadas');
+  }
+
+  // 23514 check_violation: formato o regla de negocio de la tabla colaboradores.
+  if (error.code === '23514') {
+    return new SolicitudInvalida([], 'Datos de colaborador inválidos');
+  }
+
+  return new Error(`Error de base de datos en colaboradores: ${error.message}`);
+};
 
 /**
  * Lista todos los colaboradores.
- * @returns {object[]}
+ * @returns {Promise<object[]>}
  */
-const listarColaboradores = () => colaboradores;
+const listarColaboradores = async () => {
+  const { data, error } = await supabase.from('colaboradores').select(COLUMNAS);
+
+  if (error) {
+    throw new Error(`No se pudo listar colaboradores: ${error.message}`);
+  }
+
+  return aCamelCase(data);
+};
 
 /**
  * Obtiene un colaborador por id.
  * @param {number|string} id
- * @returns {object | null}
+ * @returns {Promise<object | null>}
  */
-const obtenerColaboradorPorId = (id) => {
-  const colaborador = colaboradores.find((candidato) => candidato.id === Number(id));
-  return colaborador ?? null;
+const obtenerColaboradorPorId = async (id) => {
+  const { data, error } = await supabase
+    .from('colaboradores')
+    .select(COLUMNAS)
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`No se pudo obtener el colaborador: ${error.message}`);
+  }
+
+  return data ? aCamelCase(data) : null;
 };
 
 /**
  * Obtiene un colaborador por id, o lanza NoEncontrado (404).
  * @param {number|string} id
- * @returns {object}
+ * @returns {Promise<object>}
  * @throws {NoEncontrado}
  */
-const obtenerColaboradorOFallar = (id) => {
-  const colaborador = obtenerColaboradorPorId(id);
+const obtenerColaboradorOFallar = async (id) => {
+  const colaborador = await obtenerColaboradorPorId(id);
   if (!colaborador) {
     throw new NoEncontrado('Colaborador no encontrado');
   }
@@ -85,36 +144,42 @@ const obtenerColaboradorOFallar = (id) => {
  *
  * Reglas de negocio:
  * - El código está "ocupado" si pertenece a alguien activo, o a alguien
- *   inactivo dentro de su período de gracia de 15 días (409 si ocupado).
- * - El documento es único para siempre, sin importar el estado (409 si existe).
- * - Todo colaborador nuevo nace "activo", con inactivoDesde en null.
+ *   inactivo dentro de su período de gracia de 15 días (409 si ocupado) —
+ *   lo valida codigoEstaOcupado, nunca solo la BD.
+ * - El documento es único para siempre, sin importar el estado (409 si
+ *   existe) — lo rechaza el UNIQUE de la BD, traducido por traducirErrorPostgres.
+ * - Todo colaborador nuevo nace "activo", con inactivoDesde en null
+ *   (defaults de las columnas).
  *
  * @param {{ codigo: number, nombre: string, documento: string, telefono: string, porcentajeComision: number, tipoVinculacion: string }} datos
- * @returns {object} el colaborador creado
+ * @param {number} usuarioId quién hace el cambio (lo lee registrar_auditoria())
+ * @returns {Promise<object>} el colaborador creado
  */
-const crearColaborador = (datos) => {
-  if (codigoEstaOcupado(datos.codigo)) {
+const crearColaborador = async (datos, usuarioId) => {
+  if (await codigoEstaOcupado(datos.codigo)) {
     throw new Conflicto('Ese código pertenece a un colaborador activo o en período de gracia');
   }
 
-  if (buscarPorDocumento(datos.documento)) {
-    throw new Conflicto('Ya existe un colaborador con ese documento');
-  }
-
-  const nuevoColaborador = {
-    id: colaboradores.length > 0 ? Math.max(...colaboradores.map((c) => c.id)) + 1 : 1,
-    codigo: Number(datos.codigo),
+  const fila = {
+    codigo: datos.codigo,
     nombre: datos.nombre,
     documento: datos.documento,
     telefono: datos.telefono,
-    porcentajeComision: datos.porcentajeComision,
-    tipoVinculacion: datos.tipoVinculacion,
-    estado: ESTADOS_ACTIVIDAD.ACTIVO,
-    inactivoDesde: null,
+    porcentaje_comision: datos.porcentajeComision,
+    tipo_vinculacion: datos.tipoVinculacion,
   };
 
-  colaboradores.push(nuevoColaborador);
-  return nuevoColaborador;
+  const { data, error } = await crearClienteConUsuario(usuarioId)
+    .from('colaboradores')
+    .insert(fila)
+    .select(COLUMNAS)
+    .single();
+
+  if (error) {
+    throw traducirErrorPostgres(error);
+  }
+
+  return aCamelCase(data);
 };
 
 /**
@@ -124,42 +189,48 @@ const crearColaborador = (datos) => {
  *
  * @param {number|string} id
  * @param {{ codigo?: number, nombre?: string, documento?: string, telefono?: string, porcentajeComision?: number, tipoVinculacion?: string, estado?: string }} datos
- * @returns {object} el colaborador actualizado
+ * @param {number} usuarioId quién hace el cambio (lo lee registrar_auditoria())
+ * @returns {Promise<object>} el colaborador actualizado
  * @throws {NoEncontrado} si el id no existe
  * @throws {Conflicto} si el código o documento nuevos ya pertenecen a otro colaborador
  */
-const actualizarColaborador = (id, datos) => {
-  const colaborador = obtenerColaboradorOFallar(id);
+const actualizarColaborador = async (id, datos, usuarioId) => {
+  const colaboradorActual = await obtenerColaboradorOFallar(id);
 
-  if (datos.codigo !== undefined && Number(datos.codigo) !== colaborador.codigo) {
-    if (codigoEstaOcupado(datos.codigo, colaborador.id)) {
+  if (datos.codigo !== undefined && Number(datos.codigo) !== colaboradorActual.codigo) {
+    if (await codigoEstaOcupado(datos.codigo, id)) {
       throw new Conflicto('Ese código pertenece a un colaborador activo o en período de gracia');
     }
   }
 
-  if (datos.documento && datos.documento !== colaborador.documento) {
-    if (buscarPorDocumento(datos.documento)) {
-      throw new Conflicto('Ya existe un colaborador con ese documento');
-    }
-  }
-
-  let inactivoDesde = colaborador.inactivoDesde;
-  if (datos.estado && datos.estado !== colaborador.estado) {
+  let inactivoDesde = colaboradorActual.inactivoDesde;
+  if (datos.estado && datos.estado !== colaboradorActual.estado) {
     inactivoDesde = datos.estado === ESTADOS_ACTIVIDAD.INACTIVO ? new Date().toISOString() : null;
   }
 
-  Object.assign(colaborador, {
-    codigo: datos.codigo !== undefined ? Number(datos.codigo) : colaborador.codigo,
-    nombre: datos.nombre ?? colaborador.nombre,
-    documento: datos.documento ?? colaborador.documento,
-    telefono: datos.telefono ?? colaborador.telefono,
-    porcentajeComision: datos.porcentajeComision ?? colaborador.porcentajeComision,
-    tipoVinculacion: datos.tipoVinculacion ?? colaborador.tipoVinculacion,
-    estado: datos.estado ?? colaborador.estado,
-    inactivoDesde,
-  });
+  const cambios = {
+    codigo: datos.codigo !== undefined ? Number(datos.codigo) : colaboradorActual.codigo,
+    nombre: datos.nombre ?? colaboradorActual.nombre,
+    documento: datos.documento ?? colaboradorActual.documento,
+    telefono: datos.telefono ?? colaboradorActual.telefono,
+    porcentaje_comision: datos.porcentajeComision ?? colaboradorActual.porcentajeComision,
+    tipo_vinculacion: datos.tipoVinculacion ?? colaboradorActual.tipoVinculacion,
+    estado: datos.estado ?? colaboradorActual.estado,
+    inactivo_desde: inactivoDesde,
+  };
 
-  return colaborador;
+  const { data, error } = await crearClienteConUsuario(usuarioId)
+    .from('colaboradores')
+    .update(cambios)
+    .eq('id', id)
+    .select(COLUMNAS)
+    .single();
+
+  if (error) {
+    throw traducirErrorPostgres(error);
+  }
+
+  return aCamelCase(data);
 };
 
 /**
@@ -168,22 +239,36 @@ const actualizarColaborador = (id, datos) => {
  *
  * @param {number|string} id
  * @param {string} estado
- * @returns {object} el colaborador actualizado
+ * @param {number} usuarioId quién hace el cambio (lo lee registrar_auditoria())
+ * @returns {Promise<object>} el colaborador actualizado
  * @throws {NoEncontrado} si el id no existe
  */
-const cambiarEstadoColaborador = (id, estado) => actualizarColaborador(id, { estado });
+const cambiarEstadoColaborador = (id, estado, usuarioId) =>
+  actualizarColaborador(id, { estado }, usuarioId);
 
 /**
  * Elimina un colaborador por id.
- * No se puede eliminar un colaborador con órdenes asociadas (409).
+ *
+ * La verificación de "no tiene órdenes" (409) vive primero en el
+ * controller, llamando a ordenesLavadoService.colaboradorTieneOrdenes(id).
+ * La FK ordenes_lavado.colaborador_id (restrict) es la defensa adicional
+ * si esa verificación quedó desactualizada.
  *
  * @param {number|string} id
+ * @param {number} usuarioId quién hace el cambio (lo lee registrar_auditoria())
  * @throws {NoEncontrado} si el id no existe
  */
-const eliminarColaborador = (id) => {
-  const colaborador = obtenerColaboradorOFallar(id);
-  const indice = colaboradores.indexOf(colaborador);
-  colaboradores.splice(indice, 1);
+const eliminarColaborador = async (id, usuarioId) => {
+  await obtenerColaboradorOFallar(id);
+
+  const { error } = await crearClienteConUsuario(usuarioId)
+    .from('colaboradores')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    throw traducirErrorPostgres(error);
+  }
 };
 
 module.exports = {
