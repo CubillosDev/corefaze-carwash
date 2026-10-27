@@ -1,8 +1,8 @@
 const servicios = require('../../../src/data/servicios');
 const ordenesLavado = require('../../../src/data/ordenesLavado');
-const jornadas = require('../../../src/data/jornadas');
 
 const { supabase } = require('../../../src/db/supabaseCliente');
+const { aCamelCase } = require('../../../src/utils/mapearCampos');
 const clientesService = require('../../../src/services/clientes.service');
 const vehiculosService = require('../../../src/services/vehiculos.service');
 const colaboradoresService = require('../../../src/services/colaboradores.service');
@@ -35,10 +35,55 @@ const selloDocumento = Math.floor(Math.random() * 1e6)
   .padStart(6, '0');
 let contadorDocumentoCliente = 0;
 
-beforeEach(() => {
+// jornadas.service.js ya escribe en el Supabase local (SCRUM-152): a
+// diferencia del array en memoria de antes, jornadas_fecha_key es única
+// POR SIEMPRE para la fecha de "hoy" (abrirJornada() siempre usa la fecha
+// real del servidor, nunca una fecha de prueba). Sin limpiarla, solo la
+// PRIMERA prueba de toda la sesión podría abrir la jornada de hoy; todas
+// las demás (de este archivo y de cualquier otro) chocarían con
+// jornadas_fecha_key. Por eso cada prueba empieza borrando la jornada de
+// hoy (y sus reaperturas, que bloquean el borrado por FK) si ya existía.
+const fechaDeHoyDePrueba = () =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+
+const limpiarJornadaDeHoy = async () => {
+  const { data: jornadaDeHoy } = await supabase
+    .from('jornadas')
+    .select('id')
+    .eq('fecha', fechaDeHoyDePrueba())
+    .maybeSingle();
+
+  if (jornadaDeHoy) {
+    await supabase.from('reaperturas_jornada').delete().eq('jornada_id', jornadaDeHoy.id);
+    await supabase.from('jornadas').delete().eq('id', jornadaDeHoy.id);
+  }
+};
+
+// idx_jornadas_una_abierta es GLOBAL (una sola jornada abierta en todo el
+// sistema, sin importar su fecha): este archivo deja la última jornada
+// de cada prueba abierta (abrirJornadaDePrueba/abrirJornadaConFecha nunca
+// la cierran), así que la siguiente prueba —de este archivo o de
+// cualquier otro— la cierra antes de abrir la suya.
+const cerrarCualquierJornadaAbierta = async () => {
+  const { data: abierta } = await supabase
+    .from('jornadas')
+    .select('id')
+    .eq('estado', 'abierta')
+    .maybeSingle();
+
+  if (abierta) {
+    await supabase
+      .from('jornadas')
+      .update({ estado: 'cerrada', cerrada_en: new Date().toISOString() })
+      .eq('id', abierta.id);
+  }
+};
+
+beforeEach(async () => {
   servicios.length = 0;
   ordenesLavado.length = 0;
-  jornadas.length = 0;
+  await cerrarCualquierJornadaAbierta();
+  await limpiarJornadaDeHoy();
 });
 
 /** Documento único por llamada, para no chocar con el cliente por defecto de cada vehículo de prueba. */
@@ -214,37 +259,51 @@ const datosOrdenValida = ({ vehiculo, colaborador, servicio }, overrides = {}) =
   ...overrides,
 });
 
-const abrirJornadaDePrueba = () => jornadasService.abrirJornada();
+const abrirJornadaDePrueba = () => jornadasService.abrirJornada(USUARIO_ID_PRUEBA);
+
+// Para los tests de listarOrdenes, que necesitan varias fechas distintas:
+// abrirJornada() real siempre usa "hoy", así que aquí se escribe directo
+// contra la BD (bypass del service) con una fecha arbitraria y única (año
+// lejos de "hoy" y de otras corridas, para no chocar con
+// jornadas_fecha_key), cerrando antes cualquier otra que estuviera abierta.
+// Año aleatorio en un rango amplio (no solo cerca de "hoy"): con un rango
+// angosto, dos corridas distintas de este archivo tienen una probabilidad
+// real de sortear el mismo año y luego los mismos días (como pasaba con
+// el código de colaboradores, pero aquí el espacio de fechas es enorme,
+// así que basta con ampliar el rango en vez de consultar la BD primero.
+const anioBaseJornada = 1000 + Math.floor(Math.random() * 3000);
+let contadorDiaJornada = 0;
 
 /**
- * Para los tests de listarOrdenes, que necesitan dos fechas distintas:
- * abrirJornada() real siempre usa "hoy", así que aquí se inserta una
- * jornada con una fecha arbitraria directo en los datos, cerrando antes
- * cualquier otra que estuviera abierta.
+ * @returns {Promise<object>} la jornada creada (con su fecha real, para
+ *   que quien llame filtre/compare contra ella en vez de un literal).
  */
-const abrirJornadaConFecha = (fecha) => {
-  const abierta = jornadas.find((jornada) => jornada.estado === 'abierta');
+const abrirJornadaConFecha = async () => {
+  contadorDiaJornada += 1;
+  const fecha = new Date(anioBaseJornada, 0, contadorDiaJornada).toISOString().slice(0, 10);
+
+  const abierta = await jornadasService.obtenerJornadaAbierta();
   if (abierta) {
-    abierta.estado = 'cerrada';
+    await jornadasService.cerrarJornada(abierta.id, USUARIO_ID_PRUEBA);
   }
-  const nuevaJornada = {
-    id: jornadas.length > 0 ? Math.max(...jornadas.map((jornada) => jornada.id)) + 1 : 1,
-    fecha,
-    estado: 'abierta',
-    abiertaEn: new Date().toISOString(),
-    abiertaPor: null,
-    cerradaEn: null,
-    cerradaPor: null,
-    reaperturas: [],
-  };
-  jornadas.push(nuevaJornada);
-  return nuevaJornada;
+
+  const { data, error } = await supabase
+    .from('jornadas')
+    .insert({ fecha, abierta_por: USUARIO_ID_PRUEBA })
+    .select('id, fecha, estado, abierta_en, abierta_por, cerrada_en, cerrada_por')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return aCamelCase(data);
 };
 
 describe('ordenesLavado.service', () => {
   describe('crearOrden', () => {
     it('crea una orden con el valor calculado desde la tarifa del servicio (ignora datos.valor)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario, { valor: 999999999 }));
 
@@ -265,7 +324,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('R1: rechaza un vehiculoId que no existe (404)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       await expect(crearOrden(datosOrdenValida(escenario, { vehiculoId: 9999 }))).rejects.toThrow(
         NoEncontrado,
@@ -273,7 +332,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('R1: rechaza un servicioId que no existe (404)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       await expect(crearOrden(datosOrdenValida(escenario, { servicioId: 9999 }))).rejects.toThrow(
         NoEncontrado,
@@ -281,7 +340,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('R1: rechaza un colaboradorId que no existe (404)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       await expect(
         crearOrden(datosOrdenValida(escenario, { colaboradorId: 9999 })),
@@ -289,7 +348,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('R2: rechaza un colaborador inactivo (409)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       // No se usa el colaborador compartido: aquí sí hace falta uno propio,
       // porque esta prueba lo desactiva (y el compartido lo reutilizan
@@ -303,7 +362,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('R3: rechaza un servicio inactivo (409)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       await serviciosService.actualizarServicio(escenario.servicio.id, { activo: false });
 
@@ -311,7 +370,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('R3: rechaza un servicio sin tarifa para el tipo de vehículo (409)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const vehiculo = await crearVehiculoDePrueba({ tipoVehiculo: 'automovil' });
       const colaborador = await crearColaboradorDePrueba();
       const servicio = await crearServicioDePrueba({
@@ -324,7 +383,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('R7: rechaza un servicio con lavado de motor sin autorizaMotor (409)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const servicioMotor = await obtenerServicioConLavadoMotor();
 
@@ -334,7 +393,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('R7: permite un servicio con lavado de motor cuando autorizaMotor es true', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const servicioMotor = await obtenerServicioConLavadoMotor();
 
@@ -345,7 +404,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('R8: rechaza medioPago credito sin clienteId (409)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       await expect(
         crearOrden(datosOrdenValida(escenario, { medioPago: 'credito' })),
@@ -353,7 +412,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('R8: rechaza medioPago credito con un clienteId que no existe (404)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       await expect(
         crearOrden(datosOrdenValida(escenario, { medioPago: 'credito', clienteId: 999999999 })),
@@ -361,7 +420,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('R8: rechaza medioPago credito si el cliente no tiene crédito habilitado (409)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const clienteSinCredito = await crearClienteDePrueba({ creditoHabilitado: false });
 
@@ -373,7 +432,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('R8: rechaza medioPago credito si el cliente es particular (409)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const clienteParticular = await clientesService.crearCliente(
         {
@@ -393,7 +452,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('R8: acepta medioPago credito con un cliente empresa activo y con crédito habilitado', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const clienteCredito = await crearClienteDePrueba();
 
@@ -404,7 +463,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('ignora clienteId si medioPago no es credito (queda en null)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const otroCliente = await crearClienteDePrueba();
 
@@ -415,7 +474,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('R5: rechaza un turno ya ocupado en la misma jornada (409)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
@@ -426,7 +485,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('dos turnos distintos en la misma jornada no chocan entre sí', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
@@ -435,7 +494,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('R6: rechaza una segunda orden abierta para el mismo vehículo (409)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
@@ -445,7 +504,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('permite una nueva orden para el mismo vehículo tras cerrar la anterior', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const primera = await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
       cambiarEstadoOrden(primera.id, 'cancelada', 'Cliente canceló');
@@ -456,7 +515,7 @@ describe('ordenesLavado.service', () => {
 
   describe('editarOrden', () => {
     it('"valor" es inmutable: no se recalcula aunque suba la tarifa del servicio', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
 
@@ -471,7 +530,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('R3: permite editar a un vehículo de otro tipo que el servicio sí cubre (200), sin recalcular "valor"', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       await serviciosService.actualizarServicio(escenario.servicio.id, {
         tarifas: [
@@ -491,7 +550,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('R3: rechaza editar a un vehículo de un tipo que el servicio no cubre (409)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       // escenario.servicio solo tiene tarifa para 'automovil'.
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
@@ -506,7 +565,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('permite editar aunque el servicio original haya quedado inactivo (ya no se revalida al editar)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
 
@@ -516,7 +575,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('rechaza editar a un colaborador inactivo (409)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
 
@@ -529,7 +588,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('rechaza editar vehiculoId a uno que ya tiene otra orden abierta (409)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
@@ -542,7 +601,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('rechaza editar una orden ya entregada (409)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
       cambiarEstadoOrden(orden.id, 'en_proceso');
@@ -553,7 +612,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('rechaza editar una orden ya cancelada (409)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
       cambiarEstadoOrden(orden.id, 'cancelada', 'Cliente canceló');
@@ -562,16 +621,16 @@ describe('ordenesLavado.service', () => {
     });
 
     it('rechaza editar una orden cuya jornada ya no está abierta (409)', async () => {
-      const jornada = abrirJornadaDePrueba();
+      const jornada = await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
-      jornadasService.cerrarJornada(jornada.id);
+      await jornadasService.cerrarJornada(jornada.id, USUARIO_ID_PRUEBA);
 
       await expect(editarOrden(orden.id, { observaciones: 'tarde' })).rejects.toThrow(Conflicto);
     });
 
     it('rechaza editar medioPago a credito sin un cliente con crédito habilitado (409)', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
 
@@ -579,7 +638,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('ignora "valor" y "estado" si se envían: el service no los cambia', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
 
@@ -602,11 +661,11 @@ describe('ordenesLavado.service', () => {
   describe('listarOrdenes', () => {
     it('devuelve todas las órdenes si no hay filtro', async () => {
       const escenario = await construirEscenarioValido();
-      abrirJornadaConFecha('2026-01-10');
+      await abrirJornadaConFecha();
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
       const otroVehiculo = await crearVehiculoDePrueba();
-      abrirJornadaConFecha('2026-01-11');
+      await abrirJornadaConFecha();
       await crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 1 }));
 
       expect(listarOrdenes()).toHaveLength(2);
@@ -614,20 +673,20 @@ describe('ordenesLavado.service', () => {
 
     it('filtra por fecha exacta cuando se envía filtros.fecha', async () => {
       const escenario = await construirEscenarioValido();
-      abrirJornadaConFecha('2026-01-10');
+      const jornada1 = await abrirJornadaConFecha();
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
       const otroVehiculo = await crearVehiculoDePrueba();
-      abrirJornadaConFecha('2026-01-11');
+      await abrirJornadaConFecha();
       await crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 1 }));
 
-      const resultado = listarOrdenes({ fecha: '2026-01-10' });
+      const resultado = listarOrdenes({ fecha: jornada1.fecha });
       expect(resultado).toHaveLength(1);
-      expect(resultado[0].fecha).toBe('2026-01-10');
+      expect(resultado[0].fecha).toBe(jornada1.fecha);
     });
 
     it('filtra por colaboradorId', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
@@ -646,7 +705,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('filtra por servicioId', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
@@ -665,7 +724,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('filtra por medioPago', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       await crearOrden(datosOrdenValida(escenario, { turno: 1, medioPago: 'efectivo' }));
 
@@ -684,11 +743,11 @@ describe('ordenesLavado.service', () => {
 
     it('filtra por jornadaId', async () => {
       const escenario = await construirEscenarioValido();
-      const jornada1 = abrirJornadaConFecha('2026-01-10');
+      const jornada1 = await abrirJornadaConFecha();
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
       const otroVehiculo = await crearVehiculoDePrueba();
-      const jornada2 = abrirJornadaConFecha('2026-01-11');
+      const jornada2 = await abrirJornadaConFecha();
       await crearOrden(datosOrdenValida({ ...escenario, vehiculo: otroVehiculo }, { turno: 1 }));
 
       const resultado = listarOrdenes({ jornadaId: jornada1.id });
@@ -698,7 +757,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('combina varios filtros a la vez con AND', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const primera = await crearOrden(
         datosOrdenValida(escenario, { turno: 1, medioPago: 'efectivo' }),
@@ -770,12 +829,12 @@ describe('ordenesLavado.service', () => {
   describe('obtenerTotalesDeJornada', () => {
     it('agrega unidades y ventaTotal solo de las órdenes de esa jornada, sin mezclar otra', async () => {
       const escenario = await construirEscenarioValido();
-      const jornada1 = abrirJornadaConFecha('2026-01-10');
+      const jornada1 = await abrirJornadaConFecha();
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
       const vehiculoB = await crearVehiculoDePrueba();
       const vehiculoC = await crearVehiculoDePrueba();
-      const jornada2 = abrirJornadaConFecha('2026-01-11');
+      const jornada2 = await abrirJornadaConFecha();
       await crearOrden(datosOrdenValida({ ...escenario, vehiculo: vehiculoB }, { turno: 1 }));
       await crearOrden(datosOrdenValida({ ...escenario, vehiculo: vehiculoC }, { turno: 2 }));
 
@@ -788,8 +847,8 @@ describe('ordenesLavado.service', () => {
       expect(totalesJornada1.ventaTotal).toBe(15000);
     });
 
-    it('devuelve unidades 0 y ventaTotal 0 para una jornada sin ninguna orden', () => {
-      const jornadaVacia = abrirJornadaConFecha('2026-02-01');
+    it('devuelve unidades 0 y ventaTotal 0 para una jornada sin ninguna orden', async () => {
+      const jornadaVacia = await abrirJornadaConFecha();
       const totales = obtenerTotalesDeJornada(jornadaVacia.id);
       expect(totales).toEqual({ unidades: 0, ventaTotal: 0 });
     });
@@ -807,7 +866,7 @@ describe('ordenesLavado.service', () => {
 
   describe('*TieneOrdenes', () => {
     it('colaboradorTieneOrdenes cuenta órdenes sin importar el estado, incluida cancelada', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
       cambiarEstadoOrden(orden.id, 'cancelada', 'Cliente canceló');
@@ -816,7 +875,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('servicioTieneOrdenes cuenta órdenes sin importar el estado, incluida cancelada', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
       cambiarEstadoOrden(orden.id, 'cancelada', 'Cliente canceló');
@@ -825,7 +884,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('vehiculoTieneOrdenes cuenta órdenes sin importar el estado, incluida cancelada', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
       cambiarEstadoOrden(orden.id, 'cancelada', 'Cliente canceló');
@@ -849,7 +908,7 @@ describe('ordenesLavado.service', () => {
       ['en_proceso', 'cancelada'],
       ['terminada', 'entregada'],
     ])('permite la transición de %s a %s', async (estadoInicial, estadoFinal) => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
 
@@ -867,14 +926,14 @@ describe('ordenesLavado.service', () => {
     });
 
     it('rechaza saltar de registrada a entregada', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
       expect(() => cambiarEstadoOrden(orden.id, 'entregada')).toThrow(Conflicto);
     });
 
     it('rechaza retroceder de entregada a en_proceso', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
       cambiarEstadoOrden(orden.id, 'en_proceso');
@@ -885,7 +944,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('una orden entregada nunca puede volver a cambiar de estado', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
       cambiarEstadoOrden(orden.id, 'en_proceso');
@@ -896,7 +955,7 @@ describe('ordenesLavado.service', () => {
     });
 
     it('una orden cancelada nunca puede volver a cambiar de estado', async () => {
-      abrirJornadaDePrueba();
+      await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
       cambiarEstadoOrden(orden.id, 'cancelada', 'Cliente canceló');
@@ -910,7 +969,7 @@ describe('ordenesLavado.service', () => {
 
     describe('cancelación con motivo', () => {
       it('rechaza cancelar sin motivo (400, SolicitudInvalida)', async () => {
-        abrirJornadaDePrueba();
+        await abrirJornadaDePrueba();
         const escenario = await construirEscenarioValido();
         const orden = await crearOrden(datosOrdenValida(escenario));
 
@@ -918,7 +977,7 @@ describe('ordenesLavado.service', () => {
       });
 
       it('cancela con motivo y lo guarda en la orden', async () => {
-        abrirJornadaDePrueba();
+        await abrirJornadaDePrueba();
         const escenario = await construirEscenarioValido();
         const orden = await crearOrden(datosOrdenValida(escenario));
 
@@ -929,7 +988,7 @@ describe('ordenesLavado.service', () => {
       });
 
       it('cambiar a cualquier otro estado no exige ni guarda motivo', async () => {
-        abrirJornadaDePrueba();
+        await abrirJornadaDePrueba();
         const escenario = await construirEscenarioValido();
         const orden = await crearOrden(datosOrdenValida(escenario));
 

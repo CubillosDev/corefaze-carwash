@@ -4,7 +4,6 @@ const { supabase } = require('../../src/db/supabaseCliente');
 const { generarToken } = require('../../src/utils/jwt.util');
 const servicios = require('../../src/data/servicios');
 const ordenesLavado = require('../../src/data/ordenesLavado');
-const jornadas = require('../../src/data/jornadas');
 const usuarios = require('../../src/data/usuarios');
 
 const LLAVE = 'k'.repeat(40);
@@ -34,10 +33,52 @@ const TOKEN_ADMINISTRADOR = tokenDe('administrador');
 const TOKEN_SOPORTE = tokenDe('soporte');
 const TOKEN_PENDIENTE = tokenDe('pendiente');
 
-beforeEach(() => {
+// jornadas.service.js ya escribe en el Supabase local (SCRUM-152): a
+// diferencia del array en memoria de antes, jornadas_fecha_key es única
+// POR SIEMPRE para la fecha de "hoy" (abrirJornada() siempre usa la fecha
+// real del servidor, nunca una fecha de prueba). Sin limpiarla, solo la
+// PRIMERA prueba de toda la sesión podría abrir la jornada de hoy; todas
+// las demás (de este archivo y de cualquier otro) chocarían con
+// jornadas_fecha_key. Por eso cada prueba empieza borrando la jornada de
+// hoy (y sus reaperturas, que bloquean el borrado por FK) si ya existía.
+const fechaDeHoyDePrueba = () =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+
+const limpiarJornadaDeHoy = async () => {
+  const { data: jornadaDeHoy } = await supabase
+    .from('jornadas')
+    .select('id')
+    .eq('fecha', fechaDeHoyDePrueba())
+    .maybeSingle();
+
+  if (jornadaDeHoy) {
+    await supabase.from('reaperturas_jornada').delete().eq('jornada_id', jornadaDeHoy.id);
+    await supabase.from('jornadas').delete().eq('id', jornadaDeHoy.id);
+  }
+};
+
+// idx_jornadas_una_abierta es GLOBAL (una sola jornada abierta en todo el
+// sistema, sin importar su fecha): una jornada que quedó abierta en OTRO
+// archivo de pruebas (con una fecha aleatoria cualquiera) bloquearía
+// abrir la de hoy aquí.
+const cerrarCualquierJornadaAbierta = async () => {
+  const { data: abierta } = await supabase
+    .from('jornadas')
+    .select('id')
+    .eq('estado', 'abierta')
+    .maybeSingle();
+
+  if (abierta) {
+    await supabase
+      .from('jornadas')
+      .update({ estado: 'cerrada', cerrada_en: new Date().toISOString() })
+      .eq('id', abierta.id);
+  }
+};
+
+beforeEach(async () => {
   servicios.length = 0;
   ordenesLavado.length = 0;
-  jornadas.length = 0;
   usuarios.length = 0;
   ROLES_DE_PRUEBA.forEach((rol) => {
     usuarios.push({
@@ -49,6 +90,8 @@ beforeEach(() => {
       activo: true,
     });
   });
+  await cerrarCualquierJornadaAbierta();
+  await limpiarJornadaDeHoy();
 });
 
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);

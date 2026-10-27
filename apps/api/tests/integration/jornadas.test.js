@@ -2,7 +2,6 @@ const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const { supabase } = require('../../src/db/supabaseCliente');
 const { generarToken } = require('../../src/utils/jwt.util');
-const jornadas = require('../../src/data/jornadas');
 const servicios = require('../../src/data/servicios');
 const ordenesLavado = require('../../src/data/ordenesLavado');
 const usuarios = require('../../src/data/usuarios');
@@ -28,8 +27,73 @@ const TOKEN_ADMINISTRADOR = tokenDe('administrador');
 const TOKEN_SOPORTE = tokenDe('soporte');
 const TOKEN_PENDIENTE = tokenDe('pendiente');
 
-beforeEach(() => {
-  jornadas.length = 0;
+// jornadas.service.js ya escribe en el Supabase local (SCRUM-152): a
+// diferencia del array en memoria de antes, jornadas_fecha_key es única
+// POR SIEMPRE para la fecha de "hoy" (abrirJornada() siempre usa la fecha
+// real del servidor, nunca una fecha de prueba). Sin limpiarla, solo la
+// PRIMERA prueba de toda la sesión podría abrir la jornada de hoy; todas
+// las demás (de este archivo y de cualquier otro) chocarían con
+// jornadas_fecha_key. Por eso cada prueba empieza borrando la jornada de
+// hoy (y sus reaperturas, que bloquean el borrado por FK) si ya existía.
+const fechaDeHoyDePrueba = () =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+
+const limpiarJornadaDeHoy = async () => {
+  const { data: jornadaDeHoy } = await supabase
+    .from('jornadas')
+    .select('id')
+    .eq('fecha', fechaDeHoyDePrueba())
+    .maybeSingle();
+
+  if (jornadaDeHoy) {
+    await supabase.from('reaperturas_jornada').delete().eq('jornada_id', jornadaDeHoy.id);
+    await supabase.from('jornadas').delete().eq('id', jornadaDeHoy.id);
+  }
+};
+
+// idx_jornadas_una_abierta es GLOBAL (una sola jornada abierta en todo el
+// sistema, sin importar su fecha): una jornada que quedó abierta en OTRO
+// archivo de pruebas (con una fecha aleatoria cualquiera) bloquearía
+// abrir la de hoy aquí.
+const cerrarCualquierJornadaAbierta = async () => {
+  const { data: abierta } = await supabase
+    .from('jornadas')
+    .select('id')
+    .eq('estado', 'abierta')
+    .maybeSingle();
+
+  if (abierta) {
+    await supabase
+      .from('jornadas')
+      .update({ estado: 'cerrada', cerrada_en: new Date().toISOString() })
+      .eq('id', abierta.id);
+  }
+};
+
+// reabrirJornada() escribe una fila en reaperturas_jornada, de solo
+// inserción incluso para service_role (ni el backend puede borrarla): si
+// una prueba reabriera la jornada de HOY, la dejaría con esa reapertura
+// para siempre, bloqueando jornadas_fecha_key para cualquier otra prueba
+// (de este archivo o de cualquier otro) que necesite abrir la de hoy
+// después. Por eso la única prueba que de verdad reabre una jornada usa
+// una fecha arbitraria, insertada directo contra la BD (no hay endpoint
+// público para abrir una jornada que no sea la de hoy).
+const crearJornadaCerradaDeOtraFecha = async () => {
+  const fecha = `${1000 + Math.floor(Math.random() * 3000)}-02-01`;
+  const { data, error } = await supabase
+    .from('jornadas')
+    .insert({ fecha, estado: 'cerrada', cerrada_en: new Date().toISOString() })
+    .select('id')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+};
+
+beforeEach(async () => {
   servicios.length = 0;
   ordenesLavado.length = 0;
   usuarios.length = 0;
@@ -43,6 +107,8 @@ beforeEach(() => {
       activo: true,
     });
   });
+  await cerrarCualquierJornadaAbierta();
+  await limpiarJornadaDeHoy();
 });
 
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
@@ -191,12 +257,12 @@ const crearOrdenDePrueba = async (overrides = {}) => {
 };
 
 describe('POST /api/jornadas', () => {
-  it('abre la primera jornada (201) y registra el email del usuario autenticado en abiertaPor', async () => {
+  it('abre la primera jornada (201) y registra el id del usuario autenticado en abiertaPor (SCRUM-152: antes era su email)', async () => {
     const respuesta = await abrirJornada();
 
     expect(respuesta.status).toBe(201);
     expect(respuesta.body.jornada.estado).toBe('abierta');
-    expect(respuesta.body.jornada.abiertaPor).toBe('administrador@lavadero.com');
+    expect(respuesta.body.jornada.abiertaPor).toBe(idDeRolDePrueba('administrador'));
   });
 
   it('rechaza abrir una segunda jornada mientras la primera sigue abierta (409)', async () => {
@@ -239,12 +305,12 @@ describe('POST /api/jornadas', () => {
 
 describe('GET /api/jornadas', () => {
   it('lista las jornadas creadas', async () => {
-    await abrirJornada();
+    const creada = await abrirJornada();
 
     const respuesta = await conToken('get', '/api/jornadas');
 
     expect(respuesta.status).toBe(200);
-    expect(respuesta.body.jornadas).toHaveLength(1);
+    expect(respuesta.body.jornadas.map((jornada) => jornada.id)).toContain(creada.body.jornada.id);
   });
 
   it('rechaza un filtro desde con formato inválido (400)', async () => {
@@ -292,7 +358,7 @@ describe('GET /api/jornadas/:id', () => {
   });
 
   it('id inexistente: 404', async () => {
-    const respuesta = await conToken('get', '/api/jornadas/9999');
+    const respuesta = await conToken('get', '/api/jornadas/999999999');
     expect(respuesta.status).toBe(404);
   });
 
@@ -303,14 +369,14 @@ describe('GET /api/jornadas/:id', () => {
 });
 
 describe('PATCH /api/jornadas/:id/estado', () => {
-  it('estado "cerrada": cierra la jornada abierta (200) y registra el email en cerradaPor', async () => {
+  it('estado "cerrada": cierra la jornada abierta (200) y registra el id en cerradaPor (SCRUM-152: antes era su email)', async () => {
     const creada = await abrirJornada();
 
     const respuesta = await cerrarJornada(creada.body.jornada.id);
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.jornada.estado).toBe('cerrada');
-    expect(respuesta.body.jornada.cerradaPor).toBe('administrador@lavadero.com');
+    expect(respuesta.body.jornada.cerradaPor).toBe(idDeRolDePrueba('administrador'));
   });
 
   it('rechaza cerrar una jornada que ya está cerrada (409)', async () => {
@@ -322,7 +388,7 @@ describe('PATCH /api/jornadas/:id/estado', () => {
   });
 
   it('id inexistente al cerrar: 404', async () => {
-    const respuesta = await cerrarJornada(9999);
+    const respuesta = await cerrarJornada(999999999);
     expect(respuesta.status).toBe(404);
   });
 
@@ -344,10 +410,9 @@ describe('PATCH /api/jornadas/:id/estado', () => {
   });
 
   it('estado "abierta": superadmin reabre la jornada cerrada (200) y registra la reapertura', async () => {
-    const creada = await abrirJornada();
-    await cerrarJornada(creada.body.jornada.id);
+    const creada = await crearJornadaCerradaDeOtraFecha();
 
-    const respuesta = await reabrirJornada(creada.body.jornada.id);
+    const respuesta = await reabrirJornada(creada.id);
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.jornada.estado).toBe('abierta');
@@ -378,7 +443,7 @@ describe('PATCH /api/jornadas/:id/estado', () => {
   });
 
   it('id inexistente al reabrir: 404', async () => {
-    const respuesta = await reabrirJornada(9999);
+    const respuesta = await reabrirJornada(999999999);
     expect(respuesta.status).toBe(404);
   });
 
