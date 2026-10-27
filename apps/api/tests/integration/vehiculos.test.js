@@ -351,13 +351,16 @@ describe('Integridad referencial: DELETE /api/vehiculos/:id con órdenes de lava
     // de vía HTTP), que operan sobre los mismos arreglos en memoria que
     // usa la app; evita repetir aquí todo el setup de los otros recursos.
     jornadasService.abrirJornada();
-    const servicio = serviciosService.crearServicio({
-      numero: 1,
-      nombre: 'Lavado básico',
-      descripcion: 'Lavado exterior con shampoo',
-      categoria: 'basico',
-      tarifas: [{ tipoVehiculo: 'automovil', valor: 15000 }],
-    });
+    const servicio = await serviciosService.crearServicio(
+      {
+        numero: 1000 + Math.floor(Math.random() * 20000),
+        nombre: 'Lavado básico',
+        descripcion: 'Lavado exterior con shampoo',
+        categoria: 'basico',
+        tarifas: [{ tipoVehiculo: 'automovil', valor: 15000 }],
+      },
+      1,
+    );
     // El código solo tiene 900 valores posibles (100-999): se consulta cuál
     // está libre en vez de sortear uno a ciegas, para no chocar con los que
     // ya quedaron "activos" de corridas anteriores (ver informe de la

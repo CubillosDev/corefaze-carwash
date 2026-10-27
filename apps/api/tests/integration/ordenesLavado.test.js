@@ -186,9 +186,21 @@ const registrarColaborador = async (overrides = {}) => {
   return respuesta.body.colaborador;
 };
 
+// servicios.service.js ya escribe en el Supabase local (SCRUM-152), no en
+// un array que el beforeEach pudiera vaciar: el número es único (salto
+// aleatorio + contador) para no chocar ni dentro de esta corrida ni con
+// otro archivo que Jest ejecute en paralelo. `numero` no tiene un rango
+// acotado (solo exige >= 1), así que un sorteo amplio basta.
+const selloNumeroServicio = 1000 + Math.floor(Math.random() * 20000);
+let contadorNumeroServicio = 0;
+const numeroUnicoServicio = () => {
+  contadorNumeroServicio += 1;
+  return selloNumeroServicio + contadorNumeroServicio;
+};
+
 const registrarServicioParaAutomovil = async (overrides = {}) => {
   const respuesta = await conToken('post', '/api/servicios').send({
-    numero: 1,
+    numero: numeroUnicoServicio(),
     nombre: 'Lavado básico',
     descripcion: 'Lavado exterior con shampoo',
     categoria: 'basico',
@@ -200,7 +212,7 @@ const registrarServicioParaAutomovil = async (overrides = {}) => {
 
 const registrarServicioParaMoto = async (overrides = {}) => {
   const respuesta = await conToken('post', '/api/servicios').send({
-    numero: 2,
+    numero: numeroUnicoServicio(),
     nombre: 'Lavado de moto',
     descripcion: 'Lavado exterior de moto',
     categoria: 'basico',
@@ -208,6 +220,25 @@ const registrarServicioParaMoto = async (overrides = {}) => {
     ...overrides,
   });
   return respuesta.body.servicio;
+};
+
+// R7 exige un numero en SERVICIOS_CON_LAVADO_MOTOR, un conjunto fijo y
+// chico ([5, 6, 7, 8] en el dominio compartido): no se puede sortear uno
+// grande como con el resto de servicios. Para no agotarlo ni chocar entre
+// corridas (ni con el mismo fixture que usa ordenesLavado.service.test.js
+// contra el mismo Supabase local), se busca primero si ya existe antes de
+// crearlo.
+let servicioConLavadoMotor = null;
+const obtenerServicioConLavadoMotor = async () => {
+  if (servicioConLavadoMotor) {
+    return servicioConLavadoMotor;
+  }
+  const listado = await conToken('get', '/api/servicios');
+  servicioConLavadoMotor = listado.body.servicios.find((servicio) => servicio.numero === 5);
+  if (!servicioConLavadoMotor) {
+    servicioConLavadoMotor = await registrarServicioParaAutomovil({ numero: 5 });
+  }
+  return servicioConLavadoMotor;
 };
 
 /** Escenario base: jornada abierta + cliente particular + vehículo + colaborador + servicio, compatibles entre sí. */
@@ -359,7 +390,7 @@ describe('POST /api/ordenes-lavado', () => {
     const cliente = await registrarClienteParticular();
     const vehiculo = await registrarVehiculo(cliente.id);
     const colaborador = await registrarColaborador();
-    const servicioMotor = await registrarServicioParaAutomovil({ numero: 5 });
+    const servicioMotor = await obtenerServicioConLavadoMotor();
 
     const sinAutorizacion = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden(
@@ -780,7 +811,7 @@ describe('GET /api/ordenes-lavado', () => {
     const clienteB = await registrarClienteParticular();
     const vehiculoB = await registrarVehiculo(clienteB.id);
     const colaboradorB = await registrarColaborador();
-    const servicioB = await registrarServicioParaAutomovil({ numero: 2 });
+    const servicioB = await registrarServicioParaAutomovil();
     await conToken('post', '/api/ordenes-lavado').send(
       datosOrden(
         { vehiculo: vehiculoB, colaborador: colaboradorB, servicio: servicioB },

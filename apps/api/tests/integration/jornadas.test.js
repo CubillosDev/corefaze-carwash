@@ -152,9 +152,20 @@ const registrarColaboradorDePrueba = async (overrides = {}) => {
   return respuesta.body.colaborador;
 };
 
+// servicios.service.js ya escribe en el Supabase local (SCRUM-152), no en
+// un array que el beforeEach pudiera vaciar: el número es único (salto
+// aleatorio + contador) para no chocar ni dentro de esta corrida ni con
+// otro archivo que Jest ejecute en paralelo.
+const selloNumeroServicio = 1000 + Math.floor(Math.random() * 20000);
+let contadorNumeroServicio = 0;
+const numeroUnicoServicio = () => {
+  contadorNumeroServicio += 1;
+  return selloNumeroServicio + contadorNumeroServicio;
+};
+
 const registrarServicioDePrueba = async (overrides = {}) => {
   const respuesta = await conToken('post', '/api/servicios').send({
-    numero: 1,
+    numero: numeroUnicoServicio(),
     nombre: 'Lavado básico',
     descripcion: 'Lavado exterior con shampoo',
     categoria: 'basico',
@@ -255,14 +266,8 @@ describe('GET /api/jornadas', () => {
     const jornadaAbierta = await abrirJornada();
     const jornadaId = jornadaAbierta.body.jornada.id;
 
-    await crearOrdenDePrueba({
-      turno: 1,
-      servicio: { numero: 1 },
-    });
-    await crearOrdenDePrueba({
-      turno: 2,
-      servicio: { numero: 2 },
-    });
+    await crearOrdenDePrueba({ turno: 1 });
+    await crearOrdenDePrueba({ turno: 2 });
 
     await cerrarJornada(jornadaId);
 

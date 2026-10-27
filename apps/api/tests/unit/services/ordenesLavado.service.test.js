@@ -140,15 +140,48 @@ const crearColaboradorDePrueba = (datos = {}) => {
   );
 };
 
+// serviciosService.crearServicio ya escribe en el Supabase local
+// (SCRUM-152), no en un array que beforeEach pudiera vaciar: el número es
+// único (salto aleatorio + contador) para no chocar ni dentro de esta
+// corrida ni con otro archivo que Jest ejecute en paralelo. `numero` no
+// tiene un rango acotado (solo exige >= 1), así que un sorteo amplio basta.
+const selloNumeroServicio = 1000 + Math.floor(Math.random() * 20000);
+let contadorNumeroServicio = 0;
+const numeroUnicoServicio = () => {
+  contadorNumeroServicio += 1;
+  return selloNumeroServicio + contadorNumeroServicio;
+};
+
 const crearServicioDePrueba = (datos = {}) =>
-  serviciosService.crearServicio({
-    numero: 1,
-    nombre: 'Lavado básico',
-    descripcion: 'Lavado exterior con shampoo',
-    categoria: 'basico',
-    tarifas: [{ tipoVehiculo: 'automovil', valor: 15000 }],
-    ...datos,
-  });
+  serviciosService.crearServicio(
+    {
+      numero: numeroUnicoServicio(),
+      nombre: 'Lavado básico',
+      descripcion: 'Lavado exterior con shampoo',
+      categoria: 'basico',
+      tarifas: [{ tipoVehiculo: 'automovil', valor: 15000 }],
+      ...datos,
+    },
+    USUARIO_ID_PRUEBA,
+  );
+
+// R7 exige un numero en SERVICIOS_CON_LAVADO_MOTOR, un conjunto fijo y
+// chico ([5, 6, 7, 8] en el dominio compartido): no se puede sortear uno
+// grande como con el resto de servicios. Para no agotarlo ni chocar entre
+// corridas, se reutiliza siempre el mismo (numero 5), creándolo solo si
+// todavía no existe.
+let servicioConLavadoMotor = null;
+const obtenerServicioConLavadoMotor = async () => {
+  if (servicioConLavadoMotor) {
+    return servicioConLavadoMotor;
+  }
+  const existentes = await serviciosService.listarServicios();
+  servicioConLavadoMotor = existentes.find((servicio) => servicio.numero === 5);
+  if (!servicioConLavadoMotor) {
+    servicioConLavadoMotor = await crearServicioDePrueba({ numero: 5 });
+  }
+  return servicioConLavadoMotor;
+};
 
 // Un solo colaborador real, compartido por casi todos los escenarios: la
 // mayoría de las pruebas de este archivo solo necesitan "un colaborador
@@ -169,7 +202,7 @@ const obtenerColaboradorCompartido = async () => {
 const construirEscenarioValido = async () => ({
   vehiculo: await crearVehiculoDePrueba(),
   colaborador: await obtenerColaboradorCompartido(),
-  servicio: crearServicioDePrueba(),
+  servicio: await crearServicioDePrueba(),
 });
 
 const datosOrdenValida = ({ vehiculo, colaborador, servicio }, overrides = {}) => ({
@@ -272,7 +305,7 @@ describe('ordenesLavado.service', () => {
     it('R3: rechaza un servicio inactivo (409)', async () => {
       abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
-      serviciosService.actualizarServicio(escenario.servicio.id, { activo: false });
+      await serviciosService.actualizarServicio(escenario.servicio.id, { activo: false });
 
       await expect(crearOrden(datosOrdenValida(escenario))).rejects.toThrow(Conflicto);
     });
@@ -281,7 +314,7 @@ describe('ordenesLavado.service', () => {
       abrirJornadaDePrueba();
       const vehiculo = await crearVehiculoDePrueba({ tipoVehiculo: 'automovil' });
       const colaborador = await crearColaboradorDePrueba();
-      const servicio = crearServicioDePrueba({
+      const servicio = await crearServicioDePrueba({
         tarifas: [{ tipoVehiculo: 'camioneta', valor: 20000 }],
       });
 
@@ -293,17 +326,21 @@ describe('ordenesLavado.service', () => {
     it('R7: rechaza un servicio con lavado de motor sin autorizaMotor (409)', async () => {
       abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
-      serviciosService.actualizarServicio(escenario.servicio.id, { numero: 5 });
+      const servicioMotor = await obtenerServicioConLavadoMotor();
 
-      await expect(crearOrden(datosOrdenValida(escenario))).rejects.toThrow(Conflicto);
+      await expect(
+        crearOrden(datosOrdenValida({ ...escenario, servicio: servicioMotor })),
+      ).rejects.toThrow(Conflicto);
     });
 
     it('R7: permite un servicio con lavado de motor cuando autorizaMotor es true', async () => {
       abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
-      serviciosService.actualizarServicio(escenario.servicio.id, { numero: 5 });
+      const servicioMotor = await obtenerServicioConLavadoMotor();
 
-      const orden = await crearOrden(datosOrdenValida(escenario, { autorizaMotor: true }));
+      const orden = await crearOrden(
+        datosOrdenValida({ ...escenario, servicio: servicioMotor }, { autorizaMotor: true }),
+      );
       expect(orden.autorizaMotor).toBe(true);
     });
 
@@ -424,7 +461,7 @@ describe('ordenesLavado.service', () => {
       const orden = await crearOrden(datosOrdenValida(escenario));
 
       // Sube la tarifa del servicio después de crear la orden.
-      serviciosService.actualizarServicio(escenario.servicio.id, {
+      await serviciosService.actualizarServicio(escenario.servicio.id, {
         tarifas: [{ tipoVehiculo: 'automovil', valor: 99999 }],
       });
 
@@ -436,7 +473,7 @@ describe('ordenesLavado.service', () => {
     it('R3: permite editar a un vehículo de otro tipo que el servicio sí cubre (200), sin recalcular "valor"', async () => {
       abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
-      serviciosService.actualizarServicio(escenario.servicio.id, {
+      await serviciosService.actualizarServicio(escenario.servicio.id, {
         tarifas: [
           { tipoVehiculo: 'automovil', valor: 15000 },
           { tipoVehiculo: 'camioneta', valor: 20000 },
@@ -473,7 +510,7 @@ describe('ordenesLavado.service', () => {
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
 
-      serviciosService.actualizarServicio(escenario.servicio.id, { activo: false });
+      await serviciosService.actualizarServicio(escenario.servicio.id, { activo: false });
 
       await editarOrden(orden.id, { observaciones: 'actualizado' });
     });
@@ -613,7 +650,7 @@ describe('ordenesLavado.service', () => {
       const escenario = await construirEscenarioValido();
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
-      const otroServicio = crearServicioDePrueba({ numero: 2 });
+      const otroServicio = await crearServicioDePrueba();
       const otroVehiculo = await crearVehiculoDePrueba();
       await crearOrden(
         datosOrdenValida(
