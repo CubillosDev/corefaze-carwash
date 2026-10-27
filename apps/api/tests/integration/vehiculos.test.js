@@ -4,7 +4,6 @@ const { supabase } = require('../../src/db/supabaseCliente');
 const serviciosService = require('../../src/services/servicios.service');
 const colaboradoresService = require('../../src/services/colaboradores.service');
 const ordenesLavadoService = require('../../src/services/ordenesLavado.service');
-const usuarios = require('../../src/data/usuarios');
 const { generarToken } = require('../../src/utils/jwt.util');
 
 const LLAVE = 'k'.repeat(40);
@@ -16,9 +15,9 @@ const app = crearApp({
 
 // RBAC (SCRUM-139): todo el recurso exige API Key + JWT con rol autorizado.
 // autenticarJWT ya no toma el rol del payload del token: vuelve a
-// consultar al usuario actual (hallazgo de revisión del PR #7), así que
-// cada rol de prueba necesita también su propio registro en la "tabla"
-// de usuarios, re-sembrado en cada beforeEach.
+// consultar al usuario actual en Supabase (hallazgo de revisión del PR
+// #7, SCRUM-152), así que estos ids deben ser los mismos (y en el mismo
+// orden) que los 4 usuarios de supabase/seed.sql — uno por rol.
 const ROLES_DE_PRUEBA = ['superadmin', 'administrador', 'soporte', 'pendiente'];
 const idDeRolDePrueba = (rol) => ROLES_DE_PRUEBA.indexOf(rol) + 1;
 const tokenDe = (rol) =>
@@ -48,17 +47,6 @@ const cerrarCualquierJornadaAbierta = async () => {
 };
 
 beforeEach(async () => {
-  usuarios.length = 0;
-  ROLES_DE_PRUEBA.forEach((rol) => {
-    usuarios.push({
-      id: idDeRolDePrueba(rol),
-      nombre: rol,
-      email: `${rol}@lavadero.com`,
-      passwordHash: 'irrelevante-para-estas-pruebas',
-      rol,
-      activo: true,
-    });
-  });
   await cerrarCualquierJornadaAbierta();
 });
 
@@ -71,7 +59,7 @@ beforeEach(async () => {
 // las reaperturas en jornadas.service.test.js). Se inserta directo con
 // una fecha única en vez de pasar por el endpoint.
 const abrirJornadaDePrueba = async () => {
-  const fecha = `${1000 + Math.floor(Math.random() * 3000)}-01-01`;
+  const fecha = `${1000 + Math.floor(Math.random() * 9000)}-01-01`;
   const { error } = await supabase.from('jornadas').insert({ fecha, abierta_por: 1 });
   if (error) {
     throw error;

@@ -150,7 +150,7 @@ describe('jornadas.service', () => {
       // reabriera la de hoy, la dejaría con una reapertura para siempre,
       // bloqueando jornadas_fecha_key para cualquier otra prueba (de este
       // archivo o de cualquier otro) que necesite abrir la de hoy después.
-      const fecha = `${1000 + Math.floor(Math.random() * 3000)}-02-01`;
+      const fecha = `${1000 + Math.floor(Math.random() * 9000)}-02-01`;
       const jornada = await insertarJornadaCerradaDeOtraFecha(fecha);
 
       const reabierta = await reabrirJornada(jornada.id, USUARIO_ID_PRUEBA);
@@ -172,7 +172,7 @@ describe('jornadas.service', () => {
       // La jornada "otra" se inserta cerrada y luego se reabre para
       // simular que ya quedó abierta, sin pasar por abrirJornada (que
       // siempre usaría la fecha de hoy, ya ocupada por "primera").
-      const fechaOtraJornada = `${1000 + Math.floor(Math.random() * 3000)}-01-01`;
+      const fechaOtraJornada = `${1000 + Math.floor(Math.random() * 9000)}-01-01`;
       const otra = await insertarJornadaCerradaDeOtraFecha(fechaOtraJornada);
       await reabrirJornada(otra.id, USUARIO_ID_PRUEBA);
 
@@ -193,7 +193,7 @@ describe('jornadas.service', () => {
     // año aleatorio distinto en cada prueba de este bloque, para no chocar
     // ni entre las pruebas del propio bloque ni con otras corridas.
     beforeEach(async () => {
-      const anioBase = 1000 + Math.floor(Math.random() * 3000);
+      const anioBase = 1000 + Math.floor(Math.random() * 9000);
       fechaA = `${anioBase}-01-05`;
       fechaB = `${anioBase}-01-10`;
       fechaC = `${anioBase}-01-15`;

@@ -249,8 +249,11 @@ const datosOrdenValida = ({ vehiculo, colaborador, servicio }, overrides = {}) =
 // real de sortear el mismo año y luego los mismos días (como pasaba con
 // el código de colaboradores, pero aquí el espacio de fechas es enorme,
 // así que basta con ampliar el rango en vez de consultar la BD primero.
-const anioBaseJornada = 1000 + Math.floor(Math.random() * 3000);
-let contadorDiaJornada = 0;
+const anioBaseJornada = 1000 + Math.floor(Math.random() * 9000);
+// Arranca en un día aleatorio del año (no siempre en el 1): si otro
+// archivo sorteara por pura casualidad el mismo año, es mucho menos
+// probable que además arranque exactamente en el mismo día.
+let contadorDiaJornada = Math.floor(Math.random() * 300);
 
 /**
  * @returns {Promise<object>} la jornada creada (con su fecha real, para

@@ -1,9 +1,21 @@
 const usuariosService = require('../../../src/services/usuarios.service');
-const { registrar, login, perfil } = require('../../../src/controllers/auth.controller');
-const { Conflicto, NoAutenticado, AccesoDenegado } = require('../../../src/utils/errores');
+const {
+  registrar,
+  login,
+  perfil,
+  asignarRol,
+} = require('../../../src/controllers/auth.controller');
+const {
+  Conflicto,
+  NoEncontrado,
+  NoAutenticado,
+  AccesoDenegado,
+} = require('../../../src/utils/errores');
+
 jest.mock('../../../src/services/usuarios.service');
 jest.mock('../../../src/utils/jwt.util');
-jest.mock('../../../src/services/usuarios.service');
+
+const { generarToken } = require('../../../src/utils/jwt.util');
 
 const crearRespuesta = () => {
   const res = {};
@@ -12,9 +24,11 @@ const crearRespuesta = () => {
   return res;
 };
 
-const { generarToken } = require('../../../src/utils/jwt.util');
-
-const crearPeticion = (cuerpo) => ({ datos: { cuerpo } });
+const crearPeticion = ({
+  cuerpo = {},
+  parametros = {},
+  usuario = { id: 1, email: 'administrador@lavadero.com', rol: 'administrador' },
+} = {}) => ({ datos: { cuerpo, parametros }, usuario });
 
 const datosDeRegistro = {
   nombre: 'Administrador Lavadero',
@@ -25,48 +39,35 @@ const datosDeRegistro = {
 
 describe('auth.controller', () => {
   describe('registrar', () => {
-    it('responde 201 con el usuario creado cuando el email no existe', async () => {
-      usuariosService.obtenerUsuarioPorEmail.mockReturnValue(null);
+    it('responde 201 con el usuario creado', async () => {
       usuariosService.crearUsuario.mockResolvedValue({ id: 1, ...datosDeRegistro });
 
-      const req = crearPeticion(datosDeRegistro);
       const res = crearRespuesta();
-      const next = jest.fn();
+      await registrar(crearPeticion({ cuerpo: datosDeRegistro }), res, jest.fn());
 
-      await registrar(req, res, next);
-
+      expect(usuariosService.crearUsuario).toHaveBeenCalledWith(datosDeRegistro);
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ mensaje: 'Usuario registrado correctamente' }),
       );
-      expect(next).not.toHaveBeenCalled();
     });
 
-    it('pasa un Conflicto (409) cuando el email ya existe', async () => {
-      usuariosService.obtenerUsuarioPorEmail.mockReturnValue({ id: 1 });
+    it('propaga el error si el email ya existe (409) — lo rechaza el service, no un pre-check aquí', async () => {
+      const error = new Conflicto('Ya existe un usuario con ese correo electrónico');
+      usuariosService.crearUsuario.mockRejectedValue(error);
 
-      const req = crearPeticion(datosDeRegistro);
-      const res = crearRespuesta();
-      const next = jest.fn();
-
-      await registrar(req, res, next);
-
-      expect(next).toHaveBeenCalledWith(expect.any(Conflicto));
-      expect(res.status).not.toHaveBeenCalled();
-      expect(usuariosService.crearUsuario).not.toHaveBeenCalled();
+      await expect(
+        registrar(crearPeticion({ cuerpo: datosDeRegistro }), crearRespuesta(), jest.fn()),
+      ).rejects.toThrow(error);
     });
 
-    it('pasa el error al siguiente manejador si el service falla inesperadamente', async () => {
-      usuariosService.obtenerUsuarioPorEmail.mockReturnValue(null);
-      usuariosService.crearUsuario.mockRejectedValue(new Error('fallo inesperado'));
+    it('propaga el error si el service falla inesperadamente', async () => {
+      const error = new Error('fallo inesperado');
+      usuariosService.crearUsuario.mockRejectedValue(error);
 
-      const req = crearPeticion(datosDeRegistro);
-      const res = crearRespuesta();
-      const next = jest.fn();
-
-      await registrar(req, res, next);
-
-      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      await expect(
+        registrar(crearPeticion({ cuerpo: datosDeRegistro }), crearRespuesta(), jest.fn()),
+      ).rejects.toThrow(error);
     });
   });
 
@@ -82,11 +83,8 @@ describe('auth.controller', () => {
       });
       generarToken.mockReturnValue('token-de-prueba');
 
-      const req = crearPeticion(credenciales);
       const res = crearRespuesta();
-      const next = jest.fn();
-
-      await login(req, res, next);
+      await login(crearPeticion({ cuerpo: credenciales }), res, jest.fn());
 
       expect(generarToken).toHaveBeenCalledWith(
         expect.objectContaining({ id: 1, email: credenciales.email }),
@@ -97,21 +95,15 @@ describe('auth.controller', () => {
       );
     });
 
-    it('pasa un NoAutenticado (401) cuando las credenciales son inválidas', async () => {
+    it('propaga NoAutenticado (401) cuando las credenciales son inválidas', async () => {
       usuariosService.verificarCredenciales.mockResolvedValue(null);
 
-      const req = crearPeticion(credenciales);
-      const res = crearRespuesta();
-      const next = jest.fn();
-
-      await login(req, res, next);
-
-      const [error] = next.mock.calls[0];
-      expect(error).toBeInstanceOf(NoAutenticado);
-      expect(error.message).toBe('Credenciales inválidas');
+      await expect(
+        login(crearPeticion({ cuerpo: credenciales }), crearRespuesta(), jest.fn()),
+      ).rejects.toThrow(NoAutenticado);
     });
 
-    it('pasa un AccesoDenegado (403) cuando el usuario está desactivado', async () => {
+    it('propaga AccesoDenegado (403) cuando el usuario está desactivado', async () => {
       usuariosService.verificarCredenciales.mockResolvedValue({
         id: 1,
         email: credenciales.email,
@@ -119,15 +111,9 @@ describe('auth.controller', () => {
         activo: false,
       });
 
-      const req = crearPeticion(credenciales);
-      const res = crearRespuesta();
-      const next = jest.fn();
-
-      await login(req, res, next);
-
-      const [error] = next.mock.calls[0];
-      expect(error).toBeInstanceOf(AccesoDenegado);
-      expect(error.message).toBe('Usuario deshabilitado');
+      await expect(
+        login(crearPeticion({ cuerpo: credenciales }), crearRespuesta(), jest.fn()),
+      ).rejects.toThrow(AccesoDenegado);
     });
 
     it('nunca incluye passwordHash en la respuesta de login', async () => {
@@ -138,15 +124,14 @@ describe('auth.controller', () => {
         activo: true,
       });
 
-      const req = crearPeticion(credenciales);
       const res = crearRespuesta();
-
-      await login(req, res, jest.fn());
+      await login(crearPeticion({ cuerpo: credenciales }), res, jest.fn());
 
       const cuerpoEnviado = res.json.mock.calls[0][0];
       expect(cuerpoEnviado.usuario.passwordHash).toBeUndefined();
     });
   });
+
   describe('perfil', () => {
     it('responde 200 con req.usuario y req.clienteApi', () => {
       const req = {
@@ -163,6 +148,55 @@ describe('auth.controller', () => {
         usuario: req.usuario,
         clienteApi: req.clienteApi,
       });
+    });
+  });
+
+  describe('asignarRol', () => {
+    it('responde 200 con el usuario actualizado, usando el id del usuario autenticado', async () => {
+      usuariosService.asignarRol.mockResolvedValue({ id: 2, rol: 'administrador' });
+
+      const res = crearRespuesta();
+      await asignarRol(
+        crearPeticion({
+          parametros: { id: 2 },
+          cuerpo: { rol: 'administrador' },
+          usuario: { id: 1, email: 'dueno@carwash.test', rol: 'superadmin' },
+        }),
+        res,
+        jest.fn(),
+      );
+
+      expect(usuariosService.asignarRol).toHaveBeenCalledWith(2, 'administrador', 1);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ mensaje: 'Rol asignado correctamente' }),
+      );
+    });
+
+    it('propaga el error si el id no existe (404)', async () => {
+      const error = new NoEncontrado('Usuario no encontrado');
+      usuariosService.asignarRol.mockRejectedValue(error);
+
+      await expect(
+        asignarRol(
+          crearPeticion({ parametros: { id: 999 }, cuerpo: { rol: 'administrador' } }),
+          crearRespuesta(),
+          jest.fn(),
+        ),
+      ).rejects.toThrow(error);
+    });
+
+    it('propaga el error si degradar deja el sistema sin superadmin activo (409)', async () => {
+      const error = new Conflicto('No puede quedar el sistema sin ningún superadmin activo');
+      usuariosService.asignarRol.mockRejectedValue(error);
+
+      await expect(
+        asignarRol(
+          crearPeticion({ parametros: { id: 1 }, cuerpo: { rol: 'administrador' } }),
+          crearRespuesta(),
+          jest.fn(),
+        ),
+      ).rejects.toThrow(error);
     });
   });
 });

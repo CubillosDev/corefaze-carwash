@@ -2,7 +2,6 @@ const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const { supabase } = require('../../src/db/supabaseCliente');
 const { generarToken } = require('../../src/utils/jwt.util');
-const usuarios = require('../../src/data/usuarios');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -13,9 +12,9 @@ const app = crearApp({
 
 // RBAC (SCRUM-139): todo el recurso exige API Key + JWT con rol autorizado.
 // autenticarJWT ya no toma el rol del payload del token: vuelve a
-// consultar al usuario actual (hallazgo de revisión del PR #7), así que
-// cada rol de prueba necesita también su propio registro en la "tabla"
-// de usuarios, re-sembrado en cada beforeEach.
+// consultar al usuario actual en Supabase (hallazgo de revisión del PR
+// #7, SCRUM-152), así que estos ids deben ser los mismos (y en el mismo
+// orden) que los 4 usuarios de supabase/seed.sql — uno por rol.
 const ROLES_DE_PRUEBA = ['superadmin', 'administrador', 'soporte', 'pendiente'];
 const idDeRolDePrueba = (rol) => ROLES_DE_PRUEBA.indexOf(rol) + 1;
 const tokenDe = (rol) =>
@@ -77,7 +76,7 @@ const cerrarCualquierJornadaAbierta = async () => {
 // una fecha arbitraria, insertada directo contra la BD (no hay endpoint
 // público para abrir una jornada que no sea la de hoy).
 const crearJornadaCerradaDeOtraFecha = async () => {
-  const fecha = `${1000 + Math.floor(Math.random() * 3000)}-02-01`;
+  const fecha = `${1000 + Math.floor(Math.random() * 9000)}-02-01`;
   const { data, error } = await supabase
     .from('jornadas')
     .insert({ fecha, estado: 'cerrada', cerrada_en: new Date().toISOString() })
@@ -92,17 +91,6 @@ const crearJornadaCerradaDeOtraFecha = async () => {
 };
 
 beforeEach(async () => {
-  usuarios.length = 0;
-  ROLES_DE_PRUEBA.forEach((rol) => {
-    usuarios.push({
-      id: idDeRolDePrueba(rol),
-      nombre: rol,
-      email: `${rol}@lavadero.com`,
-      passwordHash: 'irrelevante-para-estas-pruebas',
-      rol,
-      activo: true,
-    });
-  });
   await cerrarCualquierJornadaAbierta();
   await limpiarJornadaDeHoy();
 });
@@ -125,8 +113,11 @@ const reabrirJornada = (id, token = TOKEN_SUPERADMIN) =>
 // impedir_eliminacion: nunca se borran) — el mismo problema que
 // crearJornadaCerradaDeOtraFecha evita arriba para las reaperturas. Se
 // inserta directo, con una fecha única, igual que esa.
-const anioBaseJornadaDePrueba = 1000 + Math.floor(Math.random() * 3000);
-let contadorDiaJornadaDePrueba = 0;
+const anioBaseJornadaDePrueba = 1000 + Math.floor(Math.random() * 9000);
+// Arranca en un día aleatorio del año (no siempre en el 1): si otro
+// archivo sorteara por pura casualidad el mismo año, es mucho menos
+// probable que además arranque exactamente en el mismo día.
+let contadorDiaJornadaDePrueba = Math.floor(Math.random() * 300);
 
 const abrirJornadaDePruebaConOrdenes = async () => {
   contadorDiaJornadaDePrueba += 1;

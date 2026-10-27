@@ -1,6 +1,5 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
-const usuarios = require('../../src/data/usuarios');
 const { generarToken } = require('../../src/utils/jwt.util');
 
 const LLAVE = 'k'.repeat(40);
@@ -12,9 +11,9 @@ const app = crearApp({
 
 // RBAC (SCRUM-139): todo el recurso exige API Key + JWT con rol autorizado.
 // autenticarJWT ya no toma el rol del payload del token: vuelve a
-// consultar al usuario actual (hallazgo de revisión del PR #7), así que
-// cada rol de prueba necesita también su propio registro en la "tabla"
-// de usuarios, re-sembrado en cada beforeEach.
+// consultar al usuario actual en Supabase (hallazgo de revisión del PR
+// #7, SCRUM-152), así que estos ids deben ser los mismos (y en el mismo
+// orden) que los 4 usuarios de supabase/seed.sql — uno por rol.
 const ROLES_DE_PRUEBA = ['superadmin', 'administrador', 'soporte', 'pendiente'];
 const idDeRolDePrueba = (rol) => ROLES_DE_PRUEBA.indexOf(rol) + 1;
 const tokenDe = (rol) =>
@@ -23,20 +22,6 @@ const TOKEN_SUPERADMIN = tokenDe('superadmin');
 const TOKEN_ADMINISTRADOR = tokenDe('administrador');
 const TOKEN_SOPORTE = tokenDe('soporte');
 const TOKEN_PENDIENTE = tokenDe('pendiente');
-
-beforeEach(() => {
-  usuarios.length = 0;
-  ROLES_DE_PRUEBA.forEach((rol) => {
-    usuarios.push({
-      id: idDeRolDePrueba(rol),
-      nombre: rol,
-      email: `${rol}@lavadero.com`,
-      passwordHash: 'irrelevante-para-estas-pruebas',
-      rol,
-      activo: true,
-    });
-  });
-});
 
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
 
