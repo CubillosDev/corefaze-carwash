@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { LayoutPrincipal } from '@/components/layout/LayoutPrincipal';
+import { ProveedorSesion } from '@/features/autenticacion';
 import { CONSULTA_PANTALLA_ANGOSTA } from '@/hooks/usePantallaAngosta';
 
 /** Simula el ancho de la ventana y permite cruzar el punto de quiebre. */
@@ -28,16 +29,23 @@ function simularPantalla({ angosta }) {
   };
 }
 
+const SESION_ADMIN = {
+  usuario: { id: 1, nombre: 'Ana Prueba', email: 'ana@prueba.com', rol: 'administrador' },
+  token: 'token-de-prueba',
+};
+
 function renderizarLayout() {
   return render(
-    <MemoryRouter initialEntries={['/']}>
-      <Routes>
-        <Route path="/" element={<LayoutPrincipal />}>
-          <Route index element={<p>Contenido de la página</p>} />
-          <Route path="*" element={<p>Otra página</p>} />
-        </Route>
-      </Routes>
-    </MemoryRouter>,
+    <ProveedorSesion sesionInicial={SESION_ADMIN}>
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<LayoutPrincipal />}>
+            <Route index element={<p>Contenido de la página</p>} />
+            <Route path="*" element={<p>Otra página</p>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    </ProveedorSesion>,
   );
 }
 
