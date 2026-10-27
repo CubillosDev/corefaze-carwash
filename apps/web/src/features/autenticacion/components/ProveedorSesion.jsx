@@ -11,7 +11,7 @@ import { vincularSesion } from '@/lib/httpCliente';
  * escribe en localStorage, sessionStorage ni en cookies accesibles desde
  * JavaScript, y nunca se registra en consola. Consecuencia consciente: al
  * recargar la página la sesión se pierde y hay que volver a ingresar. Ver
- * docs/arquitectura/decisiones/0003-sesion-del-panel-web.md.
+ * docs/arquitectura/decisiones/0004-sesion-del-panel-web.md.
  *
  * Mientras exista el proveedor, el cliente HTTP pide el token aquí en cada
  * solicitud y le avisa si la API responde 401.
