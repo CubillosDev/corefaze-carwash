@@ -1,8 +1,8 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
+const { supabase } = require('../../src/db/supabaseCliente');
 const { generarToken } = require('../../src/utils/jwt.util');
 const jornadas = require('../../src/data/jornadas');
-const colaboradores = require('../../src/data/colaboradores');
 const servicios = require('../../src/data/servicios');
 const ordenesLavado = require('../../src/data/ordenesLavado');
 const usuarios = require('../../src/data/usuarios');
@@ -30,7 +30,6 @@ const TOKEN_PENDIENTE = tokenDe('pendiente');
 
 beforeEach(() => {
   jornadas.length = 0;
-  colaboradores.length = 0;
   servicios.length = 0;
   ordenesLavado.length = 0;
   usuarios.length = 0;
@@ -99,15 +98,56 @@ const registrarVehiculoDePrueba = async (overrides = {}) => {
   return vehiculo.body.vehiculo;
 };
 
+// colaboradores.service.js ya escribe en el Supabase local (SCRUM-152), no
+// en un array que el beforeEach pudiera vaciar: el documento es único
+// (salto aleatorio + contador). El código solo tiene 900 valores posibles
+// (100-999, ver la migración de `colaboradores`) y un simple sorteo
+// aleatorio choca con los que ya quedaron "activos" de corridas
+// anteriores (nada los limpia sin un `db reset`), así que aquí se
+// consulta qué códigos ya existen antes de sortear uno libre. Un
+// `db reset` periódico sigue siendo necesario para que el rango no se
+// agote del todo con el tiempo.
+const selloColaborador = Math.floor(Math.random() * 1e6)
+  .toString()
+  .padStart(6, '0');
+let contadorColaborador = 0;
+
+const codigosOcupadosColaborador = new Set();
+let siguienteIntentoCodigoColaborador = Math.floor(Math.random() * 900);
+
+beforeAll(async () => {
+  const { data, error } = await supabase.from('colaboradores').select('codigo');
+  if (error) {
+    throw error;
+  }
+  data.forEach((fila) => codigosOcupadosColaborador.add(fila.codigo));
+});
+
+const codigoUnicoColaborador = () => {
+  for (let intento = 0; intento < 900; intento += 1) {
+    const candidato = 100 + ((siguienteIntentoCodigoColaborador + intento) % 900);
+    if (!codigosOcupadosColaborador.has(candidato)) {
+      codigosOcupadosColaborador.add(candidato);
+      siguienteIntentoCodigoColaborador += intento + 1;
+      return candidato;
+    }
+  }
+  throw new Error(
+    'No quedan códigos de colaborador libres entre 100 y 999 (hace falta un db reset)',
+  );
+};
+
 const registrarColaboradorDePrueba = async (overrides = {}) => {
+  contadorColaborador += 1;
+  const { codigo, documento, ...resto } = overrides;
   const respuesta = await conToken('post', '/api/colaboradores').send({
-    codigo: 401,
+    codigo: codigo ?? codigoUnicoColaborador(),
     nombre: 'Juan Pérez',
-    documento: '1020304050',
+    documento: documento ?? `${selloColaborador}${String(contadorColaborador).padStart(3, '0')}`,
     telefono: '3001234567',
     porcentajeComision: 0.15,
     tipoVinculacion: 'fijo',
-    ...overrides,
+    ...resto,
   });
   return respuesta.body.colaborador;
 };
@@ -217,12 +257,10 @@ describe('GET /api/jornadas', () => {
 
     await crearOrdenDePrueba({
       turno: 1,
-      colaborador: { codigo: 401, documento: '1020304050' },
       servicio: { numero: 1 },
     });
     await crearOrdenDePrueba({
       turno: 2,
-      colaborador: { codigo: 402, documento: '1020304099' },
       servicio: { numero: 2 },
     });
 

@@ -1,8 +1,8 @@
-const colaboradores = require('../../../src/data/colaboradores');
 const servicios = require('../../../src/data/servicios');
 const ordenesLavado = require('../../../src/data/ordenesLavado');
 const jornadas = require('../../../src/data/jornadas');
 
+const { supabase } = require('../../../src/db/supabaseCliente');
 const clientesService = require('../../../src/services/clientes.service');
 const vehiculosService = require('../../../src/services/vehiculos.service');
 const colaboradoresService = require('../../../src/services/colaboradores.service');
@@ -36,7 +36,6 @@ const selloDocumento = Math.floor(Math.random() * 1e6)
 let contadorDocumentoCliente = 0;
 
 beforeEach(() => {
-  colaboradores.length = 0;
   servicios.length = 0;
   ordenesLavado.length = 0;
   jornadas.length = 0;
@@ -89,16 +88,57 @@ const crearVehiculoDePrueba = async (datos = {}) => {
   });
 };
 
-const crearColaboradorDePrueba = (datos = {}) =>
-  colaboradoresService.crearColaborador({
-    codigo: 401,
-    nombre: 'Juan Pérez',
-    documento: '1020304050',
-    telefono: '3001234567',
-    porcentajeComision: 0.15,
-    tipoVinculacion: 'fijo',
-    ...datos,
-  });
+// colaboradoresService.crearColaborador ya escribe en el Supabase local
+// (SCRUM-152), no en un array que beforeEach pudiera vaciar: el documento
+// es único (salto aleatorio + contador). El código solo tiene 900 valores
+// posibles (100-999, ver la migración de `colaboradores`) y un simple
+// sorteo aleatorio choca con los que ya quedaron "activos" de corridas
+// anteriores (nada los limpia sin un `db reset`), así que aquí se
+// consulta qué códigos ya existen antes de sortear uno libre. Un
+// `db reset` periódico sigue siendo necesario para que el rango no se
+// agote del todo con el tiempo.
+let contadorColaborador = 0;
+const codigosOcupadosColaborador = new Set();
+let siguienteIntentoCodigoColaborador = Math.floor(Math.random() * 900);
+
+beforeAll(async () => {
+  const { data, error } = await supabase.from('colaboradores').select('codigo');
+  if (error) {
+    throw error;
+  }
+  data.forEach((fila) => codigosOcupadosColaborador.add(fila.codigo));
+});
+
+const codigoUnicoColaborador = () => {
+  for (let intento = 0; intento < 900; intento += 1) {
+    const candidato = 100 + ((siguienteIntentoCodigoColaborador + intento) % 900);
+    if (!codigosOcupadosColaborador.has(candidato)) {
+      codigosOcupadosColaborador.add(candidato);
+      siguienteIntentoCodigoColaborador += intento + 1;
+      return candidato;
+    }
+  }
+  throw new Error(
+    'No quedan códigos de colaborador libres entre 100 y 999 (hace falta un db reset)',
+  );
+};
+
+const crearColaboradorDePrueba = (datos = {}) => {
+  contadorColaborador += 1;
+  const { codigo, documento, ...resto } = datos;
+  return colaboradoresService.crearColaborador(
+    {
+      codigo: codigo ?? codigoUnicoColaborador(),
+      nombre: 'Juan Pérez',
+      documento: documento ?? `${selloDocumento}C${String(contadorColaborador).padStart(3, '0')}`,
+      telefono: '3001234567',
+      porcentajeComision: 0.15,
+      tipoVinculacion: 'fijo',
+      ...resto,
+    },
+    USUARIO_ID_PRUEBA,
+  );
+};
 
 const crearServicioDePrueba = (datos = {}) =>
   serviciosService.crearServicio({
@@ -110,10 +150,25 @@ const crearServicioDePrueba = (datos = {}) =>
     ...datos,
   });
 
+// Un solo colaborador real, compartido por casi todos los escenarios: la
+// mayoría de las pruebas de este archivo solo necesitan "un colaborador
+// activo válido", no uno distinto cada vez. Reutilizarlo evita agotar el
+// rango de 900 códigos posibles (y las colisiones por carrera entre
+// archivos de prueba que corren en paralelo contra el mismo Supabase
+// local). Las pruebas que sí necesitan desactivar un colaborador (R2) o
+// uno claramente distinto (otroColaborador) crean el suyo aparte.
+let colaboradorCompartido = null;
+const obtenerColaboradorCompartido = async () => {
+  if (!colaboradorCompartido) {
+    colaboradorCompartido = await crearColaboradorDePrueba();
+  }
+  return colaboradorCompartido;
+};
+
 /** Crea vehículo, colaborador y servicio compatibles entre sí (mismo tipo de vehículo que cubre la tarifa). */
 const construirEscenarioValido = async () => ({
   vehiculo: await crearVehiculoDePrueba(),
-  colaborador: crearColaboradorDePrueba(),
+  colaborador: await obtenerColaboradorCompartido(),
   servicio: crearServicioDePrueba(),
 });
 
@@ -203,9 +258,15 @@ describe('ordenesLavado.service', () => {
     it('R2: rechaza un colaborador inactivo (409)', async () => {
       abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
-      colaboradoresService.cambiarEstadoColaborador(escenario.colaborador.id, 'inactivo');
+      // No se usa el colaborador compartido: aquí sí hace falta uno propio,
+      // porque esta prueba lo desactiva (y el compartido lo reutilizan
+      // casi todas las demás pruebas del archivo).
+      const colaboradorInactivo = await crearColaboradorDePrueba();
+      await colaboradoresService.cambiarEstadoColaborador(colaboradorInactivo.id, 'inactivo');
 
-      await expect(crearOrden(datosOrdenValida(escenario))).rejects.toThrow(Conflicto);
+      await expect(
+        crearOrden(datosOrdenValida({ ...escenario, colaborador: colaboradorInactivo })),
+      ).rejects.toThrow(Conflicto);
     });
 
     it('R3: rechaza un servicio inactivo (409)', async () => {
@@ -219,7 +280,7 @@ describe('ordenesLavado.service', () => {
     it('R3: rechaza un servicio sin tarifa para el tipo de vehículo (409)', async () => {
       abrirJornadaDePrueba();
       const vehiculo = await crearVehiculoDePrueba({ tipoVehiculo: 'automovil' });
-      const colaborador = crearColaboradorDePrueba();
+      const colaborador = await crearColaboradorDePrueba();
       const servicio = crearServicioDePrueba({
         tarifas: [{ tipoVehiculo: 'camioneta', valor: 20000 }],
       });
@@ -422,11 +483,8 @@ describe('ordenesLavado.service', () => {
       const escenario = await construirEscenarioValido();
       const orden = await crearOrden(datosOrdenValida(escenario));
 
-      const otroColaborador = crearColaboradorDePrueba({
-        codigo: 402,
-        documento: '1020304099',
-      });
-      colaboradoresService.cambiarEstadoColaborador(otroColaborador.id, 'inactivo');
+      const otroColaborador = await crearColaboradorDePrueba();
+      await colaboradoresService.cambiarEstadoColaborador(otroColaborador.id, 'inactivo');
 
       await expect(editarOrden(orden.id, { colaboradorId: otroColaborador.id })).rejects.toThrow(
         Conflicto,
@@ -536,7 +594,7 @@ describe('ordenesLavado.service', () => {
       const escenario = await construirEscenarioValido();
       await crearOrden(datosOrdenValida(escenario, { turno: 1 }));
 
-      const otroColaborador = crearColaboradorDePrueba({ codigo: 402, documento: '1020304099' });
+      const otroColaborador = await crearColaboradorDePrueba();
       const otroVehiculo = await crearVehiculoDePrueba();
       await crearOrden(
         datosOrdenValida(

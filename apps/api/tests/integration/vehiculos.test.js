@@ -1,7 +1,7 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
+const { supabase } = require('../../src/db/supabaseCliente');
 const servicios = require('../../src/data/servicios');
-const colaboradores = require('../../src/data/colaboradores');
 const ordenesLavado = require('../../src/data/ordenesLavado');
 const jornadas = require('../../src/data/jornadas');
 const serviciosService = require('../../src/services/servicios.service');
@@ -34,7 +34,6 @@ const TOKEN_PENDIENTE = tokenDe('pendiente');
 
 beforeEach(() => {
   servicios.length = 0;
-  colaboradores.length = 0;
   ordenesLavado.length = 0;
   jornadas.length = 0;
   usuarios.length = 0;
@@ -359,14 +358,28 @@ describe('Integridad referencial: DELETE /api/vehiculos/:id con órdenes de lava
       categoria: 'basico',
       tarifas: [{ tipoVehiculo: 'automovil', valor: 15000 }],
     });
-    const colaborador = colaboradoresService.crearColaborador({
-      codigo: 401,
-      nombre: 'Juan Pérez',
-      documento: '1020304050',
-      telefono: '3001234567',
-      porcentajeComision: 0.15,
-      tipoVinculacion: 'fijo',
-    });
+    // El código solo tiene 900 valores posibles (100-999): se consulta cuál
+    // está libre en vez de sortear uno a ciegas, para no chocar con los que
+    // ya quedaron "activos" de corridas anteriores (ver informe de la
+    // Etapa B, migración de colaboradores).
+    const { data: colaboradoresExistentes } = await supabase.from('colaboradores').select('codigo');
+    const codigosOcupados = new Set(colaboradoresExistentes.map((fila) => fila.codigo));
+    let codigoLibre = 100 + Math.floor(Math.random() * 900);
+    while (codigosOcupados.has(codigoLibre)) {
+      codigoLibre = 100 + ((codigoLibre - 100 + 1) % 900);
+    }
+
+    const colaborador = await colaboradoresService.crearColaborador(
+      {
+        codigo: codigoLibre,
+        nombre: 'Juan Pérez',
+        documento: `99${Date.now()}`.slice(0, 15),
+        telefono: '3001234567',
+        porcentajeComision: 0.15,
+        tipoVinculacion: 'fijo',
+      },
+      1,
+    );
     await ordenesLavadoService.crearOrden({
       turno: 1,
       vehiculoId: vehiculo.id,
