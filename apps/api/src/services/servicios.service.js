@@ -42,6 +42,17 @@ const validarTarifasSinDuplicados = (tarifas) => {
 };
 
 /**
+ * Convierte las tarifas del contrato HTTP (camelCase) al jsonb que espera
+ * la función RPC reemplazar_tarifas_servicio (snake_case, igual que las
+ * columnas de tarifas_servicio).
+ *
+ * @param {Array<{ tipoVehiculo: string, valor: number }>} tarifas
+ * @returns {Array<{ tipo_vehiculo: string, valor: number }>}
+ */
+const datosTarifasParaRpc = (tarifas) =>
+  tarifas.map((tarifa) => ({ tipo_vehiculo: tarifa.tipoVehiculo, valor: tarifa.valor }));
+
+/**
  * Traduce un error de Postgres (vía supabase-js) a una de las clases de
  * utils/errores.js. Los códigos son los que las migraciones de
  * `servicios`/`tarifas_servicio` pueden disparar.
@@ -159,9 +170,10 @@ const requiereAutorizacionMotor = (numero) => SERVICIOS_CON_LAVADO_MOTOR.include
  * - Las tarifas no pueden repetir tipoVehiculo (400 si ocurre).
  * - Todo servicio nuevo nace activo (default de la columna).
  *
- * El servicio y sus tarifas son dos tablas (sin transacción real vía
- * supabase-js): si la inserción de tarifas falla, se borra el servicio
- * recién creado para no dejar un registro huérfano sin tarifas.
+ * El servicio y sus tarifas son dos tablas (dos llamadas separadas a
+ * Supabase): si la función RPC reemplazar_tarifas_servicio (todo o nada,
+ * ver su migración) falla, se borra el servicio recién creado para no
+ * dejar un registro huérfano sin tarifas.
  *
  * @param {{ numero: number, nombre: string, descripcion: string, categoria: string, tarifas: Array<{ tipoVehiculo: string, valor: number }> }} datos
  * @param {number} usuarioId quién hace el cambio (lo lee registrar_auditoria())
@@ -187,13 +199,10 @@ const crearServicio = async (datos, usuarioId) => {
     throw traducirErrorPostgres(errorServicio);
   }
 
-  const filasTarifas = datos.tarifas.map((tarifa) => ({
-    servicio_id: servicioCreado.id,
-    tipo_vehiculo: tarifa.tipoVehiculo,
-    valor: tarifa.valor,
-  }));
-
-  const { error: errorTarifas } = await cliente.from('tarifas_servicio').insert(filasTarifas);
+  const { error: errorTarifas } = await cliente.rpc('reemplazar_tarifas_servicio', {
+    p_servicio_id: servicioCreado.id,
+    p_tarifas: datosTarifasParaRpc(datos.tarifas),
+  });
 
   if (errorTarifas) {
     await cliente.from('servicios').delete().eq('id', servicioCreado.id);
@@ -206,7 +215,8 @@ const crearServicio = async (datos, usuarioId) => {
 /**
  * Actualiza un servicio existente. Si se envía tarifas, reemplaza el
  * conjunto completo (borra las anteriores y crea las nuevas; no se
- * fusiona con el anterior).
+ * fusiona con el anterior) vía la función RPC reemplazar_tarifas_servicio,
+ * todo o nada dentro de una sola transacción de Postgres.
  *
  * @param {number|string} id
  * @param {{ numero?: number, nombre?: string, descripcion?: string, categoria?: string, tarifas?: Array<{ tipoVehiculo: string, valor: number }>, activo?: boolean }} datos
@@ -241,22 +251,13 @@ const actualizarServicio = async (id, datos, usuarioId) => {
   }
 
   if (datos.tarifas !== undefined) {
-    const { error: errorBorrarTarifas } = await cliente
-      .from('tarifas_servicio')
-      .delete()
-      .eq('servicio_id', id);
-
-    if (errorBorrarTarifas) {
-      throw traducirErrorPostgres(errorBorrarTarifas);
-    }
-
-    const filasTarifas = datos.tarifas.map((tarifa) => ({
-      servicio_id: id,
-      tipo_vehiculo: tarifa.tipoVehiculo,
-      valor: tarifa.valor,
-    }));
-
-    const { error: errorTarifas } = await cliente.from('tarifas_servicio').insert(filasTarifas);
+    // reemplazar_tarifas_servicio borra las tarifas actuales e inserta las nuevas dentro de la
+    // misma transacción de Postgres (todo o nada): si el INSERT falla, el DELETE también se
+    // revierte, así el servicio nunca queda con 0 tarifas por un fallo parcial a mitad de camino.
+    const { error: errorTarifas } = await cliente.rpc('reemplazar_tarifas_servicio', {
+      p_servicio_id: id,
+      p_tarifas: datosTarifasParaRpc(datos.tarifas),
+    });
 
     if (errorTarifas) {
       throw traducirErrorPostgres(errorTarifas);

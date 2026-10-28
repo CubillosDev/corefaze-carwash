@@ -75,6 +75,25 @@ describe('servicios.service', () => {
         ),
       ).rejects.toThrow(SolicitudInvalida);
     });
+
+    it('si el reemplazo de tarifas falla al crear, no queda un servicio huérfano sin tarifas', async () => {
+      // mismo hallazgo que en actualizarServicio: un valor fuera de rango no lo
+      // atrapa validarTarifasSinDuplicados y llega hasta la función RPC, que lo
+      // rechaza por tarifas_servicio_valor_check. crearServicio compensa
+      // borrando el servicio recién creado — nunca debe quedar un servicio sin
+      // ninguna tarifa.
+      const datos = servicioValido({
+        tarifas: [
+          { tipoVehiculo: 'automovil', valor: 15000 },
+          { tipoVehiculo: 'camioneta', valor: 50 },
+        ],
+      });
+
+      await expect(crearServicio(datos, USUARIO_ID_PRUEBA)).rejects.toThrow(SolicitudInvalida);
+
+      const servicios = await listarServicios();
+      expect(servicios.find((servicio) => servicio.numero === datos.numero)).toBeUndefined();
+    });
   });
 
   describe('listarServicios / obtenerServicioPorId', () => {
@@ -161,6 +180,33 @@ describe('servicios.service', () => {
           USUARIO_ID_PRUEBA,
         ),
       ).rejects.toThrow(SolicitudInvalida);
+    });
+
+    it('si el reemplazo de tarifas falla a mitad de camino, el servicio conserva las tarifas anteriores (nunca queda con 0)', async () => {
+      // hallazgo de revisión del PR #12: un valor fuera de rango no lo atrapa
+      // validarTarifasSinDuplicados (solo mira tipoVehiculo repetido), así que
+      // llega hasta la función RPC y la rechaza tarifas_servicio_valor_check
+      // (valor entre 1000 y 1000000) — eso es lo que hace fallar el INSERT a
+      // mitad del reemplazo, con el DELETE ya corrido antes en la misma llamada.
+      const creado = await crearServicio(servicioValido(), USUARIO_ID_PRUEBA);
+      const tarifasOriginales = creado.tarifas;
+
+      await expect(
+        actualizarServicio(
+          creado.id,
+          {
+            tarifas: [
+              { tipoVehiculo: 'moto_hasta_150cc', valor: 8000 },
+              { tipoVehiculo: 'platon_7_pasajeros', valor: 50 },
+            ],
+          },
+          USUARIO_ID_PRUEBA,
+        ),
+      ).rejects.toThrow(SolicitudInvalida);
+
+      const servicioTrasElFallo = await obtenerServicioOFallar(creado.id);
+      expect(servicioTrasElFallo.tarifas).toEqual(tarifasOriginales);
+      expect(servicioTrasElFallo.tarifas.length).toBeGreaterThan(0);
     });
 
     it('rechaza cambiar a un número ocupado por otro servicio', async () => {
