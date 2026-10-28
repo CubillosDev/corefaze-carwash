@@ -120,12 +120,34 @@ const leerSuperadmin = (variables, errores) => {
 
 const leerJwtExpiresIn = (variables) => variables.JWT_EXPIRES_IN || JWT_EXPIRES_IN_POR_DEFECTO;
 
+/**
+ * SUPABASE_URL no es secreta (es la URL pública del proyecto, o la del
+ * stack local de `npx supabase start`); SUPABASE_SERVICE_ROLE_KEY sí lo
+ * es (bypasea RLS por completo), por eso reutiliza validarClaveApi, igual
+ * que las API Keys y JWT_SECRET.
+ */
 const esUrlHttp = (texto) => {
   try {
     return ['http:', 'https:'].includes(new URL(texto).protocol);
   } catch {
     return false;
   }
+};
+
+const leerUrlSupabase = (variables, errores) => {
+  const url = variables.SUPABASE_URL;
+
+  if (!url) {
+    errores.push('SUPABASE_URL es obligatoria');
+    return url;
+  }
+
+  if (!esUrlHttp(url)) {
+    errores.push(`SUPABASE_URL debe ser una URL http(s) válida (recibido: "${url}")`);
+    return url;
+  }
+
+  return new URL(url).origin;
 };
 
 const leerOrigenPermitido = (variables, errores) => {
@@ -177,6 +199,10 @@ const cargarConfiguracion = (variables = process.env) => {
     },
     origenPermitido: leerOrigenPermitido(variables, errores),
     superadmin: leerSuperadmin(variables, errores),
+    supabase: {
+      url: leerUrlSupabase(variables, errores),
+      serviceRoleKey: validarClaveApi('SUPABASE_SERVICE_ROLE_KEY', variables, errores),
+    },
   };
 
   if (errores.length > 0) {

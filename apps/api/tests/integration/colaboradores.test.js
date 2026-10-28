@@ -1,8 +1,8 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
-const colaboradores = require('../../src/data/colaboradores');
-const usuarios = require('../../src/data/usuarios');
+const { supabase } = require('../../src/db/supabaseCliente');
 const { generarToken } = require('../../src/utils/jwt.util');
+const { generarSello, crearGeneradorDeValorUnico } = require('../utils/valorUnico');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -13,9 +13,9 @@ const app = crearApp({
 
 // RBAC (Bloque 6): todo el recurso exige API Key + JWT con rol autorizado.
 // autenticarJWT ya no toma el rol del payload del token: vuelve a
-// consultar al usuario actual (hallazgo de revisión del PR #7), así que
-// cada rol de prueba necesita también su propio registro en la "tabla"
-// de usuarios, re-sembrado en cada beforeEach.
+// consultar al usuario actual en Supabase (hallazgo de revisión del PR
+// #7, SCRUM-152), así que estos ids deben ser los mismos (y en el mismo
+// orden) que los 4 usuarios de supabase/seed.sql — uno por rol.
 const ROLES_DE_PRUEBA = ['superadmin', 'administrador', 'soporte', 'pendiente'];
 const idDeRolDePrueba = (rol) => ROLES_DE_PRUEBA.indexOf(rol) + 1;
 const tokenDe = (rol) =>
@@ -25,72 +25,104 @@ const TOKEN_ADMINISTRADOR = tokenDe('administrador');
 const TOKEN_SOPORTE = tokenDe('soporte');
 const TOKEN_PENDIENTE = tokenDe('pendiente');
 
-beforeEach(() => {
-  colaboradores.length = 0;
-  usuarios.length = 0;
-  ROLES_DE_PRUEBA.forEach((rol) => {
-    usuarios.push({
-      id: idDeRolDePrueba(rol),
-      nombre: rol,
-      email: `${rol}@lavadero.com`,
-      passwordHash: 'irrelevante-para-estas-pruebas',
-      rol,
-      activo: true,
-    });
-  });
-});
-
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
 
 const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
   conApiKey(metodo, ruta).set('Authorization', `Bearer ${token}`);
 
-const colaboradorValido = {
-  codigo: 401,
+// colaboradores.service.js ya escribe en el Supabase local (SCRUM-152), no
+// en un array que el beforeEach pudiera vaciar: el documento es único
+// (salto aleatorio por archivo + contador). El código solo tiene 900
+// valores posibles (100-999, ver la migración de `colaboradores`) y un
+// simple sorteo aleatorio choca con los que ya quedaron "activos" de
+// corridas anteriores (nada los limpia sin un `db reset`), así que aquí
+// se consulta qué códigos ya existen antes de sortear uno libre. Un
+// `db reset` periódico sigue siendo necesario para que el rango no se
+// agote del todo con el tiempo.
+const selloDocumento = generarSello();
+const documentoUnico = crearGeneradorDeValorUnico(
+  selloDocumento,
+  (sello, contador) => `${sello}${String(contador).padStart(3, '0')}`,
+);
+
+const codigosOcupados = new Set();
+let siguienteIntentoCodigo = Math.floor(Math.random() * 900);
+
+beforeAll(async () => {
+  const { data, error } = await supabase.from('colaboradores').select('codigo');
+  if (error) {
+    throw error;
+  }
+  data.forEach((fila) => codigosOcupados.add(fila.codigo));
+});
+
+const codigoUnico = () => {
+  for (let intento = 0; intento < 900; intento += 1) {
+    const candidato = 100 + ((siguienteIntentoCodigo + intento) % 900);
+    if (!codigosOcupados.has(candidato)) {
+      codigosOcupados.add(candidato);
+      siguienteIntentoCodigo += intento + 1;
+      return candidato;
+    }
+  }
+  throw new Error(
+    'No quedan códigos de colaborador libres entre 100 y 999 (hace falta un db reset)',
+  );
+};
+
+const colaboradorValido = (overrides = {}) => ({
+  codigo: codigoUnico(),
   nombre: 'Juan Pérez',
-  documento: '1020304050',
+  documento: documentoUnico(),
   telefono: '3001234567',
   porcentajeComision: 0.15,
   tipoVinculacion: 'fijo',
-};
+  ...overrides,
+});
 
-const registrarColaborador = async (datos = colaboradorValido) => {
+const registrarColaborador = async (datos = colaboradorValido()) => {
   const respuesta = await conToken('post', '/api/colaboradores').send(datos);
   return respuesta.body.colaborador;
 };
 
 describe('POST /api/colaboradores', () => {
   it('caso válido: registra un colaborador (201)', async () => {
-    const respuesta = await conToken('post', '/api/colaboradores').send(colaboradorValido);
+    const datos = colaboradorValido();
+    const respuesta = await conToken('post', '/api/colaboradores').send(datos);
 
     expect(respuesta.status).toBe(201);
-    expect(respuesta.body.colaborador).toMatchObject({ codigo: 401, nombre: 'Juan Pérez' });
+    expect(respuesta.body.colaborador).toMatchObject({
+      codigo: datos.codigo,
+      nombre: 'Juan Pérez',
+    });
   });
 
   it('duplicado: un código repetido responde 409', async () => {
-    await registrarColaborador();
+    const datos = colaboradorValido();
+    await registrarColaborador(datos);
 
     const respuesta = await conToken('post', '/api/colaboradores').send({
-      ...colaboradorValido,
-      documento: '9999999999',
+      ...colaboradorValido(),
+      codigo: datos.codigo,
     });
 
     expect(respuesta.status).toBe(409);
   });
 
   it('duplicado: un documento repetido responde 409', async () => {
-    await registrarColaborador();
+    const datos = colaboradorValido();
+    await registrarColaborador(datos);
 
     const respuesta = await conToken('post', '/api/colaboradores').send({
-      ...colaboradorValido,
-      codigo: 402,
+      ...colaboradorValido(),
+      documento: datos.documento,
     });
 
     expect(respuesta.status).toBe(409);
   });
 
   it('campo obligatorio faltante: 400', async () => {
-    const sinNombre = { ...colaboradorValido };
+    const sinNombre = colaboradorValido();
     delete sinNombre.nombre;
 
     const respuesta = await conToken('post', '/api/colaboradores').send(sinNombre);
@@ -100,7 +132,7 @@ describe('POST /api/colaboradores', () => {
 
   it('código fuera de rango: 400', async () => {
     const respuesta = await conToken('post', '/api/colaboradores').send({
-      ...colaboradorValido,
+      ...colaboradorValido(),
       codigo: 99,
     });
 
@@ -109,7 +141,7 @@ describe('POST /api/colaboradores', () => {
 
   it('mass assignment: el cliente no puede fijar id al crear', async () => {
     const respuesta = await conToken('post', '/api/colaboradores').send({
-      ...colaboradorValido,
+      ...colaboradorValido(),
       id: 9999,
     });
 
@@ -119,7 +151,7 @@ describe('POST /api/colaboradores', () => {
 
   it('mass assignment: el cliente no puede fijar el estado al crear', async () => {
     const respuesta = await conToken('post', '/api/colaboradores').send({
-      ...colaboradorValido,
+      ...colaboradorValido(),
       estado: 'inactivo',
     });
 
@@ -131,32 +163,32 @@ describe('POST /api/colaboradores', () => {
     const respuesta = await request(app)
       .post('/api/colaboradores')
       .set('Authorization', `Bearer ${TOKEN_ADMINISTRADOR}`)
-      .send(colaboradorValido);
+      .send(colaboradorValido());
     expect(respuesta.status).toBe(401);
   });
 
   it('requiere JWT (401 sin Authorization, aunque la API Key sea válida)', async () => {
-    const respuesta = await conApiKey('post', '/api/colaboradores').send(colaboradorValido);
+    const respuesta = await conApiKey('post', '/api/colaboradores').send(colaboradorValido());
     expect(respuesta.status).toBe(401);
   });
 
   it('un superadmin también puede crear (200/201)', async () => {
     const respuesta = await conToken('post', '/api/colaboradores', TOKEN_SUPERADMIN).send(
-      colaboradorValido,
+      colaboradorValido(),
     );
     expect(respuesta.status).toBe(201);
   });
 
   it('RBAC: soporte no puede crear colaboradores (403)', async () => {
     const respuesta = await conToken('post', '/api/colaboradores', TOKEN_SOPORTE).send(
-      colaboradorValido,
+      colaboradorValido(),
     );
     expect(respuesta.status).toBe(403);
   });
 
   it('RBAC: un usuario "pendiente" no puede crear colaboradores (403)', async () => {
     const respuesta = await conToken('post', '/api/colaboradores', TOKEN_PENDIENTE).send(
-      colaboradorValido,
+      colaboradorValido(),
     );
     expect(respuesta.status).toBe(403);
   });
@@ -190,11 +222,11 @@ describe('GET /api/colaboradores/:id', () => {
     const respuesta = await conToken('get', `/api/colaboradores/${creado.id}`);
 
     expect(respuesta.status).toBe(200);
-    expect(respuesta.body.colaborador).toMatchObject({ id: creado.id, codigo: 401 });
+    expect(respuesta.body.colaborador).toMatchObject({ id: creado.id, codigo: creado.codigo });
   });
 
   it('id inexistente: 404', async () => {
-    const respuesta = await conToken('get', '/api/colaboradores/9999');
+    const respuesta = await conToken('get', '/api/colaboradores/999999999');
     expect(respuesta.status).toBe(404);
   });
 
@@ -229,7 +261,7 @@ describe('PUT /api/colaboradores/:id', () => {
   });
 
   it('id inexistente: 404', async () => {
-    const respuesta = await conToken('put', '/api/colaboradores/9999').send({
+    const respuesta = await conToken('put', '/api/colaboradores/999999999').send({
       telefono: '3009999999',
     });
 
@@ -295,7 +327,7 @@ describe('DELETE /api/colaboradores/:id', () => {
   });
 
   it('id inexistente: 404', async () => {
-    const respuesta = await conToken('delete', '/api/colaboradores/9999');
+    const respuesta = await conToken('delete', '/api/colaboradores/999999999');
     expect(respuesta.status).toBe(404);
   });
 

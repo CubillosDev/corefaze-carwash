@@ -1,8 +1,7 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
-const servicios = require('../../src/data/servicios');
-const usuarios = require('../../src/data/usuarios');
 const { generarToken } = require('../../src/utils/jwt.util');
+const { crearGeneradorDeValorUnico } = require('../utils/valorUnico');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -13,9 +12,9 @@ const app = crearApp({
 
 // RBAC (SCRUM-139): todo el recurso exige API Key + JWT con rol autorizado.
 // autenticarJWT ya no toma el rol del payload del token: vuelve a
-// consultar al usuario actual (hallazgo de revisión del PR #7), así que
-// cada rol de prueba necesita también su propio registro en la "tabla"
-// de usuarios, re-sembrado en cada beforeEach.
+// consultar al usuario actual en Supabase (hallazgo de revisión del PR
+// #7, SCRUM-152), así que estos ids deben ser los mismos (y en el mismo
+// orden) que los 4 usuarios de supabase/seed.sql — uno por rol.
 const ROLES_DE_PRUEBA = ['superadmin', 'administrador', 'soporte', 'pendiente'];
 const idDeRolDePrueba = (rol) => ROLES_DE_PRUEBA.indexOf(rol) + 1;
 const tokenDe = (rol) =>
@@ -25,73 +24,72 @@ const TOKEN_ADMINISTRADOR = tokenDe('administrador');
 const TOKEN_SOPORTE = tokenDe('soporte');
 const TOKEN_PENDIENTE = tokenDe('pendiente');
 
-beforeEach(() => {
-  servicios.length = 0;
-  usuarios.length = 0;
-  ROLES_DE_PRUEBA.forEach((rol) => {
-    usuarios.push({
-      id: idDeRolDePrueba(rol),
-      nombre: rol,
-      email: `${rol}@lavadero.com`,
-      passwordHash: 'irrelevante-para-estas-pruebas',
-      rol,
-      activo: true,
-    });
-  });
-});
-
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
 
 const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
   conApiKey(metodo, ruta).set('Authorization', `Bearer ${token}`);
 
-const servicioValido = {
-  numero: 1,
+// servicios.service.js ya escribe en el Supabase local (SCRUM-152, Etapa
+// B), no en un array que el beforeEach pudiera vaciar: el número es único
+// (salto aleatorio + contador) para no chocar ni dentro de esta corrida ni
+// con otro archivo que Jest ejecute en paralelo. `numero` no tiene un
+// rango acotado (solo exige >= 1), así que un sorteo amplio basta.
+const selloNumero = 1000 + Math.floor(Math.random() * 20000);
+const numeroUnico = crearGeneradorDeValorUnico(selloNumero, (sello, contador) => sello + contador);
+
+const servicioValido = (overrides = {}) => ({
+  numero: numeroUnico(),
   nombre: 'Lavado básico',
   descripcion: 'Lavado exterior con shampoo',
   categoria: 'basico',
   tarifas: [{ tipoVehiculo: 'automovil', valor: 15000 }],
-};
+  ...overrides,
+});
 
-const registrarServicio = async (datos = servicioValido) => {
+const registrarServicio = async (datos = servicioValido()) => {
   const respuesta = await conToken('post', '/api/servicios').send(datos);
   return respuesta.body.servicio;
 };
 
 describe('POST /api/servicios', () => {
   it('caso válido: registra un servicio con una tarifa (201)', async () => {
-    const respuesta = await conToken('post', '/api/servicios').send(servicioValido);
+    const datos = servicioValido();
+    const respuesta = await conToken('post', '/api/servicios').send(datos);
 
     expect(respuesta.status).toBe(201);
-    expect(respuesta.body.servicio).toMatchObject({ numero: 1, nombre: 'Lavado básico' });
+    expect(respuesta.body.servicio).toMatchObject({
+      numero: datos.numero,
+      nombre: 'Lavado básico',
+    });
   });
 
   it('caso válido: registra un servicio con tarifas para dos tipos de vehículo (201)', async () => {
-    const respuesta = await conToken('post', '/api/servicios').send({
-      ...servicioValido,
-      tarifas: [
-        { tipoVehiculo: 'automovil', valor: 15000 },
-        { tipoVehiculo: 'camioneta', valor: 20000 },
-      ],
-    });
+    const respuesta = await conToken('post', '/api/servicios').send(
+      servicioValido({
+        tarifas: [
+          { tipoVehiculo: 'automovil', valor: 15000 },
+          { tipoVehiculo: 'camioneta', valor: 20000 },
+        ],
+      }),
+    );
 
     expect(respuesta.status).toBe(201);
     expect(respuesta.body.servicio.tarifas).toHaveLength(2);
   });
 
   it('duplicado: un número repetido responde 409', async () => {
-    await registrarServicio();
+    const datos = servicioValido();
+    await registrarServicio(datos);
 
-    const respuesta = await conToken('post', '/api/servicios').send({
-      ...servicioValido,
-      nombre: 'Otro lavado',
-    });
+    const respuesta = await conToken('post', '/api/servicios').send(
+      servicioValido({ numero: datos.numero, nombre: 'Otro lavado' }),
+    );
 
     expect(respuesta.status).toBe(409);
   });
 
   it('campo obligatorio faltante: 400', async () => {
-    const sinNombre = { ...servicioValido };
+    const sinNombre = servicioValido();
     delete sinNombre.nombre;
 
     const respuesta = await conToken('post', '/api/servicios').send(sinNombre);
@@ -100,41 +98,37 @@ describe('POST /api/servicios', () => {
   });
 
   it('tarifas vacío: 400', async () => {
-    const respuesta = await conToken('post', '/api/servicios').send({
-      ...servicioValido,
-      tarifas: [],
-    });
+    const respuesta = await conToken('post', '/api/servicios').send(
+      servicioValido({ tarifas: [] }),
+    );
 
     expect(respuesta.status).toBe(400);
   });
 
   it('tarifas con tipoVehiculo duplicado: 400', async () => {
-    const respuesta = await conToken('post', '/api/servicios').send({
-      ...servicioValido,
-      tarifas: [
-        { tipoVehiculo: 'automovil', valor: 15000 },
-        { tipoVehiculo: 'automovil', valor: 18000 },
-      ],
-    });
+    const respuesta = await conToken('post', '/api/servicios').send(
+      servicioValido({
+        tarifas: [
+          { tipoVehiculo: 'automovil', valor: 15000 },
+          { tipoVehiculo: 'automovil', valor: 18000 },
+        ],
+      }),
+    );
 
     expect(respuesta.status).toBe(400);
   });
 
   it('mass assignment: el cliente no puede fijar id al crear', async () => {
-    const respuesta = await conToken('post', '/api/servicios').send({
-      ...servicioValido,
-      id: 9999,
-    });
+    const respuesta = await conToken('post', '/api/servicios').send(servicioValido({ id: 9999 }));
 
     expect(respuesta.status).toBe(201);
     expect(respuesta.body.servicio.id).not.toBe(9999);
   });
 
   it('mass assignment: el cliente no puede fijar activo al crear (siempre nace true)', async () => {
-    const respuesta = await conToken('post', '/api/servicios').send({
-      ...servicioValido,
-      activo: false,
-    });
+    const respuesta = await conToken('post', '/api/servicios').send(
+      servicioValido({ activo: false }),
+    );
 
     expect(respuesta.status).toBe(201);
     expect(respuesta.body.servicio.activo).toBe(true);
@@ -144,30 +138,32 @@ describe('POST /api/servicios', () => {
     const respuesta = await request(app)
       .post('/api/servicios')
       .set('Authorization', `Bearer ${TOKEN_ADMINISTRADOR}`)
-      .send(servicioValido);
+      .send(servicioValido());
     expect(respuesta.status).toBe(401);
   });
 
   it('requiere JWT (401 sin Authorization, aunque la API Key sea válida)', async () => {
-    const respuesta = await conApiKey('post', '/api/servicios').send(servicioValido);
+    const respuesta = await conApiKey('post', '/api/servicios').send(servicioValido());
     expect(respuesta.status).toBe(401);
   });
 
   it('un superadmin también puede crear (201)', async () => {
     const respuesta = await conToken('post', '/api/servicios', TOKEN_SUPERADMIN).send(
-      servicioValido,
+      servicioValido(),
     );
     expect(respuesta.status).toBe(201);
   });
 
   it('RBAC: soporte no puede crear servicios (403)', async () => {
-    const respuesta = await conToken('post', '/api/servicios', TOKEN_SOPORTE).send(servicioValido);
+    const respuesta = await conToken('post', '/api/servicios', TOKEN_SOPORTE).send(
+      servicioValido(),
+    );
     expect(respuesta.status).toBe(403);
   });
 
   it('RBAC: un usuario "pendiente" no puede crear servicios (403)', async () => {
     const respuesta = await conToken('post', '/api/servicios', TOKEN_PENDIENTE).send(
-      servicioValido,
+      servicioValido(),
     );
     expect(respuesta.status).toBe(403);
   });
@@ -180,11 +176,11 @@ describe('GET /api/servicios/:id', () => {
     const respuesta = await conToken('get', `/api/servicios/${creado.id}`);
 
     expect(respuesta.status).toBe(200);
-    expect(respuesta.body.servicio).toMatchObject({ id: creado.id, numero: 1 });
+    expect(respuesta.body.servicio).toMatchObject({ id: creado.id, numero: creado.numero });
   });
 
   it('id inexistente: 404', async () => {
-    const respuesta = await conToken('get', '/api/servicios/9999');
+    const respuesta = await conToken('get', '/api/servicios/999999999');
     expect(respuesta.status).toBe(404);
   });
 
@@ -200,7 +196,7 @@ describe('GET /api/servicios/:id', () => {
   });
 
   it('RBAC: un usuario "pendiente" no puede consultar (403)', async () => {
-    const respuesta = await conToken('get', '/api/servicios/9999', TOKEN_PENDIENTE);
+    const respuesta = await conToken('get', '/api/servicios/999999999', TOKEN_PENDIENTE);
     expect(respuesta.status).toBe(403);
   });
 });
@@ -244,7 +240,7 @@ describe('PUT /api/servicios/:id', () => {
   });
 
   it('id inexistente: 404', async () => {
-    const respuesta = await conToken('put', '/api/servicios/9999').send({
+    const respuesta = await conToken('put', '/api/servicios/999999999').send({
       nombre: 'Lavado premium',
     });
 
@@ -272,7 +268,7 @@ describe('DELETE /api/servicios/:id', () => {
   });
 
   it('id inexistente: 404', async () => {
-    const respuesta = await conToken('delete', '/api/servicios/9999');
+    const respuesta = await conToken('delete', '/api/servicios/999999999');
     expect(respuesta.status).toBe(404);
   });
 
