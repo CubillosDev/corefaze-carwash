@@ -1,39 +1,72 @@
-const vehiculos = require('../data/vehiculos');
+const { supabase, crearClienteConUsuario } = require('../db/supabaseCliente');
+const { aCamelCase } = require('../utils/mapearCampos');
 const clientesService = require('./clientes.service');
 const { TIPOS_VEHICULO_MOTO, PATRONES_PLACA } = require('../constants/dominio');
 const { Conflicto, NoEncontrado, SolicitudInvalida } = require('../utils/errores');
+const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
+
+// Nunca *: así nunca se filtran creado_en/actualizado_en mientras el
+// contrato HTTP no las incluya (ver supabase/README.md, "Contrato de
+// integración con la API").
+const COLUMNAS = 'id, placa, tipo_vehiculo, marca, color, cliente_id';
 
 /**
- * Busca un vehículo por placa (ya normalizada a mayúsculas por el validador).
- * @param {string} placa
- * @returns {object | undefined}
+ * Traduce un error de Postgres (vía supabase-js) a una de las clases de
+ * utils/errores.js. Los códigos son los que la migración de `vehiculos`
+ * puede disparar (ver docs/arquitectura/diagramas/modelo-datos.md).
  */
-const buscarPorPlaca = (placa) => vehiculos.find((vehiculo) => vehiculo.placa === placa);
+const traducirErrorPostgres = crearTraductorErroresPostgres({
+  tabla: 'vehiculos',
+  etiqueta: 'vehículo',
+  mapeo: {
+    // 23505 unique_violation: placa duplicada (vehiculos_placa_key).
+    23505: () => new Conflicto('Ya existe un vehículo con esa placa'),
+    // 23503 foreign_key_violation al borrar: ordenes_lavado.vehiculo_id (restrict).
+    23503: () => new Conflicto('No se puede eliminar un vehículo con órdenes de lavado asociadas'),
+  },
+});
 
 /**
  * Lista todos los vehículos.
- * @returns {object[]}
+ * @returns {Promise<object[]>}
  */
-const listarVehiculos = () => vehiculos;
+const listarVehiculos = async () => {
+  const { data, error } = await supabase.from('vehiculos').select(COLUMNAS);
+
+  if (error) {
+    throw new Error(`No se pudo listar vehiculos: ${error.message}`);
+  }
+
+  return aCamelCase(data);
+};
 
 /**
  * Obtiene un vehículo por id.
  * @param {number|string} id
- * @returns {object | null}
+ * @returns {Promise<object | null>}
  */
-const obtenerVehiculoPorId = (id) => {
-  const vehiculo = vehiculos.find((candidato) => candidato.id === Number(id));
-  return vehiculo ?? null;
+const obtenerVehiculoPorId = async (id) => {
+  const { data, error } = await supabase
+    .from('vehiculos')
+    .select(COLUMNAS)
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`No se pudo obtener el vehículo: ${error.message}`);
+  }
+
+  return data ? aCamelCase(data) : null;
 };
 
 /**
  * Obtiene un vehículo por id, o lanza NoEncontrado (404).
  * @param {number|string} id
- * @returns {object}
+ * @returns {Promise<object>}
  * @throws {NoEncontrado}
  */
-const obtenerVehiculoOFallar = (id) => {
-  const vehiculo = obtenerVehiculoPorId(id);
+const obtenerVehiculoOFallar = async (id) => {
+  const vehiculo = await obtenerVehiculoPorId(id);
   if (!vehiculo) {
     throw new NoEncontrado('Vehículo no encontrado');
   }
@@ -45,20 +78,36 @@ const obtenerVehiculoOFallar = (id) => {
  * vive aquí porque Vehículos es quien tiene la llave foránea clienteId.
  * clientes.controller.js llama a esta función antes de eliminar un cliente.
  *
+ * Usa count 'exact' con head: true para no traer filas (ni toparse con el
+ * límite de PostgREST, ver informe de la Etapa A): solo necesita saber si
+ * el conteo es mayor que 0.
+ *
  * @param {number|string} clienteId
- * @returns {boolean}
+ * @returns {Promise<boolean>}
  */
-const clienteTieneVehiculos = (clienteId) =>
-  vehiculos.some((vehiculo) => vehiculo.clienteId === Number(clienteId));
+const clienteTieneVehiculos = async (clienteId) => {
+  const { count, error } = await supabase
+    .from('vehiculos')
+    .select('id', { count: 'exact', head: true })
+    .eq('cliente_id', clienteId);
+
+  if (error) {
+    throw new Error(`No se pudo verificar los vehículos del cliente: ${error.message}`);
+  }
+
+  return count > 0;
+};
 
 const esTipoMoto = (tipoVehiculo) => TIPOS_VEHICULO_MOTO.includes(tipoVehiculo);
 
 /**
  * La placa debe corresponder exactamente al tipo de vehículo (no una placa
- * de moto en un automóvil, ni viceversa). El validador solo confirma que
- * la placa tenga ALGUNO de los dos formatos; esta correspondencia exacta
- * vive aquí porque en una actualización el tipoVehiculo puede no venir en
- * la petición, y hace falta el vehículo ya guardado para resolverlo.
+ * de moto en un automóvil, ni viceversa). La BD también protege esto con
+ * `vehiculos_placa_tipo_check`, pero este chequeo se queda: da un mensaje
+ * de campo específico (como ya hacía en memoria) en vez del genérico
+ * "Datos de vehículo inválidos" que deja un 23514 traducido. Además, en
+ * una actualización el tipoVehiculo puede no venir en la petición, y hace
+ * falta el vehículo ya guardado para resolverlo.
  *
  * @param {string} placa
  * @param {string} tipoVehiculo
@@ -81,34 +130,41 @@ const validarPlacaCorrespondeATipo = (placa, tipoVehiculo) => {
  * Crea un vehículo nuevo.
  *
  * Reglas de negocio:
- * - La placa debe ser única (409 si ya existe).
+ * - La placa debe ser única (409 si ya existe) — lo rechaza el UNIQUE de
+ *   la BD, traducido por traducirErrorPostgres.
  * - La placa debe corresponder al tipoVehiculo (400 si no).
- * - clienteId debe existir (404 si no) — se delega a clientesService.
+ * - clienteId debe existir (404 si no) — se delega a clientesService,
+ *   consultando ya la tabla real.
  *
  * @param {{ placa: string, tipoVehiculo: string, marca?: string, color?: string, clienteId: number }} datos
- * @returns {object} el vehículo creado
+ * @param {number} usuarioId quién hace el cambio (lo lee registrar_auditoria())
+ * @returns {Promise<object>} el vehículo creado
  */
-const crearVehiculo = (datos) => {
-  if (buscarPorPlaca(datos.placa)) {
-    throw new Conflicto('Ya existe un vehículo con esa placa');
-  }
-
+const crearVehiculo = async (datos, usuarioId) => {
   validarPlacaCorrespondeATipo(datos.placa, datos.tipoVehiculo);
 
   // Lanza NoEncontrado (404) si el cliente no existe; no seguimos si falla.
-  clientesService.obtenerClienteOFallar(datos.clienteId);
+  await clientesService.obtenerClienteOFallar(datos.clienteId);
 
-  const nuevoVehiculo = {
-    id: vehiculos.length > 0 ? Math.max(...vehiculos.map((vehiculo) => vehiculo.id)) + 1 : 1,
+  const fila = {
     placa: datos.placa,
-    tipoVehiculo: datos.tipoVehiculo,
+    tipo_vehiculo: datos.tipoVehiculo,
     marca: datos.marca ?? null,
     color: datos.color ?? null,
-    clienteId: Number(datos.clienteId),
+    cliente_id: datos.clienteId,
   };
 
-  vehiculos.push(nuevoVehiculo);
-  return nuevoVehiculo;
+  const { data, error } = await crearClienteConUsuario(usuarioId)
+    .from('vehiculos')
+    .insert(fila)
+    .select(COLUMNAS)
+    .single();
+
+  if (error) {
+    throw traducirErrorPostgres(error);
+  }
+
+  return aCamelCase(data);
 };
 
 /**
@@ -116,53 +172,65 @@ const crearVehiculo = (datos) => {
  *
  * @param {number|string} id
  * @param {{ placa?: string, tipoVehiculo?: string, marca?: string, color?: string, clienteId?: number }} datos
- * @returns {object} el vehículo actualizado
+ * @param {number} usuarioId quién hace el cambio (lo lee registrar_auditoria())
+ * @returns {Promise<object>} el vehículo actualizado
  * @throws {NoEncontrado} si el vehículo o el nuevo clienteId no existen
  * @throws {Conflicto} si la placa nueva ya pertenece a otro vehículo
  * @throws {SolicitudInvalida} si la placa resultante no corresponde al tipoVehiculo resultante
  */
-const actualizarVehiculo = (id, datos) => {
-  const vehiculo = obtenerVehiculoOFallar(id);
+const actualizarVehiculo = async (id, datos, usuarioId) => {
+  const vehiculoActual = await obtenerVehiculoOFallar(id);
 
-  if (datos.placa && datos.placa !== vehiculo.placa) {
-    const otroVehiculoConPlaca = buscarPorPlaca(datos.placa);
-    if (otroVehiculoConPlaca) {
-      throw new Conflicto('Ya existe un vehículo con esa placa');
-    }
-  }
-
-  const tipoVehiculoResultante = datos.tipoVehiculo ?? vehiculo.tipoVehiculo;
-  const placaResultante = datos.placa ?? vehiculo.placa;
+  const tipoVehiculoResultante = datos.tipoVehiculo ?? vehiculoActual.tipoVehiculo;
+  const placaResultante = datos.placa ?? vehiculoActual.placa;
   validarPlacaCorrespondeATipo(placaResultante, tipoVehiculoResultante);
 
   if (datos.clienteId !== undefined) {
-    clientesService.obtenerClienteOFallar(datos.clienteId);
+    await clientesService.obtenerClienteOFallar(datos.clienteId);
   }
 
-  Object.assign(vehiculo, {
-    placa: datos.placa ?? vehiculo.placa,
-    tipoVehiculo: datos.tipoVehiculo ?? vehiculo.tipoVehiculo,
-    marca: datos.marca ?? vehiculo.marca,
-    color: datos.color ?? vehiculo.color,
-    clienteId: datos.clienteId !== undefined ? Number(datos.clienteId) : vehiculo.clienteId,
-  });
+  const cambios = {
+    placa: datos.placa ?? vehiculoActual.placa,
+    tipo_vehiculo: datos.tipoVehiculo ?? vehiculoActual.tipoVehiculo,
+    marca: datos.marca ?? vehiculoActual.marca,
+    color: datos.color ?? vehiculoActual.color,
+    cliente_id: datos.clienteId ?? vehiculoActual.clienteId,
+  };
 
-  return vehiculo;
+  const { data, error } = await crearClienteConUsuario(usuarioId)
+    .from('vehiculos')
+    .update(cambios)
+    .eq('id', id)
+    .select(COLUMNAS)
+    .single();
+
+  if (error) {
+    throw traducirErrorPostgres(error);
+  }
+
+  return aCamelCase(data);
 };
 
 /**
  * Elimina un vehículo por id.
  *
- * La verificación "no tiene lavados" (409) se conecta cuando exista
- * ordenesLavado.service.js, con el mismo patrón que clienteTieneVehiculos.
+ * La verificación de "no tiene órdenes" (409) vive primero en el
+ * controller, llamando a ordenesLavadoService.vehiculoTieneOrdenes(id). La
+ * FK ordenes_lavado.vehiculo_id (restrict) es la defensa adicional si esa
+ * verificación quedó desactualizada.
  *
  * @param {number|string} id
+ * @param {number} usuarioId quién hace el cambio (lo lee registrar_auditoria())
  * @throws {NoEncontrado} si el id no existe
  */
-const eliminarVehiculo = (id) => {
-  const vehiculo = obtenerVehiculoOFallar(id);
-  const indice = vehiculos.indexOf(vehiculo);
-  vehiculos.splice(indice, 1);
+const eliminarVehiculo = async (id, usuarioId) => {
+  await obtenerVehiculoOFallar(id);
+
+  const { error } = await crearClienteConUsuario(usuarioId).from('vehiculos').delete().eq('id', id);
+
+  if (error) {
+    throw traducirErrorPostgres(error);
+  }
 };
 
 module.exports = {

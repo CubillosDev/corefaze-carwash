@@ -50,6 +50,10 @@ const definicion = {
       name: 'Jornadas',
       description: 'Apertura y cierre del día operativo del lavadero',
     },
+    {
+      name: 'Parámetros de negocio',
+      description: 'Comisión vigente, costos fijos/variables y demás parámetros del lavadero',
+    },
   ],
   components: {
     securitySchemes: {

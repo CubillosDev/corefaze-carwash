@@ -1,6 +1,33 @@
-const jornadas = require('../data/jornadas');
+const { supabase, crearClienteConUsuario } = require('../db/supabaseCliente');
+const { aCamelCase } = require('../utils/mapearCampos');
 const { ESTADOS_JORNADA } = require('../constants/dominio');
 const { Conflicto, NoEncontrado } = require('../utils/errores');
+const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
+
+// El alias de reaperturas es el select anidado documentado en el contrato
+// de integración (supabase/README.md): la API sigue devolviendo
+// reaperturas: [{ en }], aunque en la BD es una tabla aparte
+// (reaperturas_jornada), con la columna creado_en aliaseada a "en".
+const COLUMNAS =
+  'id, fecha, estado, abierta_en, abierta_por, cerrada_en, cerrada_por, reaperturas:reaperturas_jornada(en:creado_en)';
+
+/**
+ * Traduce un error de Postgres (vía supabase-js) a una de las clases de
+ * utils/errores.js. Los códigos son los que las migraciones de
+ * `jornadas`/`reaperturas_jornada` pueden disparar.
+ */
+const traducirErrorPostgres = crearTraductorErroresPostgres({
+  tabla: 'jornadas',
+  etiqueta: 'jornada',
+  mapeo: {
+    // 23505 unique_violation: dos posibles índices únicos.
+    23505: (error) =>
+      error.message.includes('idx_jornadas_una_abierta')
+        ? new Conflicto('Ya existe una jornada abierta')
+        : // jornadas_fecha_key
+          new Conflicto('Ya existe una jornada registrada para hoy'),
+  },
+});
 
 /**
  * YYYY-MM-DD en la zona horaria del negocio (America/Bogota), nunca en
@@ -12,34 +39,52 @@ const { Conflicto, NoEncontrado } = require('../utils/errores');
 const obtenerFechaDeHoy = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
 
-const buscarPorFecha = (fecha) => jornadas.find((jornada) => jornada.fecha === fecha);
-
 /**
  * Devuelve la jornada abierta, si existe. Solo puede haber una a la vez en
  * todo el sistema, sin importar su fecha.
- * @returns {object | null}
+ * @returns {Promise<object | null>}
  */
-const obtenerJornadaAbierta = () =>
-  jornadas.find((jornada) => jornada.estado === ESTADOS_JORNADA.ABIERTA) ?? null;
+const obtenerJornadaAbierta = async () => {
+  const { data, error } = await supabase
+    .from('jornadas')
+    .select(COLUMNAS)
+    .eq('estado', ESTADOS_JORNADA.ABIERTA)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`No se pudo consultar la jornada abierta: ${error.message}`);
+  }
+
+  return data ? aCamelCase(data) : null;
+};
 
 /**
  * Obtiene una jornada por id.
  * @param {number|string} id
- * @returns {object | null}
+ * @returns {Promise<object | null>}
  */
-const obtenerJornadaPorId = (id) => {
-  const jornada = jornadas.find((candidata) => candidata.id === Number(id));
-  return jornada ?? null;
+const obtenerJornadaPorId = async (id) => {
+  const { data, error } = await supabase
+    .from('jornadas')
+    .select(COLUMNAS)
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`No se pudo obtener la jornada: ${error.message}`);
+  }
+
+  return data ? aCamelCase(data) : null;
 };
 
 /**
  * Obtiene una jornada por id, o lanza NoEncontrado (404).
  * @param {number|string} id
- * @returns {object}
+ * @returns {Promise<object>}
  * @throws {NoEncontrado}
  */
-const obtenerJornadaOFallar = (id) => {
-  const jornada = obtenerJornadaPorId(id);
+const obtenerJornadaOFallar = async (id) => {
+  const jornada = await obtenerJornadaPorId(id);
   if (!jornada) {
     throw new NoEncontrado('Jornada no encontrada');
   }
@@ -47,116 +92,149 @@ const obtenerJornadaOFallar = (id) => {
 };
 
 /**
- * Lista jornadas, opcionalmente acotadas por rango de fecha (comparación
- * lexicográfica de strings ISO, igual que ordenesLavado.service.js).
+ * Lista jornadas, opcionalmente acotadas por rango de fecha.
  * @param {{ desde?: string, hasta?: string }} [filtros]
- * @returns {object[]}
+ * @returns {Promise<object[]>}
  */
-const listarJornadas = (filtros = {}) => {
-  let resultado = jornadas;
+const listarJornadas = async (filtros = {}) => {
+  let consulta = supabase.from('jornadas').select(COLUMNAS).order('fecha', { ascending: true });
+
   if (filtros.desde !== undefined) {
-    resultado = resultado.filter((jornada) => jornada.fecha >= filtros.desde);
+    consulta = consulta.gte('fecha', filtros.desde);
   }
   if (filtros.hasta !== undefined) {
-    resultado = resultado.filter((jornada) => jornada.fecha <= filtros.hasta);
+    consulta = consulta.lte('fecha', filtros.hasta);
   }
-  return resultado;
+
+  const { data, error } = await consulta;
+
+  if (error) {
+    throw new Error(`No se pudo listar jornadas: ${error.message}`);
+  }
+
+  return aCamelCase(data);
 };
 
 /**
  * Abre la jornada del día. La fecha es siempre la de hoy en el servidor.
  *
  * Dos restricciones independientes:
- * - Solo puede existir UNA jornada abierta a la vez, sin importar su fecha.
- * - Solo puede existir UNA jornada por fecha calendario (no se crean dos
- *   filas para el mismo día, esté la de hoy abierta o cerrada).
+ * - Solo puede existir UNA jornada abierta a la vez, sin importar su
+ *   fecha — lo protege también el índice único parcial idx_jornadas_una_abierta.
+ * - Solo puede existir UNA jornada por fecha calendario — lo protege
+ *   también jornadas_fecha_key.
  *
- * @param {string|null} [abiertaPor] email del usuario autenticado que abre la jornada (SCRUM-139)
- * @returns {object} la jornada abierta
+ * @param {number} abiertaPorId id del usuario autenticado que abre la jornada (SCRUM-152: antes era su email)
+ * @returns {Promise<object>} la jornada abierta
  * @throws {Conflicto} si ya hay una jornada abierta, o ya existe una jornada para hoy
  */
-const abrirJornada = (abiertaPor = null) => {
-  if (obtenerJornadaAbierta()) {
+const abrirJornada = async (abiertaPorId = null) => {
+  if (await obtenerJornadaAbierta()) {
     throw new Conflicto('Ya existe una jornada abierta');
   }
 
   const fechaDeHoy = obtenerFechaDeHoy();
-  if (buscarPorFecha(fechaDeHoy)) {
-    throw new Conflicto('Ya existe una jornada registrada para hoy');
+
+  const { data, error } = await crearClienteConUsuario(abiertaPorId)
+    .from('jornadas')
+    .insert({ fecha: fechaDeHoy, abierta_por: abiertaPorId })
+    .select(COLUMNAS)
+    .single();
+
+  if (error) {
+    throw traducirErrorPostgres(error);
   }
 
-  const nuevaJornada = {
-    id: jornadas.length > 0 ? Math.max(...jornadas.map((jornada) => jornada.id)) + 1 : 1,
-    fecha: fechaDeHoy,
-    estado: ESTADOS_JORNADA.ABIERTA,
-    abiertaEn: new Date().toISOString(),
-    abiertaPor,
-    cerradaEn: null,
-    cerradaPor: null,
-    reaperturas: [],
-  };
-
-  jornadas.push(nuevaJornada);
-  return nuevaJornada;
+  return aCamelCase(data);
 };
 
 /**
  * Cierra una jornada abierta.
  * @param {number|string} id
- * @param {string|null} [cerradaPor] email del usuario autenticado que cierra la jornada (SCRUM-139)
- * @returns {object} la jornada cerrada
+ * @param {number} cerradaPorId id del usuario autenticado que cierra la jornada
+ * @returns {Promise<object>} la jornada cerrada
  * @throws {NoEncontrado} si el id no existe
  * @throws {Conflicto} si la jornada no está abierta
  */
-const cerrarJornada = (id, cerradaPor = null) => {
-  const jornada = obtenerJornadaOFallar(id);
+const cerrarJornada = async (id, cerradaPorId) => {
+  const jornada = await obtenerJornadaOFallar(id);
 
   if (jornada.estado !== ESTADOS_JORNADA.ABIERTA) {
     throw new Conflicto('Solo se puede cerrar una jornada abierta');
   }
 
-  jornada.estado = ESTADOS_JORNADA.CERRADA;
-  jornada.cerradaEn = new Date().toISOString();
-  jornada.cerradaPor = cerradaPor;
-  return jornada;
+  const { data, error } = await crearClienteConUsuario(cerradaPorId)
+    .from('jornadas')
+    .update({
+      estado: ESTADOS_JORNADA.CERRADA,
+      cerrada_en: new Date().toISOString(),
+      cerrada_por: cerradaPorId,
+    })
+    .eq('id', id)
+    .select(COLUMNAS)
+    .single();
+
+  if (error) {
+    throw traducirErrorPostgres(error);
+  }
+
+  return aCamelCase(data);
 };
 
 /**
  * Reabre una jornada cerrada. Restringido a rol superadmin (SCRUM-139); la
  * autorización la exige el middleware de la ruta, no este service. Cada
- * reapertura queda registrada en `reaperturas` como auditoría mínima de
- * cuándo, hasta que exista un sistema de auditoría genérico.
+ * reapertura queda registrada como una fila en reaperturas_jornada (antes
+ * un arreglo en memoria), con quién la reabrió.
  *
  * @param {number|string} id
- * @returns {object} la jornada reabierta
+ * @param {number} reabiertaPorId id del usuario autenticado que reabre la jornada
+ * @returns {Promise<object>} la jornada reabierta
  * @throws {NoEncontrado} si el id no existe
  * @throws {Conflicto} si la jornada no está cerrada, o ya hay otra jornada abierta
  */
-const reabrirJornada = (id) => {
-  const jornada = obtenerJornadaOFallar(id);
+const reabrirJornada = async (id, reabiertaPorId) => {
+  const jornada = await obtenerJornadaOFallar(id);
 
   if (jornada.estado !== ESTADOS_JORNADA.CERRADA) {
     throw new Conflicto('Solo se puede reabrir una jornada cerrada');
   }
 
-  if (obtenerJornadaAbierta()) {
+  if (await obtenerJornadaAbierta()) {
     throw new Conflicto('No se puede reabrir: ya hay otra jornada abierta');
   }
 
-  jornada.estado = ESTADOS_JORNADA.ABIERTA;
-  jornada.reaperturas.push({ en: new Date().toISOString() });
-  return jornada;
+  const cliente = crearClienteConUsuario(reabiertaPorId);
+
+  const { error: errorJornada } = await cliente
+    .from('jornadas')
+    .update({ estado: ESTADOS_JORNADA.ABIERTA })
+    .eq('id', id);
+
+  if (errorJornada) {
+    throw traducirErrorPostgres(errorJornada);
+  }
+
+  const { error: errorReapertura } = await cliente
+    .from('reaperturas_jornada')
+    .insert({ jornada_id: id, reabierta_por: reabiertaPorId });
+
+  if (errorReapertura) {
+    throw traducirErrorPostgres(errorReapertura);
+  }
+
+  return obtenerJornadaOFallar(id);
 };
 
 /**
- * ¿La jornada está abierta? La consumirá Órdenes de lavado (próximo paso)
- * para rechazar registrar una orden en una jornada cerrada.
+ * ¿La jornada está abierta? La consume Órdenes de lavado para rechazar
+ * registrar/editar una orden en una jornada que ya no está abierta.
  *
  * @param {number|string} id
- * @returns {boolean}
+ * @returns {Promise<boolean>}
  */
-const jornadaEstaAbierta = (id) => {
-  const jornada = obtenerJornadaPorId(id);
+const jornadaEstaAbierta = async (id) => {
+  const jornada = await obtenerJornadaPorId(id);
   return jornada !== null && jornada.estado === ESTADOS_JORNADA.ABIERTA;
 };
 

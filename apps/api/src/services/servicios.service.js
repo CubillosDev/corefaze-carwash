@@ -1,14 +1,16 @@
-const servicios = require('../data/servicios');
+const { supabase, crearClienteConUsuario } = require('../db/supabaseCliente');
+const { aCamelCase } = require('../utils/mapearCampos');
 const { SERVICIOS_CON_LAVADO_MOTOR } = require('../constants/dominio');
 const { Conflicto, NoEncontrado, SolicitudInvalida } = require('../utils/errores');
+const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
 
-/**
- * Busca un servicio por su número de catálogo (distinto del id interno).
- * @param {number|string} numero
- * @returns {object | undefined}
- */
-const buscarPorNumero = (numero) =>
-  servicios.find((servicio) => servicio.numero === Number(numero));
+// Nunca *: así nunca se filtran creado_en/actualizado_en mientras el
+// contrato HTTP no las incluya. El alias de tarifas es el select anidado
+// documentado en el contrato de integración (supabase/README.md): la API
+// sigue devolviendo tarifas como parte del servicio, aunque en la BD es
+// una tabla aparte (tarifas_servicio), 1 a N, borrada en cascada con su servicio.
+const COLUMNAS =
+  'id, numero, nombre, descripcion, categoria, activo, tarifas:tarifas_servicio(tipo_vehiculo, valor)';
 
 /**
  * R3: dentro de un mismo servicio no puede haber dos tarifas para el
@@ -25,7 +27,8 @@ const tieneTipoVehiculoDuplicado = (tarifas) => {
 /**
  * Defensa en profundidad: aunque el validador ya debería atrapar
  * duplicados de tipoVehiculo en tarifas, el service lo vuelve a exigir
- * antes de persistir.
+ * antes de persistir — con un mensaje de campo específico, mejor que el
+ * 23505 genérico que dejaría el UNIQUE (servicio_id, tipo_vehiculo) de la BD.
  *
  * @param {Array<{ tipoVehiculo: string, valor: number }>} tarifas
  * @throws {SolicitudInvalida} si hay un tipoVehiculo repetido
@@ -39,32 +42,89 @@ const validarTarifasSinDuplicados = (tarifas) => {
 };
 
 /**
- * Lista todos los servicios.
- * @returns {object[]}
+ * Convierte las tarifas del contrato HTTP (camelCase) al jsonb que espera
+ * la función RPC reemplazar_tarifas_servicio (snake_case, igual que las
+ * columnas de tarifas_servicio).
+ *
+ * @param {Array<{ tipoVehiculo: string, valor: number }>} tarifas
+ * @returns {Array<{ tipo_vehiculo: string, valor: number }>}
  */
-const listarServicios = () => servicios;
+const datosTarifasParaRpc = (tarifas) =>
+  tarifas.map((tarifa) => ({ tipo_vehiculo: tarifa.tipoVehiculo, valor: tarifa.valor }));
+
+/**
+ * Traduce un error de Postgres (vía supabase-js) a una de las clases de
+ * utils/errores.js. Los códigos son los que las migraciones de
+ * `servicios`/`tarifas_servicio` pueden disparar.
+ */
+const traducirErrorPostgres = crearTraductorErroresPostgres({
+  tabla: 'servicios',
+  etiqueta: 'servicio',
+  mapeo: {
+    // 23505 unique_violation: dos posibles índices únicos.
+    23505: (error) =>
+      error.message.includes('tarifas_servicio_servicio_tipo_key')
+        ? new SolicitudInvalida([
+            {
+              campo: 'tarifas',
+              mensaje: 'No puede haber dos tarifas para el mismo tipo de vehículo',
+            },
+          ])
+        : // servicios_numero_key
+          new Conflicto('Ya existe un servicio con ese número'),
+    // 23503 foreign_key_violation al borrar: ordenes_lavado.servicio_id (restrict).
+    23503: () => new Conflicto('No se puede eliminar un servicio con órdenes de lavado asociadas'),
+  },
+});
+
+/**
+ * Lista todos los servicios.
+ * @returns {Promise<object[]>}
+ */
+const listarServicios = async () => {
+  const { data, error } = await supabase
+    .from('servicios')
+    .select(COLUMNAS)
+    .order('id', { foreignTable: 'tarifas_servicio', ascending: true });
+
+  if (error) {
+    throw new Error(`No se pudo listar servicios: ${error.message}`);
+  }
+
+  return aCamelCase(data);
+};
 
 /**
  * Obtiene un servicio por id.
  * @param {number|string} id
- * @returns {object | null}
+ * @returns {Promise<object | null>}
  */
-const obtenerServicioPorId = (id) => {
-  const servicio = servicios.find((candidato) => candidato.id === Number(id));
-  return servicio ?? null;
+const obtenerServicioPorId = async (id) => {
+  const { data, error } = await supabase
+    .from('servicios')
+    .select(COLUMNAS)
+    .eq('id', id)
+    .order('id', { foreignTable: 'tarifas_servicio', ascending: true })
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`No se pudo obtener el servicio: ${error.message}`);
+  }
+
+  return data ? aCamelCase(data) : null;
 };
 
 /**
  * Obtiene un servicio por id, o lanza NoEncontrado (404). Otros recursos
- * (Órdenes de lavado, a futuro) usan esta función para validar
- * servicioId antes de crear su propio registro.
+ * (Órdenes de lavado) usan esta función para validar servicioId antes de
+ * crear su propio registro.
  *
  * @param {number|string} id
- * @returns {object}
+ * @returns {Promise<object>}
  * @throws {NoEncontrado}
  */
-const obtenerServicioOFallar = (id) => {
-  const servicio = obtenerServicioPorId(id);
+const obtenerServicioOFallar = async (id) => {
+  const servicio = await obtenerServicioPorId(id);
   if (!servicio) {
     throw new NoEncontrado('Servicio no encontrado');
   }
@@ -73,8 +133,9 @@ const obtenerServicioOFallar = (id) => {
 
 /**
  * R3: el servicio debe tener tarifa definida para el tipo de vehículo
- * (un servicio de motos no aplica a una camioneta). Órdenes de lavado
- * la usará para resolver el valor a cobrar.
+ * (un servicio de motos no aplica a una camioneta). Órdenes de lavado la
+ * usa para resolver el valor a cobrar. Pura: opera sobre un servicio ya
+ * cargado (con sus tarifas ya embebidas), no vuelve a consultar la BD.
  *
  * @param {object} servicio
  * @param {string} tipoVehiculo
@@ -101,86 +162,132 @@ const obtenerTarifaParaTipoVehiculo = (servicio, tipoVehiculo) => {
 const requiereAutorizacionMotor = (numero) => SERVICIOS_CON_LAVADO_MOTOR.includes(Number(numero));
 
 /**
- * Crea un servicio nuevo.
+ * Crea un servicio nuevo, con sus tarifas.
  *
  * Reglas de negocio:
- * - El número es único (409 si ya existe).
+ * - El número es único (409 si ya existe) — lo rechaza el UNIQUE de la
+ *   BD, traducido por traducirErrorPostgres.
  * - Las tarifas no pueden repetir tipoVehiculo (400 si ocurre).
- * - Todo servicio nuevo nace activo, sin importar qué venga en datos.
+ * - Todo servicio nuevo nace activo (default de la columna).
+ *
+ * El servicio y sus tarifas son dos tablas (dos llamadas separadas a
+ * Supabase): si la función RPC reemplazar_tarifas_servicio (todo o nada,
+ * ver su migración) falla, se borra el servicio recién creado para no
+ * dejar un registro huérfano sin tarifas.
  *
  * @param {{ numero: number, nombre: string, descripcion: string, categoria: string, tarifas: Array<{ tipoVehiculo: string, valor: number }> }} datos
- * @returns {object} el servicio creado
+ * @param {number} usuarioId quién hace el cambio (lo lee registrar_auditoria())
+ * @returns {Promise<object>} el servicio creado
  */
-const crearServicio = (datos) => {
-  if (buscarPorNumero(datos.numero)) {
-    throw new Conflicto('Ya existe un servicio con ese número');
-  }
-
+const crearServicio = async (datos, usuarioId) => {
   validarTarifasSinDuplicados(datos.tarifas);
 
-  const nuevoServicio = {
-    id: servicios.length > 0 ? Math.max(...servicios.map((servicio) => servicio.id)) + 1 : 1,
-    numero: Number(datos.numero),
-    nombre: datos.nombre,
-    descripcion: datos.descripcion,
-    categoria: datos.categoria,
-    tarifas: datos.tarifas,
-    activo: true,
-  };
+  const cliente = crearClienteConUsuario(usuarioId);
 
-  servicios.push(nuevoServicio);
-  return nuevoServicio;
+  const { data: servicioCreado, error: errorServicio } = await cliente
+    .from('servicios')
+    .insert({
+      numero: datos.numero,
+      nombre: datos.nombre,
+      descripcion: datos.descripcion,
+      categoria: datos.categoria,
+    })
+    .select('id')
+    .single();
+
+  if (errorServicio) {
+    throw traducirErrorPostgres(errorServicio);
+  }
+
+  const { error: errorTarifas } = await cliente.rpc('reemplazar_tarifas_servicio', {
+    p_servicio_id: servicioCreado.id,
+    p_tarifas: datosTarifasParaRpc(datos.tarifas),
+  });
+
+  if (errorTarifas) {
+    await cliente.from('servicios').delete().eq('id', servicioCreado.id);
+    throw traducirErrorPostgres(errorTarifas);
+  }
+
+  return obtenerServicioOFallar(servicioCreado.id);
 };
 
 /**
  * Actualiza un servicio existente. Si se envía tarifas, reemplaza el
- * arreglo completo (no se fusiona con el anterior).
+ * conjunto completo (borra las anteriores y crea las nuevas; no se
+ * fusiona con el anterior) vía la función RPC reemplazar_tarifas_servicio,
+ * todo o nada dentro de una sola transacción de Postgres.
  *
  * @param {number|string} id
  * @param {{ numero?: number, nombre?: string, descripcion?: string, categoria?: string, tarifas?: Array<{ tipoVehiculo: string, valor: number }>, activo?: boolean }} datos
- * @returns {object} el servicio actualizado
+ * @param {number} usuarioId quién hace el cambio (lo lee registrar_auditoria())
+ * @returns {Promise<object>} el servicio actualizado
  * @throws {NoEncontrado} si el id no existe
  * @throws {Conflicto} si el número nuevo ya pertenece a otro servicio
  * @throws {SolicitudInvalida} si las tarifas nuevas repiten tipoVehiculo
  */
-const actualizarServicio = (id, datos) => {
-  const servicio = obtenerServicioOFallar(id);
-
-  if (datos.numero !== undefined && Number(datos.numero) !== servicio.numero) {
-    if (buscarPorNumero(datos.numero)) {
-      throw new Conflicto('Ya existe un servicio con ese número');
-    }
-  }
+const actualizarServicio = async (id, datos, usuarioId) => {
+  const servicioActual = await obtenerServicioOFallar(id);
 
   if (datos.tarifas !== undefined) {
     validarTarifasSinDuplicados(datos.tarifas);
   }
 
-  Object.assign(servicio, {
-    numero: datos.numero !== undefined ? Number(datos.numero) : servicio.numero,
-    nombre: datos.nombre ?? servicio.nombre,
-    descripcion: datos.descripcion ?? servicio.descripcion,
-    categoria: datos.categoria ?? servicio.categoria,
-    tarifas: datos.tarifas ?? servicio.tarifas,
-    activo: datos.activo ?? servicio.activo,
-  });
+  const cliente = crearClienteConUsuario(usuarioId);
 
-  return servicio;
+  const { error: errorServicio } = await cliente
+    .from('servicios')
+    .update({
+      numero: datos.numero ?? servicioActual.numero,
+      nombre: datos.nombre ?? servicioActual.nombre,
+      descripcion: datos.descripcion ?? servicioActual.descripcion,
+      categoria: datos.categoria ?? servicioActual.categoria,
+      activo: datos.activo ?? servicioActual.activo,
+    })
+    .eq('id', id);
+
+  if (errorServicio) {
+    throw traducirErrorPostgres(errorServicio);
+  }
+
+  if (datos.tarifas !== undefined) {
+    // reemplazar_tarifas_servicio borra las tarifas actuales e inserta las nuevas dentro de la
+    // misma transacción de Postgres (todo o nada): si el INSERT falla, el DELETE también se
+    // revierte, así el servicio nunca queda con 0 tarifas por un fallo parcial a mitad de camino.
+    const { error: errorTarifas } = await cliente.rpc('reemplazar_tarifas_servicio', {
+      p_servicio_id: id,
+      p_tarifas: datosTarifasParaRpc(datos.tarifas),
+    });
+
+    if (errorTarifas) {
+      throw traducirErrorPostgres(errorTarifas);
+    }
+  }
+
+  return obtenerServicioOFallar(id);
 };
 
 /**
- * Elimina un servicio por id.
+ * Elimina un servicio por id. Sus tarifas se borran en cascada (FK
+ * tarifas_servicio_servicio_id_fkey on delete cascade).
  *
- * La verificación "no tiene órdenes" (409) vive en el controller, igual
- * que en clientes.controller.js / vehiculos.controller.js.
+ * La verificación de "no tiene órdenes" (409) vive primero en el
+ * controller, llamando a ordenesLavadoService.servicioTieneOrdenes(id).
+ * La FK ordenes_lavado.servicio_id (restrict) es la defensa adicional si
+ * esa verificación quedó desactualizada.
  *
  * @param {number|string} id
+ * @param {number} usuarioId quién hace el cambio (lo lee registrar_auditoria())
  * @throws {NoEncontrado} si el id no existe
  */
-const eliminarServicio = (id) => {
-  const servicio = obtenerServicioOFallar(id);
-  const indice = servicios.indexOf(servicio);
-  servicios.splice(indice, 1);
+const eliminarServicio = async (id, usuarioId) => {
+  await obtenerServicioOFallar(id);
+
+  const { error } = await crearClienteConUsuario(usuarioId).from('servicios').delete().eq('id', id);
+
+  if (error) {
+    throw traducirErrorPostgres(error);
+  }
 };
 
 module.exports = {

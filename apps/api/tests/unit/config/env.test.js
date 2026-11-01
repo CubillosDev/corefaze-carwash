@@ -9,6 +9,8 @@ const variablesValidas = Object.freeze({
   API_KEY_WEB: 'e'.repeat(32),
   JWT_SECRET: 'd'.repeat(32),
   ALLOWED_ORIGIN: 'http://localhost:5173',
+  SUPABASE_URL: 'http://127.0.0.1:54321',
+  SUPABASE_SERVICE_ROLE_KEY: 'f'.repeat(32),
 });
 
 // Parte de unas variables válidas y cambia solo lo que la prueba necesita
@@ -29,6 +31,7 @@ describe('cargarConfiguracion', () => {
         jwt: { secret: 'd'.repeat(32), expiresIn: '1h' },
         origenPermitido: 'http://localhost:5173',
         superadmin: null,
+        supabase: { url: 'http://127.0.0.1:54321', serviceRoleKey: 'f'.repeat(32) },
       });
     });
 
@@ -85,6 +88,23 @@ describe('cargarConfiguracion', () => {
       ['ALLOWED_ORIGIN ausente', { ALLOWED_ORIGIN: undefined }, /ALLOWED_ORIGIN es obligatoria/],
       ['ALLOWED_ORIGIN sin protocolo', { ALLOWED_ORIGIN: 'localhost:5173' }, /URL http\(s\)/],
       ['ALLOWED_ORIGIN con otro protocolo', { ALLOWED_ORIGIN: 'ftp://sitio.com' }, /URL http\(s\)/],
+      ['SUPABASE_URL ausente', { SUPABASE_URL: undefined }, /SUPABASE_URL es obligatoria/],
+      ['SUPABASE_URL sin protocolo', { SUPABASE_URL: '127.0.0.1:54321' }, /URL http\(s\)/],
+      [
+        'SUPABASE_SERVICE_ROLE_KEY ausente',
+        { SUPABASE_SERVICE_ROLE_KEY: undefined },
+        /SUPABASE_SERVICE_ROLE_KEY es obligatoria/,
+      ],
+      [
+        'SUPABASE_SERVICE_ROLE_KEY demasiado corta',
+        { SUPABASE_SERVICE_ROLE_KEY: 'corta' },
+        /SUPABASE_SERVICE_ROLE_KEY.*al menos 32 caracteres/,
+      ],
+      [
+        'SUPABASE_SERVICE_ROLE_KEY con el valor de ejemplo',
+        { SUPABASE_SERVICE_ROLE_KEY: 'REEMPLAZAR_CON_SERVICE_ROLE_KEY_REAL' },
+        /valor de ejemplo/,
+      ],
     ])('rechaza %s', (_descripcion, cambios, mensajeEsperado) => {
       expect(() => cargarConfiguracion(conCambios(cambios))).toThrow(mensajeEsperado);
     });

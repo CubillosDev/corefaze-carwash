@@ -29,15 +29,17 @@ const crearPeticion = ({
 
 describe('jornadas.controller', () => {
   describe('listar', () => {
-    it('responde 200 con la lista de jornadas, cada una con unidades/ventaTotal/diferenciaCaja', () => {
-      jornadasService.listarJornadas.mockReturnValue([{ id: 1 }, { id: 2 }]);
-      ordenesLavadoService.obtenerTotalesDeJornada.mockReturnValue({
-        unidades: 3,
-        ventaTotal: 45000,
-      });
+    it('responde 200 con la lista de jornadas, cada una con unidades/ventaTotal/diferenciaCaja', async () => {
+      jornadasService.listarJornadas.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+      ordenesLavadoService.obtenerTotalesPorJornada.mockResolvedValue(
+        new Map([
+          [1, { unidades: 3, ventaTotal: 45000 }],
+          [2, { unidades: 3, ventaTotal: 45000 }],
+        ]),
+      );
 
       const res = crearRespuesta();
-      listar(crearPeticion(), res, jest.fn());
+      await listar(crearPeticion(), res, jest.fn());
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
@@ -48,20 +50,25 @@ describe('jornadas.controller', () => {
       });
     });
 
-    it('pide los totales de cada jornada por su propio id', () => {
-      jornadasService.listarJornadas.mockReturnValue([{ id: 1 }, { id: 2 }]);
-      ordenesLavadoService.obtenerTotalesDeJornada.mockReturnValue({ unidades: 0, ventaTotal: 0 });
+    it('pide los totales de todas las jornadas listadas en una sola consulta (evita N+1)', async () => {
+      jornadasService.listarJornadas.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+      ordenesLavadoService.obtenerTotalesPorJornada.mockResolvedValue(
+        new Map([
+          [1, { unidades: 0, ventaTotal: 0 }],
+          [2, { unidades: 0, ventaTotal: 0 }],
+        ]),
+      );
 
-      listar(crearPeticion(), crearRespuesta(), jest.fn());
+      await listar(crearPeticion(), crearRespuesta(), jest.fn());
 
-      expect(ordenesLavadoService.obtenerTotalesDeJornada).toHaveBeenCalledWith(1);
-      expect(ordenesLavadoService.obtenerTotalesDeJornada).toHaveBeenCalledWith(2);
+      expect(ordenesLavadoService.obtenerTotalesPorJornada).toHaveBeenCalledTimes(1);
+      expect(ordenesLavadoService.obtenerTotalesPorJornada).toHaveBeenCalledWith([1, 2]);
     });
 
-    it('llama a listarJornadas con { desde, hasta } leídos de la consulta', () => {
-      jornadasService.listarJornadas.mockReturnValue([]);
+    it('llama a listarJornadas con { desde, hasta } leídos de la consulta', async () => {
+      jornadasService.listarJornadas.mockResolvedValue([]);
 
-      listar(
+      await listar(
         crearPeticion({ consulta: { desde: '2026-01-01', hasta: '2026-01-31' } }),
         crearRespuesta(),
         jest.fn(),
@@ -73,29 +80,24 @@ describe('jornadas.controller', () => {
       });
     });
 
-    it('pasa el error al siguiente manejador si el service lanza', () => {
+    it('propaga el error si el service lanza — sin try/catch, Express 5 lo atrapa solo', async () => {
       const error = new Error('fallo inesperado');
-      jornadasService.listarJornadas.mockImplementation(() => {
-        throw error;
-      });
+      jornadasService.listarJornadas.mockRejectedValue(error);
 
-      const next = jest.fn();
-      listar(crearPeticion(), crearRespuesta(), next);
-
-      expect(next).toHaveBeenCalledWith(error);
+      await expect(listar(crearPeticion(), crearRespuesta(), jest.fn())).rejects.toThrow(error);
     });
   });
 
   describe('obtenerPorId', () => {
-    it('responde 200 con la jornada encontrada, con unidades/ventaTotal/diferenciaCaja', () => {
-      jornadasService.obtenerJornadaOFallar.mockReturnValue({ id: 1, estado: 'abierta' });
+    it('responde 200 con la jornada encontrada, con unidades/ventaTotal/diferenciaCaja', async () => {
+      jornadasService.obtenerJornadaOFallar.mockResolvedValue({ id: 1, estado: 'abierta' });
       ordenesLavadoService.obtenerTotalesDeJornada.mockReturnValue({
         unidades: 2,
         ventaTotal: 30000,
       });
 
       const res = crearRespuesta();
-      obtenerPorId(crearPeticion({ parametros: { id: 1 } }), res, jest.fn());
+      await obtenerPorId(crearPeticion({ parametros: { id: 1 } }), res, jest.fn());
 
       expect(ordenesLavadoService.obtenerTotalesDeJornada).toHaveBeenCalledWith(1);
       expect(res.status).toHaveBeenCalledWith(200);
@@ -104,38 +106,35 @@ describe('jornadas.controller', () => {
       });
     });
 
-    it('no muta el objeto jornada original devuelto por el service', () => {
+    it('no muta el objeto jornada original devuelto por el service', async () => {
       const jornadaOriginal = { id: 1, estado: 'abierta' };
-      jornadasService.obtenerJornadaOFallar.mockReturnValue(jornadaOriginal);
+      jornadasService.obtenerJornadaOFallar.mockResolvedValue(jornadaOriginal);
       ordenesLavadoService.obtenerTotalesDeJornada.mockReturnValue({
         unidades: 2,
         ventaTotal: 30000,
       });
 
-      obtenerPorId(crearPeticion({ parametros: { id: 1 } }), crearRespuesta(), jest.fn());
+      await obtenerPorId(crearPeticion({ parametros: { id: 1 } }), crearRespuesta(), jest.fn());
 
       expect(jornadaOriginal).toEqual({ id: 1, estado: 'abierta' });
     });
 
-    it('pasa el error al siguiente manejador si el id no existe (404)', () => {
+    it('propaga el error si el id no existe (404)', async () => {
       const error = new Error('no encontrada');
-      jornadasService.obtenerJornadaOFallar.mockImplementation(() => {
-        throw error;
-      });
+      jornadasService.obtenerJornadaOFallar.mockRejectedValue(error);
 
-      const next = jest.fn();
-      obtenerPorId(crearPeticion({ parametros: { id: 999 } }), crearRespuesta(), next);
-
-      expect(next).toHaveBeenCalledWith(error);
+      await expect(
+        obtenerPorId(crearPeticion({ parametros: { id: 999 } }), crearRespuesta(), jest.fn()),
+      ).rejects.toThrow(error);
     });
   });
 
   describe('abrir', () => {
-    it('responde 201 con la jornada abierta', () => {
-      jornadasService.abrirJornada.mockReturnValue({ id: 1, estado: 'abierta' });
+    it('responde 201 con la jornada abierta', async () => {
+      jornadasService.abrirJornada.mockResolvedValue({ id: 1, estado: 'abierta' });
 
       const res = crearRespuesta();
-      abrir(crearPeticion(), res, jest.fn());
+      await abrir(crearPeticion(), res, jest.fn());
 
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith(
@@ -143,37 +142,32 @@ describe('jornadas.controller', () => {
       );
     });
 
-    it('abre la jornada con el email del usuario autenticado (SCRUM-139)', () => {
-      jornadasService.abrirJornada.mockReturnValue({ id: 1, estado: 'abierta' });
+    it('abre la jornada con el id del usuario autenticado (SCRUM-152: antes era su email)', async () => {
+      jornadasService.abrirJornada.mockResolvedValue({ id: 1, estado: 'abierta' });
 
-      abrir(
+      await abrir(
         crearPeticion({ usuario: { id: 7, email: 'soporte@lavadero.com', rol: 'soporte' } }),
         crearRespuesta(),
         jest.fn(),
       );
 
-      expect(jornadasService.abrirJornada).toHaveBeenCalledWith('soporte@lavadero.com');
+      expect(jornadasService.abrirJornada).toHaveBeenCalledWith(7);
     });
 
-    it('pasa el error al siguiente manejador si ya hay una jornada abierta (409)', () => {
+    it('propaga el error si ya hay una jornada abierta (409)', async () => {
       const error = new Error('conflicto');
-      jornadasService.abrirJornada.mockImplementation(() => {
-        throw error;
-      });
+      jornadasService.abrirJornada.mockRejectedValue(error);
 
-      const next = jest.fn();
-      abrir(crearPeticion(), crearRespuesta(), next);
-
-      expect(next).toHaveBeenCalledWith(error);
+      await expect(abrir(crearPeticion(), crearRespuesta(), jest.fn())).rejects.toThrow(error);
     });
   });
 
   describe('cambiarEstado', () => {
-    it('estado "cerrada": despacha a cerrarJornada y responde 200', () => {
-      jornadasService.cerrarJornada.mockReturnValue({ id: 1, estado: 'cerrada' });
+    it('estado "cerrada": despacha a cerrarJornada (con el id del usuario) y responde 200', async () => {
+      jornadasService.cerrarJornada.mockResolvedValue({ id: 1, estado: 'cerrada' });
 
       const res = crearRespuesta();
-      cambiarEstado(
+      await cambiarEstado(
         crearPeticion({
           parametros: { id: 1 },
           cuerpo: { estado: 'cerrada' },
@@ -183,7 +177,7 @@ describe('jornadas.controller', () => {
         jest.fn(),
       );
 
-      expect(jornadasService.cerrarJornada).toHaveBeenCalledWith(1, 'administrador@lavadero.com');
+      expect(jornadasService.cerrarJornada).toHaveBeenCalledWith(1, 1);
       expect(jornadasService.reabrirJornada).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(
@@ -191,33 +185,34 @@ describe('jornadas.controller', () => {
       );
     });
 
-    it('pasa el error al siguiente manejador si no está abierta (409)', () => {
+    it('propaga el error si no está abierta (409)', async () => {
       const error = new Error('conflicto');
-      jornadasService.cerrarJornada.mockImplementation(() => {
-        throw error;
-      });
+      jornadasService.cerrarJornada.mockRejectedValue(error);
 
-      const next = jest.fn();
-      cambiarEstado(
-        crearPeticion({ parametros: { id: 1 }, cuerpo: { estado: 'cerrada' } }),
-        crearRespuesta(),
-        next,
-      );
-
-      expect(next).toHaveBeenCalledWith(error);
+      await expect(
+        cambiarEstado(
+          crearPeticion({ parametros: { id: 1 }, cuerpo: { estado: 'cerrada' } }),
+          crearRespuesta(),
+          jest.fn(),
+        ),
+      ).rejects.toThrow(error);
     });
 
-    it('estado "abierta": despacha a reabrirJornada y responde 200', () => {
-      jornadasService.reabrirJornada.mockReturnValue({ id: 1, estado: 'abierta' });
+    it('estado "abierta": despacha a reabrirJornada (con el id del usuario) y responde 200', async () => {
+      jornadasService.reabrirJornada.mockResolvedValue({ id: 1, estado: 'abierta' });
 
       const res = crearRespuesta();
-      cambiarEstado(
-        crearPeticion({ parametros: { id: 1 }, cuerpo: { estado: 'abierta' } }),
+      await cambiarEstado(
+        crearPeticion({
+          parametros: { id: 1 },
+          cuerpo: { estado: 'abierta' },
+          usuario: { id: 1, email: 'administrador@lavadero.com', rol: 'administrador' },
+        }),
         res,
         jest.fn(),
       );
 
-      expect(jornadasService.reabrirJornada).toHaveBeenCalledWith(1);
+      expect(jornadasService.reabrirJornada).toHaveBeenCalledWith(1, 1);
       expect(jornadasService.cerrarJornada).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(
@@ -225,20 +220,17 @@ describe('jornadas.controller', () => {
       );
     });
 
-    it('pasa el error al siguiente manejador si no está cerrada (409)', () => {
+    it('propaga el error si no está cerrada (409)', async () => {
       const error = new Error('conflicto');
-      jornadasService.reabrirJornada.mockImplementation(() => {
-        throw error;
-      });
+      jornadasService.reabrirJornada.mockRejectedValue(error);
 
-      const next = jest.fn();
-      cambiarEstado(
-        crearPeticion({ parametros: { id: 1 }, cuerpo: { estado: 'abierta' } }),
-        crearRespuesta(),
-        next,
-      );
-
-      expect(next).toHaveBeenCalledWith(error);
+      await expect(
+        cambiarEstado(
+          crearPeticion({ parametros: { id: 1 }, cuerpo: { estado: 'abierta' } }),
+          crearRespuesta(),
+          jest.fn(),
+        ),
+      ).rejects.toThrow(error);
     });
   });
 });

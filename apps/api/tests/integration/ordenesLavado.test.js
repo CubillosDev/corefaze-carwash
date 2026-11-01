@@ -1,13 +1,8 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
+const { supabase } = require('../../src/db/supabaseCliente');
 const { generarToken } = require('../../src/utils/jwt.util');
-const clientes = require('../../src/data/clientes');
-const vehiculos = require('../../src/data/vehiculos');
-const colaboradores = require('../../src/data/colaboradores');
-const servicios = require('../../src/data/servicios');
-const ordenesLavado = require('../../src/data/ordenesLavado');
-const jornadas = require('../../src/data/jornadas');
-const usuarios = require('../../src/data/usuarios');
+const { generarSello, crearGeneradorDeValorUnico } = require('../utils/valorUnico');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -24,9 +19,9 @@ const app = crearApp({
 // autenticar el setup y los casos bajo prueba.
 //
 // autenticarJWT ya no toma el rol del payload del token: vuelve a
-// consultar al usuario actual (hallazgo de revisión del PR #7), así que
-// cada rol de prueba necesita también su propio registro en la "tabla"
-// de usuarios, re-sembrado en cada beforeEach.
+// consultar al usuario actual en Supabase (hallazgo de revisión del PR
+// #7, SCRUM-152), así que estos ids deben ser los mismos (y en el mismo
+// orden) que los 4 usuarios de supabase/seed.sql — uno por rol.
 const ROLES_DE_PRUEBA = ['superadmin', 'administrador', 'soporte', 'pendiente'];
 const idDeRolDePrueba = (rol) => ROLES_DE_PRUEBA.indexOf(rol) + 1;
 const tokenDe = (rol) =>
@@ -36,24 +31,27 @@ const TOKEN_ADMINISTRADOR = tokenDe('administrador');
 const TOKEN_SOPORTE = tokenDe('soporte');
 const TOKEN_PENDIENTE = tokenDe('pendiente');
 
-beforeEach(() => {
-  clientes.length = 0;
-  vehiculos.length = 0;
-  colaboradores.length = 0;
-  servicios.length = 0;
-  ordenesLavado.length = 0;
-  jornadas.length = 0;
-  usuarios.length = 0;
-  ROLES_DE_PRUEBA.forEach((rol) => {
-    usuarios.push({
-      id: idDeRolDePrueba(rol),
-      nombre: rol,
-      email: `${rol}@lavadero.com`,
-      passwordHash: 'irrelevante-para-estas-pruebas',
-      rol,
-      activo: true,
-    });
-  });
+// idx_jornadas_una_abierta es GLOBAL (una sola jornada abierta en todo el
+// sistema, sin importar su fecha): una jornada que quedó abierta en OTRO
+// archivo de pruebas (con una fecha aleatoria cualquiera) bloquearía
+// abrir la de este archivo.
+const cerrarCualquierJornadaAbierta = async () => {
+  const { data: abierta } = await supabase
+    .from('jornadas')
+    .select('id')
+    .eq('estado', 'abierta')
+    .maybeSingle();
+
+  if (abierta) {
+    await supabase
+      .from('jornadas')
+      .update({ estado: 'cerrada', cerrada_en: new Date().toISOString() })
+      .eq('id', abierta.id);
+  }
+};
+
+beforeEach(async () => {
+  await cerrarCualquierJornadaAbierta();
 });
 
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
@@ -63,15 +61,47 @@ const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
 
 // --- Helpers de setup: registran cada recurso vía sus propios endpoints HTTP ---
 
+// abrirJornada() NO usa POST /api/jornadas (que siempre abre la jornada de
+// "hoy"): casi toda prueba de este archivo crea órdenes reales contra la
+// jornada que abre, y esas órdenes quedan amarradas a ella con on delete
+// restrict y nunca se borran (impedir_eliminacion) — abrir siempre "hoy"
+// bloquearía esa fecha para siempre en la siguiente prueba (el mismo
+// problema que las reaperturas en jornadas.service.test.js). El endpoint
+// de abrir jornada en sí ya se prueba a fondo en
+// tests/integration/jornadas.test.js; aquí solo hace falta "una jornada
+// abierta cualquiera", así que se inserta directo con una fecha única.
+const anioBaseJornada = 1000 + Math.floor(Math.random() * 9000);
+// Arranca en un día aleatorio del año (no siempre en el 1): si otro
+// archivo sorteara por pura casualidad el mismo año, es mucho menos
+// probable que además arranque exactamente en el mismo día.
+let contadorDiaJornada = Math.floor(Math.random() * 300);
+
 const abrirJornada = async () => {
-  const respuesta = await conToken('post', '/api/jornadas');
-  return respuesta.body.jornada;
+  contadorDiaJornada += 1;
+  const fecha = new Date(anioBaseJornada, 0, contadorDiaJornada).toISOString().slice(0, 10);
+
+  const { error } = await supabase
+    .from('jornadas')
+    .insert({ fecha, abierta_por: idDeRolDePrueba('administrador') });
+
+  if (error) {
+    throw error;
+  }
 };
+
+// clientes.service.js ya escribe en el Supabase local (SCRUM-152, Etapa
+// A), no en un array que el beforeEach pudiera vaciar: el documento es
+// único (salto aleatorio + contador) para no chocar ni dentro de esta
+// corrida ni con filas de corridas anteriores sin un `db reset` de por medio.
+const documentoUnicoDeCliente = crearGeneradorDeValorUnico(
+  generarSello(),
+  (sello, contador) => `${sello}${String(contador).padStart(3, '0')}`,
+);
 
 const registrarClienteParticular = async (overrides = {}) => {
   const respuesta = await conToken('post', '/api/clientes').send({
     nombre: 'Ana María Torres',
-    documento: '1010101010',
+    documento: documentoUnicoDeCliente(),
     tipo: 'particular',
     telefono: '3001234567',
     ...overrides,
@@ -82,7 +112,7 @@ const registrarClienteParticular = async (overrides = {}) => {
 const registrarClienteEmpresaConCredito = async (overrides = {}) => {
   const respuesta = await conToken('post', '/api/clientes').send({
     nombre: 'Constructora Ejemplo S.A.S.',
-    documento: '900123456',
+    documento: documentoUnicoDeCliente(),
     tipo: 'empresa',
     telefono: '3009876543',
     creditoHabilitado: true,
@@ -91,32 +121,103 @@ const registrarClienteEmpresaConCredito = async (overrides = {}) => {
   return respuesta.body.cliente;
 };
 
+// vehiculos.service.js ya escribe en el Supabase local (SCRUM-152), no en
+// un array que el beforeEach pudiera vaciar: la placa es única (letras
+// fijas por archivo + contador, con el formato que exige cada
+// tipoVehiculo) para no chocar ni dentro de esta corrida ni con otro
+// archivo que Jest ejecute en paralelo.
+const LETRAS_PLACA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const letraAleatoriaPlaca = () => LETRAS_PLACA[Math.floor(Math.random() * LETRAS_PLACA.length)];
+const prefijoPlaca = `${letraAleatoriaPlaca()}${letraAleatoriaPlaca()}${letraAleatoriaPlaca()}`;
+const TIPOS_VEHICULO_MOTO_DE_PRUEBA = ['moto_hasta_150cc', 'moto_desde_150cc'];
+let contadorPlaca = 0;
+const siguientePlaca = (tipoVehiculo) => {
+  contadorPlaca += 1;
+  return TIPOS_VEHICULO_MOTO_DE_PRUEBA.includes(tipoVehiculo)
+    ? `${prefijoPlaca}${String(contadorPlaca).padStart(2, '0')}X`
+    : `${prefijoPlaca}${String(contadorPlaca).padStart(3, '0')}`;
+};
+
 const registrarVehiculo = async (clienteId, overrides = {}) => {
+  const { tipoVehiculo = 'automovil', placa, ...resto } = overrides;
   const respuesta = await conToken('post', '/api/vehiculos').send({
-    placa: 'ABC123',
-    tipoVehiculo: 'automovil',
+    placa: placa ?? siguientePlaca(tipoVehiculo),
+    tipoVehiculo,
     clienteId,
-    ...overrides,
+    ...resto,
   });
   return respuesta.body.vehiculo;
 };
 
+// colaboradores.service.js ya escribe en el Supabase local (SCRUM-152), no
+// en un array que el beforeEach pudiera vaciar: el documento es único
+// (salto aleatorio + contador). El código solo tiene 900 valores posibles
+// (100-999, ver la migración de `colaboradores`) y un simple sorteo
+// aleatorio choca con los que ya quedaron "activos" de corridas
+// anteriores (nada los limpia sin un `db reset`), así que aquí se
+// consulta qué códigos ya existen antes de sortear uno libre. Un
+// `db reset` periódico sigue siendo necesario para que el rango no se
+// agote del todo con el tiempo.
+const documentoUnicoColaborador = crearGeneradorDeValorUnico(
+  generarSello(),
+  (sello, contador) => `${sello}${String(contador).padStart(3, '0')}`,
+);
+
+const codigosOcupadosColaborador = new Set();
+let siguienteIntentoCodigoColaborador = Math.floor(Math.random() * 900);
+
+beforeAll(async () => {
+  const { data, error } = await supabase.from('colaboradores').select('codigo');
+  if (error) {
+    throw error;
+  }
+  data.forEach((fila) => codigosOcupadosColaborador.add(fila.codigo));
+});
+
+const codigoUnicoColaborador = () => {
+  for (let intento = 0; intento < 900; intento += 1) {
+    const candidato = 100 + ((siguienteIntentoCodigoColaborador + intento) % 900);
+    if (!codigosOcupadosColaborador.has(candidato)) {
+      codigosOcupadosColaborador.add(candidato);
+      siguienteIntentoCodigoColaborador += intento + 1;
+      return candidato;
+    }
+  }
+  throw new Error(
+    'No quedan códigos de colaborador libres entre 100 y 999 (hace falta un db reset)',
+  );
+};
+
 const registrarColaborador = async (overrides = {}) => {
+  const { codigo, documento, ...resto } = overrides;
+  const colaboradorDocumento = documento ?? documentoUnicoColaborador();
+  const colaboradorCodigo = codigo ?? codigoUnicoColaborador();
   const respuesta = await conToken('post', '/api/colaboradores').send({
-    codigo: 401,
+    codigo: colaboradorCodigo,
     nombre: 'Juan Pérez',
-    documento: '1020304050',
+    documento: colaboradorDocumento,
     telefono: '3001234567',
     porcentajeComision: 0.15,
     tipoVinculacion: 'fijo',
-    ...overrides,
+    ...resto,
   });
   return respuesta.body.colaborador;
 };
 
+// servicios.service.js ya escribe en el Supabase local (SCRUM-152), no en
+// un array que el beforeEach pudiera vaciar: el número es único (salto
+// aleatorio + contador) para no chocar ni dentro de esta corrida ni con
+// otro archivo que Jest ejecute en paralelo. `numero` no tiene un rango
+// acotado (solo exige >= 1), así que un sorteo amplio basta.
+const selloNumeroServicio = 1000 + Math.floor(Math.random() * 20000);
+const numeroUnicoServicio = crearGeneradorDeValorUnico(
+  selloNumeroServicio,
+  (sello, contador) => sello + contador,
+);
+
 const registrarServicioParaAutomovil = async (overrides = {}) => {
   const respuesta = await conToken('post', '/api/servicios').send({
-    numero: 1,
+    numero: numeroUnicoServicio(),
     nombre: 'Lavado básico',
     descripcion: 'Lavado exterior con shampoo',
     categoria: 'basico',
@@ -128,7 +229,7 @@ const registrarServicioParaAutomovil = async (overrides = {}) => {
 
 const registrarServicioParaMoto = async (overrides = {}) => {
   const respuesta = await conToken('post', '/api/servicios').send({
-    numero: 2,
+    numero: numeroUnicoServicio(),
     nombre: 'Lavado de moto',
     descripcion: 'Lavado exterior de moto',
     categoria: 'basico',
@@ -136,6 +237,25 @@ const registrarServicioParaMoto = async (overrides = {}) => {
     ...overrides,
   });
   return respuesta.body.servicio;
+};
+
+// R7 exige un numero en SERVICIOS_CON_LAVADO_MOTOR, un conjunto fijo y
+// chico ([5, 6, 7, 8] en el dominio compartido): no se puede sortear uno
+// grande como con el resto de servicios. Para no agotarlo ni chocar entre
+// corridas (ni con el mismo fixture que usa ordenesLavado.service.test.js
+// contra el mismo Supabase local), se busca primero si ya existe antes de
+// crearlo.
+let servicioConLavadoMotor = null;
+const obtenerServicioConLavadoMotor = async () => {
+  if (servicioConLavadoMotor) {
+    return servicioConLavadoMotor;
+  }
+  const listado = await conToken('get', '/api/servicios');
+  servicioConLavadoMotor = listado.body.servicios.find((servicio) => servicio.numero === 5);
+  if (!servicioConLavadoMotor) {
+    servicioConLavadoMotor = await registrarServicioParaAutomovil({ numero: 5 });
+  }
+  return servicioConLavadoMotor;
 };
 
 /** Escenario base: jornada abierta + cliente particular + vehículo + colaborador + servicio, compatibles entre sí. */
@@ -247,8 +367,8 @@ describe('POST /api/ordenes-lavado', () => {
     );
     expect(primera.status).toBe(201);
 
-    const otroCliente = await registrarClienteParticular({ documento: '1010101099' });
-    const otroVehiculo = await registrarVehiculo(otroCliente.id, { placa: 'XYZ789' });
+    const otroCliente = await registrarClienteParticular();
+    const otroVehiculo = await registrarVehiculo(otroCliente.id);
 
     const respuesta = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden({ ...escenario, vehiculo: otroVehiculo }, { turno: 1 }),
@@ -287,7 +407,7 @@ describe('POST /api/ordenes-lavado', () => {
     const cliente = await registrarClienteParticular();
     const vehiculo = await registrarVehiculo(cliente.id);
     const colaborador = await registrarColaborador();
-    const servicioMotor = await registrarServicioParaAutomovil({ numero: 5 });
+    const servicioMotor = await obtenerServicioConLavadoMotor();
 
     const sinAutorizacion = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden(
@@ -391,7 +511,6 @@ describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
     const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
 
     const nuevoVehiculo = await registrarVehiculo(escenario.cliente.id, {
-      placa: 'XYZ789',
       tipoVehiculo: 'camioneta',
     });
 
@@ -422,7 +541,7 @@ describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
     const escenario = await construirEscenarioBase();
     const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
 
-    const otroColaborador = await registrarColaborador({ codigo: 402, documento: '1020304099' });
+    const otroColaborador = await registrarColaborador();
     await conToken('patch', `/api/colaboradores/${otroColaborador.id}/estado`).send({
       estado: 'inactivo',
     });
@@ -439,8 +558,8 @@ describe('PATCH /api/ordenes-lavado/:id (editar)', () => {
       datosOrden(escenario, { turno: 1 }),
     );
 
-    const otroCliente = await registrarClienteParticular({ documento: '1010101098' });
-    const otroVehiculo = await registrarVehiculo(otroCliente.id, { placa: 'XYZ789' });
+    const otroCliente = await registrarClienteParticular();
+    const otroVehiculo = await registrarVehiculo(otroCliente.id);
     await conToken('post', '/api/ordenes-lavado').send(
       datosOrden({ ...escenario, vehiculo: otroVehiculo }, { turno: 2 }),
     );
@@ -641,20 +760,24 @@ describe('GET /api/ordenes-lavado', () => {
     const escenario = await construirEscenarioBase();
 
     // Orden 1: efectivo, se queda registrada.
-    await conToken('post', '/api/ordenes-lavado').send(
+    const orden1 = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden(escenario, { turno: 1, medioPago: 'efectivo' }),
     );
+    // Las órdenes nunca se borran (impedir_eliminacion): se acota la
+    // consulta final por jornadaId para que la suma no incluya órdenes de
+    // otras pruebas (de este archivo o de corridas anteriores sin reset).
+    const jornadaId = orden1.body.orden.jornadaId;
 
     // Orden 2: nequi (otro vehículo), se queda registrada.
-    const clienteB = await registrarClienteParticular({ documento: '1010101097' });
-    const vehiculoB = await registrarVehiculo(clienteB.id, { placa: 'XYZ789' });
+    const clienteB = await registrarClienteParticular();
+    const vehiculoB = await registrarVehiculo(clienteB.id);
     await conToken('post', '/api/ordenes-lavado').send(
       datosOrden({ ...escenario, vehiculo: vehiculoB }, { turno: 2, medioPago: 'nequi' }),
     );
 
     // Orden 3: efectivo (otro vehículo), pero se cancela: NO debe sumar a nada.
-    const clienteC = await registrarClienteParticular({ documento: '1010101096' });
-    const vehiculoC = await registrarVehiculo(clienteC.id, { placa: 'DEF456' });
+    const clienteC = await registrarClienteParticular();
+    const vehiculoC = await registrarVehiculo(clienteC.id);
     const orden3 = await conToken('post', '/api/ordenes-lavado').send(
       datosOrden({ ...escenario, vehiculo: vehiculoC }, { turno: 3, medioPago: 'efectivo' }),
     );
@@ -663,7 +786,7 @@ describe('GET /api/ordenes-lavado', () => {
       motivo: 'Cliente canceló',
     });
 
-    const respuesta = await conToken('get', '/api/ordenes-lavado');
+    const respuesta = await conToken('get', `/api/ordenes-lavado?jornadaId=${jornadaId}`);
 
     expect(respuesta.status).toBe(200);
     // Las 3 órdenes siguen apareciendo en el listado, incluida la anulada.
@@ -706,10 +829,10 @@ describe('GET /api/ordenes-lavado', () => {
       datosOrden(escenario, { turno: 1, medioPago: 'efectivo' }),
     );
 
-    const clienteB = await registrarClienteParticular({ documento: '1010101095' });
-    const vehiculoB = await registrarVehiculo(clienteB.id, { placa: 'GHI789' });
-    const colaboradorB = await registrarColaborador({ codigo: 402, documento: '1020304098' });
-    const servicioB = await registrarServicioParaAutomovil({ numero: 2 });
+    const clienteB = await registrarClienteParticular();
+    const vehiculoB = await registrarVehiculo(clienteB.id);
+    const colaboradorB = await registrarColaborador();
+    const servicioB = await registrarServicioParaAutomovil();
     await conToken('post', '/api/ordenes-lavado').send(
       datosOrden(
         { vehiculo: vehiculoB, colaborador: colaboradorB, servicio: servicioB },
@@ -730,11 +853,17 @@ describe('GET /api/ordenes-lavado', () => {
     );
     expect(porServicio.body.ordenes).toHaveLength(1);
 
-    const porMedioPago = await conToken('get', '/api/ordenes-lavado?medioPago=nequi');
+    // medioPago por sí solo no es exclusivo de esta prueba (otras también
+    // usan 'nequi'), y las órdenes nunca se borran: se acota también por
+    // jornadaId, única para esta prueba.
+    const jornadaId = orden1.body.orden.jornadaId;
+    const porMedioPago = await conToken(
+      'get',
+      `/api/ordenes-lavado?medioPago=nequi&jornadaId=${jornadaId}`,
+    );
     expect(porMedioPago.body.ordenes).toHaveLength(1);
     expect(porMedioPago.body.ordenes[0].medioPago).toBe('nequi');
 
-    const jornadaId = orden1.body.orden.jornadaId;
     const porJornada = await conToken('get', `/api/ordenes-lavado?jornadaId=${jornadaId}`);
     expect(porJornada.body.ordenes).toHaveLength(2);
   });

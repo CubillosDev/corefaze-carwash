@@ -1,4 +1,5 @@
-const ordenesLavado = require('../data/ordenesLavado');
+const { supabase, crearClienteConUsuario } = require('../db/supabaseCliente');
+const { aCamelCase } = require('../utils/mapearCampos');
 const clientesService = require('./clientes.service');
 const vehiculosService = require('./vehiculos.service');
 const colaboradoresService = require('./colaboradores.service');
@@ -6,7 +7,6 @@ const serviciosService = require('./servicios.service');
 const jornadasService = require('./jornadas.service');
 const {
   ESTADOS_ORDEN,
-  ESTADOS_ORDEN_ABIERTOS,
   ESTADOS_ORDEN_CERRADOS,
   TRANSICIONES_ORDEN,
   ESTADOS_ACTIVIDAD,
@@ -14,40 +14,84 @@ const {
   MEDIOS_PAGO,
 } = require('../constants/dominio');
 const { Conflicto, NoEncontrado, SolicitudInvalida } = require('../utils/errores');
+const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
+
+// Nunca *: porcentaje_comision nunca se selecciona mientras el contrato
+// HTTP no la incluya (igual que creado_en/actualizado_en); tampoco se
+// envía NUNCA en insert/update, ni al crear ni al editar: los triggers
+// preparar_orden_lavado()/proteger_orden_lavado() la fijan siempre desde
+// el colaborador vigente (ver supabase/README.md, contrato de integración).
+// El alias creada_en:creado_en es el mismo patrón de jornadas/servicios.
+const COLUMNAS =
+  'id, jornada_id, fecha, turno, vehiculo_id, servicio_id, colaborador_id, cliente_id, valor, medio_pago, autoriza_motor, observaciones, motivo, estado, creada_en:creado_en';
+
+/**
+ * Traduce un error de Postgres (vía supabase-js) a una de las clases de
+ * utils/errores.js. Los códigos son los que la tabla y las reglas
+ * (triggers) de `ordenes_lavado` pueden disparar.
+ *
+ * 23514 (check_violation) incluye las que protege proteger_orden_lavado()
+ * (campos congelados, orden cerrada): tampoco debería dispararse en la
+ * práctica, el service ya valida esas reglas antes; queda como defensa
+ * adicional, con el mensaje genérico por defecto del helper.
+ */
+const traducirErrorPostgres = crearTraductorErroresPostgres({
+  tabla: 'ordenes_lavado',
+  etiqueta: 'orden de lavado',
+  mapeo: {
+    // 23505 unique_violation: dos posibles índices únicos.
+    23505: (error) =>
+      error.message.includes('idx_ordenes_lavado_vehiculo_abierta')
+        ? new Conflicto('El vehículo ya tiene una orden abierta') // R6
+        : // ordenes_lavado_fecha_turno_key
+          new Conflicto('El turno ya está ocupado para esa fecha'), // R5
+    // 23503 foreign_key_violation al insertar/actualizar: el vehículo,
+    // servicio, colaborador, jornada o cliente referenciado no existe. En
+    // la práctica no debería dispararse (R1 ya los valida con
+    // obtener...OFallar antes de llegar aquí); queda como defensa adicional.
+    23503: () => new NoEncontrado('El recurso referenciado no existe'),
+  },
+});
 
 /**
  * Lista las órdenes de lavado. Cada filtro es opcional y se aplica solo
  * si viene definido; los que vengan se combinan con AND.
  * @param {{ fecha?: string, colaboradorId?: number, servicioId?: number, medioPago?: string, jornadaId?: number }} [filtros]
- * @returns {object[]}
+ * @returns {Promise<object[]>}
  */
-const listarOrdenes = (filtros = {}) => {
-  let resultado = ordenesLavado;
+const listarOrdenes = async (filtros = {}) => {
+  let consulta = supabase.from('ordenes_lavado').select(COLUMNAS);
 
   if (filtros.fecha !== undefined) {
-    resultado = resultado.filter((orden) => orden.fecha === filtros.fecha);
+    consulta = consulta.eq('fecha', filtros.fecha);
   }
   if (filtros.colaboradorId !== undefined) {
-    resultado = resultado.filter((orden) => orden.colaboradorId === Number(filtros.colaboradorId));
+    consulta = consulta.eq('colaborador_id', filtros.colaboradorId);
   }
   if (filtros.servicioId !== undefined) {
-    resultado = resultado.filter((orden) => orden.servicioId === Number(filtros.servicioId));
+    consulta = consulta.eq('servicio_id', filtros.servicioId);
   }
   if (filtros.medioPago !== undefined) {
-    resultado = resultado.filter((orden) => orden.medioPago === filtros.medioPago);
+    consulta = consulta.eq('medio_pago', filtros.medioPago);
   }
   if (filtros.jornadaId !== undefined) {
-    resultado = resultado.filter((orden) => orden.jornadaId === Number(filtros.jornadaId));
+    consulta = consulta.eq('jornada_id', filtros.jornadaId);
   }
 
-  return resultado;
+  const { data, error } = await consulta;
+
+  if (error) {
+    throw new Error(`No se pudo listar ordenes_lavado: ${error.message}`);
+  }
+
+  return aCamelCase(data);
 };
 
 /**
- * Totales de un conjunto de órdenes YA FILTRADO (no vuelve a tocar el
- * arreglo global). Las órdenes canceladas nunca suman: ni a
- * cantidadServicios, ni a totalGeneral, ni a su medioPago — aunque
- * sigan apareciendo en el listado. Recorre el arreglo una sola vez.
+ * Totales de un conjunto de órdenes YA FILTRADO (no vuelve a consultar la
+ * BD). Las órdenes canceladas nunca suman: ni a cantidadServicios, ni a
+ * totalGeneral, ni a su medioPago — aunque sigan apareciendo en el
+ * listado. Recorre el arreglo una sola vez. Pura: no hace I/O.
  *
  * @param {object[]} ordenes
  * @returns {{ cantidadServicios: number, totalGeneral: number, totalesPorMedioPago: Record<string, number> }}
@@ -78,33 +122,82 @@ const calcularTotales = (ordenes) => {
  * Reutiliza listarOrdenes/calcularTotales en vez de reimplementar el
  * filtro o la suma.
  *
+ * async porque listarOrdenes ya consulta Supabase (SCRUM-152).
+ *
  * @param {number|string} jornadaId
- * @returns {{ unidades: number, ventaTotal: number }}
+ * @returns {Promise<{ unidades: number, ventaTotal: number }>}
  */
-const obtenerTotalesDeJornada = (jornadaId) => {
-  const ordenesDeLaJornada = listarOrdenes({ jornadaId });
+const obtenerTotalesDeJornada = async (jornadaId) => {
+  const ordenesDeLaJornada = await listarOrdenes({ jornadaId });
   const { cantidadServicios, totalGeneral } = calcularTotales(ordenesDeLaJornada);
   return { unidades: cantidadServicios, ventaTotal: totalGeneral };
 };
 
 /**
+ * Igual que obtenerTotalesDeJornada, pero para VARIAS jornadas a la vez,
+ * en una sola consulta: GET /api/jornadas la usa para no hacer una
+ * consulta aparte por cada jornada de la lista (N+1). Con las jornadas
+ * ya reales y permanentes en Supabase (SCRUM-152, nunca se borran), una
+ * consulta por jornada sí importa — con un array en memoria no importaba.
+ *
+ * @param {Array<number>} jornadaIds
+ * @returns {Promise<Map<number, { unidades: number, ventaTotal: number }>>} una entrada por cada id, en 0 si la jornada no tiene órdenes
+ */
+const obtenerTotalesPorJornada = async (jornadaIds) => {
+  const totalesPorJornada = new Map(jornadaIds.map((id) => [id, { unidades: 0, ventaTotal: 0 }]));
+
+  if (jornadaIds.length === 0) {
+    return totalesPorJornada;
+  }
+
+  const { data, error } = await supabase
+    .from('ordenes_lavado')
+    .select('jornada_id, valor, estado')
+    .in('jornada_id', jornadaIds);
+
+  if (error) {
+    throw new Error(`No se pudo listar ordenes_lavado: ${error.message}`);
+  }
+
+  data.forEach((fila) => {
+    if (fila.estado === ESTADOS_ORDEN.CANCELADA) {
+      return;
+    }
+    const totales = totalesPorJornada.get(fila.jornada_id);
+    totales.unidades += 1;
+    totales.ventaTotal += fila.valor;
+  });
+
+  return totalesPorJornada;
+};
+
+/**
  * Obtiene una orden por id.
  * @param {number|string} id
- * @returns {object | null}
+ * @returns {Promise<object | null>}
  */
-const obtenerOrdenPorId = (id) => {
-  const orden = ordenesLavado.find((candidata) => candidata.id === Number(id));
-  return orden ?? null;
+const obtenerOrdenPorId = async (id) => {
+  const { data, error } = await supabase
+    .from('ordenes_lavado')
+    .select(COLUMNAS)
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`No se pudo obtener la orden de lavado: ${error.message}`);
+  }
+
+  return data ? aCamelCase(data) : null;
 };
 
 /**
  * Obtiene una orden por id, o lanza NoEncontrado (404).
  * @param {number|string} id
- * @returns {object}
+ * @returns {Promise<object>}
  * @throws {NoEncontrado}
  */
-const obtenerOrdenOFallar = (id) => {
-  const orden = obtenerOrdenPorId(id);
+const obtenerOrdenOFallar = async (id) => {
+  const orden = await obtenerOrdenPorId(id);
   if (!orden) {
     throw new NoEncontrado('Orden de lavado no encontrada');
   }
@@ -115,32 +208,59 @@ const obtenerOrdenOFallar = (id) => {
  * Integridad referencial (patrón <entidad>Tiene<Relacion>() del estándar):
  * cancelar una orden no es lo mismo que eliminarla, así que cuenta
  * CUALQUIER orden sin importar su estado, incluidas entregada y cancelada.
+ * count-based (sin traer filas), igual que vehiculosService.clienteTieneVehiculos.
  *
  * @param {number|string} colaboradorId
- * @returns {boolean}
+ * @returns {Promise<boolean>}
  */
-const colaboradorTieneOrdenes = (colaboradorId) =>
-  ordenesLavado.some((orden) => orden.colaboradorId === Number(colaboradorId));
+const colaboradorTieneOrdenes = async (colaboradorId) => {
+  const { count, error } = await supabase
+    .from('ordenes_lavado')
+    .select('id', { count: 'exact', head: true })
+    .eq('colaborador_id', colaboradorId);
+
+  if (error) {
+    throw new Error(`No se pudo verificar las órdenes del colaborador: ${error.message}`);
+  }
+
+  return count > 0;
+};
 
 /**
  * Igual que colaboradorTieneOrdenes, para servicioId.
  * @param {number|string} servicioId
- * @returns {boolean}
+ * @returns {Promise<boolean>}
  */
-const servicioTieneOrdenes = (servicioId) =>
-  ordenesLavado.some((orden) => orden.servicioId === Number(servicioId));
+const servicioTieneOrdenes = async (servicioId) => {
+  const { count, error } = await supabase
+    .from('ordenes_lavado')
+    .select('id', { count: 'exact', head: true })
+    .eq('servicio_id', servicioId);
+
+  if (error) {
+    throw new Error(`No se pudo verificar las órdenes del servicio: ${error.message}`);
+  }
+
+  return count > 0;
+};
 
 /**
  * Igual que colaboradorTieneOrdenes, para vehiculoId.
  * @param {number|string} vehiculoId
- * @returns {boolean}
+ * @returns {Promise<boolean>}
  */
-const vehiculoTieneOrdenes = (vehiculoId) =>
-  ordenesLavado.some((orden) => orden.vehiculoId === Number(vehiculoId));
+const vehiculoTieneOrdenes = async (vehiculoId) => {
+  const { count, error } = await supabase
+    .from('ordenes_lavado')
+    .select('id', { count: 'exact', head: true })
+    .eq('vehiculo_id', vehiculoId);
 
-/** R5: el turno es único por fecha (equivalente a "por jornada", ya que cada jornada tiene una sola fecha). */
-const existeTurnoOcupado = (fecha, turno) =>
-  ordenesLavado.some((orden) => orden.fecha === fecha && orden.turno === Number(turno));
+  if (error) {
+    throw new Error(`No se pudo verificar las órdenes del vehículo: ${error.message}`);
+  }
+
+  return count > 0;
+};
 
 /**
  * R2: el colaborador asignado debe estar activo. La usan crearOrden y
@@ -158,7 +278,8 @@ const validarColaboradorActivo = (colaborador) => {
  * R3: el servicio debe estar activo y tener tarifa para el tipo de
  * vehículo (obtenerTarifaParaTipoVehiculo ya lanza Conflicto si falta).
  * La usan crearOrden y editarOrden: esta última SIEMPRE la vuelve a
- * llamar, porque el valor depende del tipo de vehículo final.
+ * llamar, porque el valor depende del tipo de vehículo final. Pura: opera
+ * sobre un servicio ya cargado, no hace I/O.
  *
  * @param {object} servicio
  * @param {string} tipoVehiculo
@@ -191,11 +312,11 @@ const validarAutorizacionMotor = (servicio, autorizaMotor) => {
  *
  * @param {string} medioPago
  * @param {number|string|undefined} clienteId
- * @returns {number|null} el clienteId final de la orden
+ * @returns {Promise<number|null>} el clienteId final de la orden
  * @throws {Conflicto} si falta clienteId, o el cliente no tiene crédito habilitado
  * @throws {NoEncontrado} si el clienteId no existe
  */
-const resolverClienteCredito = (medioPago, clienteId) => {
+const resolverClienteCredito = async (medioPago, clienteId) => {
   if (medioPago !== MEDIOS_PAGO.CREDITO) {
     return null;
   }
@@ -204,7 +325,7 @@ const resolverClienteCredito = (medioPago, clienteId) => {
     throw new Conflicto('El pago a crédito requiere un clienteId');
   }
 
-  const cliente = clientesService.obtenerClienteOFallar(clienteId);
+  const cliente = await clientesService.obtenerClienteOFallar(clienteId);
   if (
     cliente.estado !== ESTADOS_ACTIVIDAD.ACTIVO ||
     cliente.tipo !== TIPOS_CLIENTE.EMPRESA ||
@@ -228,31 +349,9 @@ const resolverClienteCredito = (medioPago, clienteId) => {
  * @param {string} tipoVehiculo
  * @throws {Conflicto} si el servicio no tiene tarifa para ese tipo de vehículo
  */
-const validarServicioAplicaATipo = (servicioId, tipoVehiculo) => {
-  const servicio = serviciosService.obtenerServicioOFallar(servicioId);
+const validarServicioAplicaATipo = async (servicioId, tipoVehiculo) => {
+  const servicio = await serviciosService.obtenerServicioOFallar(servicioId);
   serviciosService.obtenerTarifaParaTipoVehiculo(servicio, tipoVehiculo);
-};
-
-/**
- * R6: un vehículo no puede tener más de una orden abierta a la vez.
- * `idOrdenAExcluir` permite revalidar esta regla al editar una orden sin
- * que choque contra sí misma; al crear, se le pasa null.
- *
- * @param {number|string} vehiculoId
- * @param {number|null} idOrdenAExcluir
- * @throws {Conflicto}
- */
-const validarVehiculoSinOtraOrdenAbierta = (vehiculoId, idOrdenAExcluir) => {
-  const tieneOrdenAbierta = ordenesLavado.some(
-    (orden) =>
-      orden.vehiculoId === Number(vehiculoId) &&
-      orden.id !== idOrdenAExcluir &&
-      ESTADOS_ORDEN_ABIERTOS.includes(orden.estado),
-  );
-
-  if (tieneOrdenAbierta) {
-    throw new Conflicto('El vehículo ya tiene una orden abierta');
-  }
 };
 
 /**
@@ -261,62 +360,69 @@ const validarVehiculoSinOtraOrdenAbierta = (vehiculoId, idOrdenAExcluir) => {
  * las siguientes. La orden queda amarrada a la jornada abierta en ese
  * momento; su fecha es siempre la de esa jornada.
  *
+ * R5 (turno único por fecha) y R6 (vehículo sin otra orden abierta) ya no
+ * se revalidan aquí: las protegen directamente ordenes_lavado_fecha_turno_key
+ * e idx_ordenes_lavado_vehiculo_abierta, traducidas por traducirErrorPostgres
+ * — mismo patrón que el resto de unicidades de este proyecto (clientes,
+ * vehiculos, servicios, jornadas).
+ *
  * @param {{ turno: number, vehiculoId: number, servicioId: number, colaboradorId: number, medioPago: string, clienteId?: number, autorizaMotor?: boolean, observaciones?: string }} datos
- * @returns {object} la orden creada
+ * @param {number} usuarioId quién hace el cambio (lo lee registrar_auditoria())
+ * @returns {Promise<object>} la orden creada
  * @throws {Conflicto} si no hay ninguna jornada abierta
  */
-const crearOrden = (datos) => {
-  const jornada = jornadasService.obtenerJornadaAbierta();
+const crearOrden = async (datos, usuarioId) => {
+  const jornada = await jornadasService.obtenerJornadaAbierta();
   if (!jornada) {
     throw new Conflicto('No hay una jornada abierta para registrar órdenes');
   }
 
   // R1: vehículo, servicio y colaborador deben existir (404 si no).
-  const vehiculo = vehiculosService.obtenerVehiculoOFallar(datos.vehiculoId);
-  const servicio = serviciosService.obtenerServicioOFallar(datos.servicioId);
-  const colaborador = colaboradoresService.obtenerColaboradorOFallar(datos.colaboradorId);
+  const vehiculo = await vehiculosService.obtenerVehiculoOFallar(datos.vehiculoId);
+  const servicio = await serviciosService.obtenerServicioOFallar(datos.servicioId);
+  const colaborador = await colaboradoresService.obtenerColaboradorOFallar(datos.colaboradorId);
 
   validarColaboradorActivo(colaborador); // R2
   const valor = calcularValorServicio(servicio, vehiculo.tipoVehiculo); // R3
   validarAutorizacionMotor(servicio, datos.autorizaMotor); // R7
-  const clienteId = resolverClienteCredito(datos.medioPago, datos.clienteId); // R8
-
-  // R5: un turno solo puede tener una orden por fecha.
-  if (existeTurnoOcupado(jornada.fecha, datos.turno)) {
-    throw new Conflicto('El turno ya está ocupado para esa fecha');
-  }
-
-  validarVehiculoSinOtraOrdenAbierta(datos.vehiculoId, null); // R6
+  const clienteId = await resolverClienteCredito(datos.medioPago, datos.clienteId); // R8
 
   // R4 + allowlisting: el valor es siempre el calculado en R3, nunca el
-  // que venga en datos; el objeto final se arma campo por campo.
-  const nuevaOrden = {
-    id: ordenesLavado.length > 0 ? Math.max(...ordenesLavado.map((orden) => orden.id)) + 1 : 1,
-    jornadaId: jornada.id,
-    fecha: jornada.fecha,
-    turno: datos.turno,
-    vehiculoId: Number(datos.vehiculoId),
-    servicioId: Number(datos.servicioId),
-    colaboradorId: Number(datos.colaboradorId),
-    valor,
-    medioPago: datos.medioPago,
-    clienteId,
-    autorizaMotor: Boolean(datos.autorizaMotor ?? false),
-    observaciones: datos.observaciones ?? null,
-    motivo: null,
-    estado: ESTADOS_ORDEN.REGISTRADA,
-    creadaEn: new Date().toISOString(),
-  };
+  // que venga en datos. porcentaje_comision NUNCA se envía: el trigger
+  // preparar_orden_lavado() la congela desde el colaborador vigente.
+  const { data, error } = await crearClienteConUsuario(usuarioId)
+    .from('ordenes_lavado')
+    .insert({
+      jornada_id: jornada.id,
+      fecha: jornada.fecha,
+      turno: datos.turno,
+      vehiculo_id: Number(datos.vehiculoId),
+      servicio_id: Number(datos.servicioId),
+      colaborador_id: Number(datos.colaboradorId),
+      valor,
+      medio_pago: datos.medioPago,
+      cliente_id: clienteId,
+      autoriza_motor: Boolean(datos.autorizaMotor ?? false),
+      observaciones: datos.observaciones ?? null,
+    })
+    .select(COLUMNAS)
+    .single();
 
-  ordenesLavado.push(nuevaOrden);
-  return nuevaOrden;
+  if (error) {
+    throw traducirErrorPostgres(error);
+  }
+
+  return aCamelCase(data);
 };
 
 /**
  * Edita campos no financieros de una orden abierta: vehiculoId,
  * colaboradorId, medioPago, clienteId, observaciones. NUNCA valor,
- * servicioId, estado, fecha ni jornadaId — si vienen en datos, se
- * ignoran (el validador de la capa anterior tampoco los acepta).
+ * servicioId, estado, fecha, jornadaId ni porcentajeComision — ni
+ * siquiera se declaran en el payload: el trigger proteger_orden_lavado()
+ * rechaza cualquier cambio en valor/servicioId/jornadaId/fecha/turno/
+ * creadaEn, y recalcula porcentajeComision por su cuenta solo si
+ * colaboradorId cambia.
  *
  * `valor` es inmutable desde la creación: se fija una sola vez en
  * crearOrden y esta función nunca lo recalcula ni lo toca, sin importar
@@ -326,26 +432,31 @@ const crearOrden = (datos) => {
  * puede dispararse desde aquí (solo desde crearOrden, que es quien sí
  * calcula el valor).
  *
- * Reutiliza las mismas reglas R2/R3 (aplicabilidad)/R6/R8 que crearOrden,
+ * Reutiliza las mismas reglas R2/R3 (aplicabilidad)/R8 que crearOrden,
  * mediante las funciones privadas de este archivo, para no duplicar su
  * lógica. Si el vehículo cambia, revalida que el servicio original
  * tenga tarifa para el tipo de vehículo nuevo (R3), sin importar si el
- * tipo coincide con el anterior o no.
+ * tipo coincide con el anterior o no. R6 (vehículo sin otra orden
+ * abierta) la revalida directamente idx_ordenes_lavado_vehiculo_abierta
+ * al actualizar, sin necesitar excluir la propia orden: el índice
+ * compara contra las DEMÁS filas de la tabla, nunca contra la fila que
+ * se está actualizando.
  *
  * @param {number|string} id
  * @param {{ vehiculoId?: number, colaboradorId?: number, medioPago?: string, clienteId?: number, observaciones?: string }} datos
- * @returns {object} la orden editada
+ * @param {number} usuarioId quién hace el cambio (lo lee registrar_auditoria())
+ * @returns {Promise<object>} la orden editada
  * @throws {NoEncontrado} si el id no existe, o el nuevo vehiculoId/colaboradorId no existen
  * @throws {Conflicto} si la orden está cerrada, su jornada ya no está abierta, o viola R2/R3/R6/R8
  */
-const editarOrden = (id, datos) => {
-  const orden = obtenerOrdenOFallar(id);
+const editarOrden = async (id, datos, usuarioId) => {
+  const orden = await obtenerOrdenOFallar(id);
 
   if (ESTADOS_ORDEN_CERRADOS.includes(orden.estado)) {
     throw new Conflicto('No se puede editar una orden entregada o cancelada');
   }
 
-  if (!jornadasService.jornadaEstaAbierta(orden.jornadaId)) {
+  if (!(await jornadasService.jornadaEstaAbierta(orden.jornadaId))) {
     throw new Conflicto('No se puede editar una orden de una jornada que ya no está abierta');
   }
 
@@ -357,30 +468,38 @@ const editarOrden = (id, datos) => {
   const clienteIdFinal = datos.clienteId !== undefined ? datos.clienteId : orden.clienteId;
 
   if (vehiculoIdFinal !== orden.vehiculoId) {
-    const vehiculo = vehiculosService.obtenerVehiculoOFallar(vehiculoIdFinal); // R1
-    validarVehiculoSinOtraOrdenAbierta(vehiculoIdFinal, orden.id); // R6
-    validarServicioAplicaATipo(orden.servicioId, vehiculo.tipoVehiculo); // R3 (aplicabilidad)
+    const vehiculo = await vehiculosService.obtenerVehiculoOFallar(vehiculoIdFinal); // R1
+    await validarServicioAplicaATipo(orden.servicioId, vehiculo.tipoVehiculo); // R3 (aplicabilidad)
   }
 
   if (colaboradorIdFinal !== orden.colaboradorId) {
-    const colaborador = colaboradoresService.obtenerColaboradorOFallar(colaboradorIdFinal); // R1
+    const colaborador = await colaboradoresService.obtenerColaboradorOFallar(colaboradorIdFinal); // R1
     validarColaboradorActivo(colaborador); // R2
   }
 
   let clienteIdResuelto = orden.clienteId;
   if (medioPagoFinal !== orden.medioPago || clienteIdFinal !== orden.clienteId) {
-    clienteIdResuelto = resolverClienteCredito(medioPagoFinal, clienteIdFinal); // R8
+    clienteIdResuelto = await resolverClienteCredito(medioPagoFinal, clienteIdFinal); // R8
   }
 
-  Object.assign(orden, {
-    vehiculoId: vehiculoIdFinal,
-    colaboradorId: colaboradorIdFinal,
-    medioPago: medioPagoFinal,
-    clienteId: clienteIdResuelto,
-    observaciones: datos.observaciones !== undefined ? datos.observaciones : orden.observaciones,
-  });
+  const { data, error } = await crearClienteConUsuario(usuarioId)
+    .from('ordenes_lavado')
+    .update({
+      vehiculo_id: vehiculoIdFinal,
+      colaborador_id: colaboradorIdFinal,
+      medio_pago: medioPagoFinal,
+      cliente_id: clienteIdResuelto,
+      observaciones: datos.observaciones !== undefined ? datos.observaciones : orden.observaciones,
+    })
+    .eq('id', id)
+    .select(COLUMNAS)
+    .single();
 
-  return orden;
+  if (error) {
+    throw traducirErrorPostgres(error);
+  }
+
+  return aCamelCase(data);
 };
 
 /**
@@ -388,20 +507,22 @@ const editarOrden = (id, datos) => {
  * dominio compartido.
  *
  * R10: una orden cerrada (entregada o cancelada) no puede cambiar de
- * estado nunca más. R9: cualquier otra transición debe estar listada en
+ * estado nunca más — lo revalida también proteger_orden_lavado() como
+ * defensa adicional. R9: cualquier otra transición debe estar listada en
  * TRANSICIONES_ORDEN[estado actual]. Cancelar exige motivo; para
  * cualquier otro estado, motivo se ignora.
  *
  * @param {number|string} id
  * @param {string} nuevoEstado
  * @param {string} [motivo] obligatorio solo si nuevoEstado es "cancelada"
- * @returns {object} la orden actualizada
+ * @param {number} usuarioId quién hace el cambio (lo lee registrar_auditoria())
+ * @returns {Promise<object>} la orden actualizada
  * @throws {NoEncontrado} si el id no existe
  * @throws {Conflicto} si la orden ya está cerrada o la transición no es válida
  * @throws {SolicitudInvalida} si se cancela sin motivo
  */
-const cambiarEstadoOrden = (id, nuevoEstado, motivo) => {
-  const orden = obtenerOrdenOFallar(id);
+const cambiarEstadoOrden = async (id, nuevoEstado, motivo, usuarioId) => {
+  const orden = await obtenerOrdenOFallar(id);
 
   if (ESTADOS_ORDEN_CERRADOS.includes(orden.estado)) {
     throw new Conflicto('Una orden entregada o cancelada no puede cambiar de estado');
@@ -412,17 +533,28 @@ const cambiarEstadoOrden = (id, nuevoEstado, motivo) => {
     throw new Conflicto(`Transición de estado no permitida: de ${orden.estado} a ${nuevoEstado}`);
   }
 
+  const cambios = { estado: nuevoEstado };
   if (nuevoEstado === ESTADOS_ORDEN.CANCELADA) {
     if (!motivo) {
       throw new SolicitudInvalida([
         { campo: 'motivo', mensaje: 'El motivo es obligatorio para cancelar una orden' },
       ]);
     }
-    orden.motivo = motivo;
+    cambios.motivo = motivo;
   }
 
-  orden.estado = nuevoEstado;
-  return orden;
+  const { data, error } = await crearClienteConUsuario(usuarioId)
+    .from('ordenes_lavado')
+    .update(cambios)
+    .eq('id', id)
+    .select(COLUMNAS)
+    .single();
+
+  if (error) {
+    throw traducirErrorPostgres(error);
+  }
+
+  return aCamelCase(data);
 };
 
 module.exports = {
@@ -437,4 +569,5 @@ module.exports = {
   cambiarEstadoOrden,
   calcularTotales,
   obtenerTotalesDeJornada,
+  obtenerTotalesPorJornada,
 };

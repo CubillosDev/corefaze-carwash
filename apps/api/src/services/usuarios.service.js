@@ -1,37 +1,87 @@
-const usuarios = require('../data/usuarios');
+const { supabase, crearClienteConUsuario } = require('../db/supabaseCliente');
+const { aCamelCase } = require('../utils/mapearCampos');
 const { generarPasswordHash, verificarPassword } = require('../utils/password.util');
-const { Conflicto } = require('../utils/errores');
+const { Conflicto, NoEncontrado } = require('../utils/errores');
+const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
+
+// Nunca *: así nunca se filtra password_hash (ni intentos_fallidos ni
+// bloqueado_hasta — columnas de un bloqueo por intentos fallidos que la
+// migración ya reservó pero que todavía no existe como funcionalidad en
+// la API) mientras el contrato HTTP no las incluya. password_hash se
+// selecciona aparte, solo donde hace falta (verificarCredenciales).
+const COLUMNAS = 'id, nombre, email, rol, activo';
 
 /** Quita el hash de la contraseña antes de que el usuario salga del service. */
-const sinPasswordHash = ({ passwordHash: _passwordHash, ...resto }) => resto;
+const sinPasswordHash = ({ password_hash: _passwordHash, ...resto }) => resto;
 
 /**
- * Busca un usuario por email (sin distinguir mayúsculas/minúsculas).
- * @param {string} email
- * @returns {object | undefined} el registro completo, CON passwordHash —
- *   para uso interno del service (verificarCredenciales lo necesita).
+ * Traduce un error de Postgres (vía supabase-js) a una de las clases de
+ * utils/errores.js. Los códigos son los que la migración de `usuarios`
+ * puede disparar.
  */
-const buscarPorEmail = (email) =>
-  usuarios.find((usuario) => usuario.email.toLowerCase() === email.toLowerCase());
+const traducirErrorPostgres = crearTraductorErroresPostgres({
+  tabla: 'usuarios',
+  etiqueta: 'usuario',
+  mapeo: {
+    // 23505 unique_violation: usuarios_email_key.
+    23505: () => new Conflicto('Ya existe un usuario con ese correo electrónico'),
+  },
+});
 
 /**
- * Obtiene un usuario por email, ya sin su hash de contraseña.
+ * Obtiene un usuario por email (sin distinguir mayúsculas/minúsculas), ya
+ * sin su hash de contraseña.
  * @param {string} email
- * @returns {object | null}
+ * @returns {Promise<object | null>}
  */
-const obtenerUsuarioPorEmail = (email) => {
-  const usuario = buscarPorEmail(email);
-  return usuario ? sinPasswordHash(usuario) : null;
+const obtenerUsuarioPorEmail = async (email) => {
+  const { data, error } = await supabase
+    .from('usuarios')
+    .select(COLUMNAS)
+    .eq('email', email.toLowerCase())
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`No se pudo obtener el usuario: ${error.message}`);
+  }
+
+  return data ? aCamelCase(data) : null;
 };
 
 /**
- * Obtiene un usuario por su id, ya sin su hash de contraseña.
+ * Obtiene un usuario por su id, ya sin su hash de contraseña. La usa
+ * autenticarJWT en CADA petición autenticada, para que un cambio de rol
+ * (o una desactivación) surta efecto de inmediato sin esperar a que el
+ * token expire (hallazgo de revisión del PR #7).
  * @param {number|string} id
- * @returns {object | null}
+ * @returns {Promise<object | null>}
  */
-const obtenerUsuarioPorId = (id) => {
-  const usuario = usuarios.find((candidato) => candidato.id === Number(id));
-  return usuario ? sinPasswordHash(usuario) : null;
+const obtenerUsuarioPorId = async (id) => {
+  const { data, error } = await supabase
+    .from('usuarios')
+    .select(COLUMNAS)
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`No se pudo obtener el usuario: ${error.message}`);
+  }
+
+  return data ? aCamelCase(data) : null;
+};
+
+/**
+ * Obtiene un usuario por id, o lanza NoEncontrado (404).
+ * @param {number|string} id
+ * @returns {Promise<object>}
+ * @throws {NoEncontrado}
+ */
+const obtenerUsuarioOFallar = async (id) => {
+  const usuario = await obtenerUsuarioPorId(id);
+  if (!usuario) {
+    throw new NoEncontrado('Usuario no encontrado');
+  }
+  return usuario;
 };
 
 /**
@@ -43,12 +93,17 @@ const obtenerUsuarioPorId = (id) => {
  * esSuperAdmin, permisos...) NO llega aquí siquiera, porque el validador ya
  * los descarta antes (ver auth.validator.js).
  *
- * `rol` y `activo` los decide el servidor, nunca el cliente:
- * - rol siempre nace "pendiente": nadie se auto-asigna acceso con privilegios.
- *   Solo un superadmin, en una operación administrativa aparte, puede
- *   asignar el rol real de un usuario.
- * - activo siempre nace true: no hay forma de que un registro público cree
- *   una cuenta ya desactivada.
+ * `rol` y `activo` los decide el servidor, nunca el cliente: ambos los
+ * fija el default de su columna ('pendiente' y true) — nadie se
+ * auto-asigna acceso con privilegios; solo un superadmin, en una
+ * operación administrativa aparte, puede asignar el rol real de un
+ * usuario. El email duplicado (409) lo rechaza el UNIQUE de la BD,
+ * traducido por traducirErrorPostgres.
+ *
+ * No hay un usuario autenticado todavía que haga este cambio (es un
+ * registro público, anónimo): crearClienteConUsuario(null) deja claro
+ * que no hubo actor, en vez de usar el cliente singleton para una
+ * escritura.
  *
  * @param {{ nombre: string, email: string, password: string }} datos
  * @returns {Promise<object>} el usuario creado, sin passwordHash
@@ -56,18 +111,21 @@ const obtenerUsuarioPorId = (id) => {
 const crearUsuario = async (datos) => {
   const passwordHash = await generarPasswordHash(datos.password);
 
-  const nuevoUsuario = {
-    id: usuarios.length > 0 ? Math.max(...usuarios.map((usuario) => usuario.id)) + 1 : 1,
-    nombre: datos.nombre,
-    email: datos.email.toLowerCase(),
-    passwordHash,
-    // Valores controlados por el servidor, nunca por el cliente:
-    rol: 'pendiente',
-    activo: true,
-  };
+  const { data, error } = await crearClienteConUsuario(null)
+    .from('usuarios')
+    .insert({
+      nombre: datos.nombre,
+      email: datos.email.toLowerCase(),
+      password_hash: passwordHash,
+    })
+    .select(COLUMNAS)
+    .single();
 
-  usuarios.push(nuevoUsuario);
-  return sinPasswordHash(nuevoUsuario);
+  if (error) {
+    throw traducirErrorPostgres(error);
+  }
+
+  return aCamelCase(data);
 };
 
 /**
@@ -81,19 +139,27 @@ const crearUsuario = async (datos) => {
  *   correctas (sin passwordHash); null en cualquier otro caso
  */
 const verificarCredenciales = async (email, password) => {
-  const usuario = buscarPorEmail(email);
+  const { data, error } = await supabase
+    .from('usuarios')
+    .select(`${COLUMNAS}, password_hash`)
+    .eq('email', email.toLowerCase())
+    .maybeSingle();
 
-  if (!usuario) {
+  if (error) {
+    throw new Error(`No se pudo obtener el usuario: ${error.message}`);
+  }
+
+  if (!data) {
     return null;
   }
 
-  const passwordValida = await verificarPassword(password, usuario.passwordHash);
+  const passwordValida = await verificarPassword(password, data.password_hash);
 
   if (!passwordValida) {
     return null;
   }
 
-  return sinPasswordHash(usuario);
+  return aCamelCase(sinPasswordHash(data));
 };
 
 /**
@@ -112,71 +178,56 @@ const verificarCredenciales = async (email, password) => {
  * siempre quede alguien que pueda volver a asignar roles"; eso cubre
  * también el caso de quitarle el rol a OTRO superadmin si es el último.
  *
+ * Es una invariante entre FILAS (cuántos superadmin activos quedan), no
+ * algo que un CHECK de una sola fila pueda expresar: se valida aquí,
+ * nunca solo en la BD (mismo motivo que la gracia de colaboradores).
+ *
  * @param {number|string} id
  * @param {string} rol uno de los roles del dominio (ver constants/dominio.js ROLES)
- * @returns {object | null} el usuario actualizado (sin passwordHash), o null si no existe
+ * @param {number} usuarioId quién hace el cambio (lo lee registrar_auditoria())
+ * @returns {Promise<object>} el usuario actualizado (sin passwordHash)
+ * @throws {NoEncontrado} si el id no existe
  * @throws {Conflicto} si degradar a este usuario deja el sistema sin ningún superadmin activo
  */
-const asignarRol = (id, rol) => {
-  const usuario = usuarios.find((candidato) => candidato.id === Number(id));
-
-  if (!usuario) {
-    return null;
-  }
+const asignarRol = async (id, rol, usuarioId) => {
+  const usuario = await obtenerUsuarioOFallar(id);
 
   if (usuario.rol === 'superadmin' && rol !== 'superadmin') {
-    const quedaOtroSuperadminActivo = usuarios.some(
-      (candidato) =>
-        candidato.id !== usuario.id && candidato.rol === 'superadmin' && candidato.activo === true,
-    );
+    const { count, error } = await supabase
+      .from('usuarios')
+      .select('id', { count: 'exact', head: true })
+      .eq('rol', 'superadmin')
+      .eq('activo', true)
+      .neq('id', id);
 
-    if (!quedaOtroSuperadminActivo) {
+    if (error) {
+      throw new Error(`No se pudo verificar los superadmin activos: ${error.message}`);
+    }
+
+    if (count === 0) {
       throw new Conflicto('No puede quedar el sistema sin ningún superadmin activo');
     }
   }
 
-  usuario.rol = rol;
-  return sinPasswordHash(usuario);
-};
+  const { data, error } = await crearClienteConUsuario(usuarioId)
+    .from('usuarios')
+    .update({ rol })
+    .eq('id', id)
+    .select(COLUMNAS)
+    .single();
 
-/**
- * Crea la cuenta "superadmin" inicial, SOLO si:
- * - aún no existe ningún usuario con ese email, y
- * - se llama explícitamente desde el arranque del servidor (server.js) con
- *   credenciales tomadas de variables de entorno.
- *
- * No se invoca nunca desde `crearApp`/los tests: así ninguna prueba de
- * integración se ve afectada por este bootstrap, y la tabla en memoria de
- * los tests sigue empezando genuinamente vacía.
- *
- * @param {{ nombre: string, email: string, password: string }} datos
- * @returns {Promise<object | null>} el superadmin creado, o null si el email ya existía
- */
-const crearSuperAdministradorInicial = async (datos) => {
-  if (buscarPorEmail(datos.email)) {
-    return null;
+  if (error) {
+    throw traducirErrorPostgres(error);
   }
 
-  const passwordHash = await generarPasswordHash(datos.password);
-
-  const nuevoUsuario = {
-    id: usuarios.length > 0 ? Math.max(...usuarios.map((usuario) => usuario.id)) + 1 : 1,
-    nombre: datos.nombre,
-    email: datos.email.toLowerCase(),
-    passwordHash,
-    rol: 'superadmin',
-    activo: true,
-  };
-
-  usuarios.push(nuevoUsuario);
-  return sinPasswordHash(nuevoUsuario);
+  return aCamelCase(data);
 };
 
 module.exports = {
   obtenerUsuarioPorEmail,
   obtenerUsuarioPorId,
+  obtenerUsuarioOFallar,
   crearUsuario,
   verificarCredenciales,
   asignarRol,
-  crearSuperAdministradorInicial,
 };
