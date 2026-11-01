@@ -61,15 +61,17 @@ select is_empty($q$
   where n.nspname = 'public' and t.relkind = 'r' and not t.relrowsecurity
 $q$, 'Toda tabla tiene RLS habilitado');
 
+-- authenticated SÍ tiene permisos desde el Bloque 11 (SCRUM-147, políticas
+-- RLS por rol) — la matriz exacta tabla×rol×operación la cubre
+-- politicas_rls_test.sql. anon sigue sin ningún permiso, en ninguna tabla.
 select is_empty($q$
-  select r.rolname || ' en ' || t.relname
+  select t.relname
   from pg_class t
   join pg_namespace n on n.oid = t.relnamespace
-  cross join pg_roles r
-  where n.nspname = 'public' and t.relkind = 'r' and r.rolname in ('anon', 'authenticated')
-    and (has_table_privilege(r.oid, t.oid, 'SELECT') or has_table_privilege(r.oid, t.oid, 'INSERT')
-      or has_table_privilege(r.oid, t.oid, 'UPDATE') or has_table_privilege(r.oid, t.oid, 'DELETE'))
-$q$, 'anon y authenticated no tienen permisos sobre ninguna tabla');
+  where n.nspname = 'public' and t.relkind = 'r'
+    and (has_table_privilege('anon', t.oid, 'SELECT') or has_table_privilege('anon', t.oid, 'INSERT')
+      or has_table_privilege('anon', t.oid, 'UPDATE') or has_table_privilege('anon', t.oid, 'DELETE'))
+$q$, 'anon no tiene permisos sobre ninguna tabla');
 
 select is_empty($q$
   select c.conrelid::regclass::text || '.' || c.conname
