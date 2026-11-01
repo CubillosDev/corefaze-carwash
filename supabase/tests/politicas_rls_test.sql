@@ -13,7 +13,7 @@
 -- "denegado" en las 11 tablas, nunca un "permitido" que no existe.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(78);
+select plan(82);
 
 -- ============================================================
 -- rol_actual()
@@ -25,6 +25,24 @@ select is(public.rol_actual(), null, 'rol_actual() sin claim devuelve null');
 
 select set_config('request.jwt.claims', '{"app_metadata":{"rol":"administrador"}}', true);
 select is(public.rol_actual(), 'administrador', 'rol_actual() con claim devuelve el rol correcto');
+
+-- Tras un set_config local previo, el parámetro de sesión puede quedar
+-- como '' (nunca null) en la misma conexión — ''::jsonb lanza un error,
+-- por eso rol_actual() hace nullif(..., '') ANTES de castear a jsonb.
+select set_config('request.jwt.claims', '', true);
+select is(public.rol_actual(), null, 'rol_actual() con claim vacío ('''') devuelve null, sin lanzar error');
+
+select set_config('request.jwt.claims', '{}', true);
+select is(public.rol_actual(), null, 'rol_actual() con claim ''{}'' (sin app_metadata) devuelve null');
+
+select set_config('request.jwt.claims', '{"app_metadata":{}}', true);
+select is(public.rol_actual(), null, 'rol_actual() con claim ''{"app_metadata":{}}'' (sin rol) devuelve null');
+
+select set_config('request.jwt.claims', '', true);
+select is_empty(
+  $$select id from public.clientes$$,
+  'con claim vacío (''''), un SELECT como authenticated devuelve 0 filas sin lanzar error'
+);
 
 reset role;
 

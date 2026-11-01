@@ -22,7 +22,7 @@ security invoker
 set search_path = ''
 as $$
   select nullif(
-    current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'rol',
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb -> 'app_metadata' ->> 'rol',
     ''
   );
 $$;
@@ -165,7 +165,7 @@ create policy jornadas_update_superadmin_administrador_soporte
   );
 
 comment on policy jornadas_update_superadmin_administrador_soporte on public.jornadas is
-  'Cerrar o editar una jornada: superadmin, administrador y soporte. Reabrir (dejar estado en ''abierta'' vía UPDATE) queda reservado a superadmin — igual que exigirSuperadminParaReabrir en jornadas.routes.js.';
+  'Cerrar o reabrir una jornada: superadmin, administrador y soporte. Reabrir (dejar estado en ''abierta'' vía UPDATE) queda reservado a superadmin — igual que exigirSuperadminParaReabrir en jornadas.routes.js.';
 
 -- ============================================================
 -- reaperturas_jornada: registro de solo inserción, efecto de reabrir una
