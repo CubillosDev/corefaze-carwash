@@ -100,6 +100,17 @@ grant execute on function public.mi_funcion(...) to service_role; -- solo si es 
 
 `public` es el que realmente importa revocar; `anon`/`authenticated` se listan también por claridad, no porque aporten una restricción adicional una vez que `public` ya no la tiene.
 
+**Default privileges (la causa raíz, corregida de una vez por todas).** El patrón anterior corrige una función después de creada, pero no evita que la siguiente función nueva nazca otra vez abierta: `CREATE FUNCTION` concede `EXECUTE` a `PUBLIC` por defecto, y eso es así **incluso si `pg_default_acl` ya tiene una fila con GRANTs explícitos a otros roles** (Supabase trae una default ACL para `public` que agrega `EXECUTE` a `anon`/`authenticated`/`service_role`, pero esa fila no apaga el baseline de Postgres que además le da `EXECUTE` a `PUBLIC`). Confirmado empíricamente creando una función de prueba en una transacción revertida. `20261030120000_corregir_privilegios_execute_funciones.sql` apaga ese baseline para siempre:
+
+```sql
+alter default privileges for role postgres
+  revoke execute on functions from public;
+alter default privileges for role postgres in schema public
+  revoke execute on functions from anon, authenticated;
+```
+
+Desde esa migración, **toda función nueva que cree el rol `postgres` nace sin `EXECUTE` para `public`/`anon`/`authenticated`**, sin que su propia migración tenga que acordarse de revocarlo — confirmado mergeando las ramas pendientes (RLS por rol, créditos, nómina) y verificando que sus funciones nuevas (`impedir_modificacion()`, `proteger_prestamo_colaborador()`, `impedir_orden_en_quincena_liquidada()`, ninguna con un `revoke` propio) quedaron igual de cerradas. El `revoke execute ... from public, anon, authenticated;` explícito de cada función sigue siendo la práctica recomendada (documenta la intención en el diff de esa migración), pero ya es defensa en profundidad, no la única barrera. Las funciones que SÍ necesitan `authenticated` (`rol_actual()`, `comision_orden()`, `limites_quincena()`, `comision_colaborador_periodo()`, `prestamos_colaborador_periodo()`, `validar_cobertura_prestamos_colaborador()`) siguen otorgándoselo con un `grant` explícito después de crearse — los default privileges solo decide qué pasa si nadie otorga nada.
+
 **Funciones de trigger** (`RETURNS trigger`) son un caso aparte: Postgres ya impide llamarlas fuera de un trigger sin importar su `EXECUTE` (`ERROR: trigger functions can only be called as triggers`), y revocarles `EXECUTE` no afecta que sigan disparándose para cualquier rol (el motor de triggers las invoca directamente, sin pasar por esa verificación). Aun así, se revocan de `public`/`anon`/`authenticated` por consistencia y como defensa en profundidad — no por necesidad funcional.
 
 Para auditar el estado real de un esquema completo: `has_function_privilege(rol, funcion, 'execute')` por rol, y `select (aclexplode(proacl)).* from pg_proc where oid = 'public.mi_funcion(...)'::regprocedure` para ver el ACL crudo (incluye la fila de `PUBLIC`, con `grantee` vacío/`0`). `supabase/tests/privilegios_execute_test.sql` corre esta auditoría como regresión estructural en cada `supabase test db`.

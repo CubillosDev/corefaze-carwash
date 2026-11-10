@@ -78,3 +78,53 @@ comment on function public.preparar_orden_lavado() is
   'Trigger BEFORE INSERT en ordenes_lavado: congela el porcentaje_comision vigente del colaborador. Revocado de PUBLIC/anon/authenticated (defensa en profundidad), misma razón que asignar_actualizado_en().';
 comment on function public.proteger_orden_lavado() is
   'Trigger BEFORE UPDATE en ordenes_lavado: una orden entregada/cancelada no se modifica; valor/servicio/jornada/fecha/turno/creado_en son inmutables; reasignar colaborador recalcula su % congelado. Revocado de PUBLIC/anon/authenticated (defensa en profundidad), misma razón que asignar_actualizado_en().';
+
+-- ============================================================
+-- Causa raíz: DEFAULT PRIVILEGES. Lo de arriba corrige las funciones que
+-- YA EXISTÍAN con el problema, pero no evita que la MISMA fuga vuelva a
+-- pasar con la próxima función nueva: CREATE FUNCTION concede EXECUTE a
+-- PUBLIC por defecto, y esto es así AUNQUE ya exista una fila en
+-- pg_default_acl con GRANTs explícitos a otros roles — Supabase ya trae
+-- una default ACL para (rol postgres, esquema public, funciones) que
+-- agrega EXECUTE explícito a anon/authenticated/service_role, pero esa
+-- fila NO suprime el baseline interno de Postgres que además le da
+-- EXECUTE a PUBLIC a toda función nueva. Confirmado creando una función
+-- de prueba (en una transacción, revertida) ANTES de este fix: su
+-- proacl incluía una entrada con grantee vacío (PUBLIC) además de
+-- postgres/anon/authenticated/service_role.
+--
+-- La única forma de apagar ese baseline es un REVOKE explícito de
+-- PUBLIC a nivel de DEFAULT PRIVILEGES — no alcanza con revocarlo
+-- función por función después de creada (eso es lo que hace esta
+-- migración arriba, pero solo para las que ya existían).
+--
+-- "for role postgres" (sin "in schema"): nuestras migraciones SIEMPRE
+-- corren como el rol postgres (confirmado: todas las funciones del
+-- esquema son propiedad de postgres), así que esto es lo que importa
+-- para esta base. Se deja sin acotar a un esquema porque postgres no
+-- debería crear NINGUNA función en NINGÚN esquema con EXECUTE abierto a
+-- PUBLIC por defecto — defensa en profundidad también ante un futuro
+-- esquema nuevo.
+--
+-- anon/authenticated sí se acotan "in schema public": son roles de la
+-- API, relevantes solo ahí; no se tocan en otros esquemas (auth,
+-- storage, etc. — administrados por Supabase, no por estas migraciones).
+-- No revocarlos aquí sería redundante en la práctica (sin EXECUTE de
+-- PUBLIC, ya no lo heredan), pero se deja explícito para que un futuro
+-- GRANT directo a cualquiera de los dos, en una función nueva, no pase
+-- inadvertido en un diff — mismo criterio que los revokes individuales
+-- de arriba.
+--
+-- No cambia nada para las funciones que SÍ necesitan EXECUTE de
+-- authenticated (rol_actual(), comision_orden(), limites_quincena(),
+-- comision_colaborador_periodo(), prestamos_colaborador_periodo(),
+-- validar_cobertura_prestamos_colaborador()): esas siguen otorgándolo
+-- con un GRANT explícito en sus propias migraciones, después de crearse
+-- — el default privileges solo decide qué pasa si NADIE otorga nada.
+-- ============================================================
+
+alter default privileges for role postgres
+  revoke execute on functions from public;
+
+alter default privileges for role postgres in schema public
+  revoke execute on functions from anon, authenticated;

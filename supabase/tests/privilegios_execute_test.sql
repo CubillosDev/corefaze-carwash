@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(5);
+select plan(6);
 
 -- ============================================================
 -- reemplazar_tarifas_servicio(): anon/authenticated sin EXECUTE,
@@ -43,6 +43,40 @@ select is(
   ),
   0,
   'PUBLIC no tiene EXECUTE sobre reemplazar_tarifas_servicio (verificado en pg_proc.proacl, no solo has_function_privilege)'
+);
+
+-- ============================================================
+-- Causa raíz, no solo el síntoma: los DEFAULT PRIVILEGES de postgres
+-- para funciones nuevas (pg_default_acl) no deben incluir EXECUTE para
+-- PUBLIC/anon/authenticated en el esquema public (ni en el default
+-- global, sin esquema) — así, cualquier función que se cree a partir de
+-- ahora (en cualquier rama, sin que su propia migración tenga que
+-- acordarse de revocar PUBLIC) nace ya cerrada. Antes de
+-- 20261030120000_corregir_privilegios_execute_funciones.sql, pg_proc
+-- demostraba el síntoma (PUBLIC con EXECUTE) y esta prueba hubiera
+-- fallado también.
+--
+-- Acotado a (esquema public) o (sin esquema, el default global): otros
+-- esquemas administrados por Supabase (storage, auth, realtime, ...)
+-- traen su propia default ACL con anon/authenticated, y eso es correcto
+-- — no es nuestro esquema, no creamos funciones ahí, y no es parte de
+-- este fix tocarlo.
+-- ============================================================
+
+select is(
+  (
+    select count(*)::int
+    from pg_default_acl d
+    left join pg_namespace n on n.oid = d.defaclnamespace
+    join lateral aclexplode(d.defaclacl) a on true
+    where d.defaclrole = 'postgres'::regrole
+      and d.defaclobjtype = 'f'
+      and (n.nspname = 'public' or n.nspname is null)
+      and a.privilege_type = 'EXECUTE'
+      and (a.grantee = 0 or a.grantee in ('anon'::regrole, 'authenticated'::regrole))
+  ),
+  0,
+  'los default privileges de postgres para funciones nuevas en public (y el default global) no incluyen EXECUTE para PUBLIC/anon/authenticated (pg_default_acl)'
 );
 
 -- ============================================================
