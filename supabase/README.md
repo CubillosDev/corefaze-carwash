@@ -87,6 +87,23 @@ Cuando los services de `apps/api` pasen de datos en memoria a Supabase, estas so
   **Nota PostgreSQL 18**: al borrar una fila con hijos por `RESTRICT`, PostgreSQL 17 (la versión del proyecto) devuelve `23503`; desde la versión 18 ese mismo caso devuelve `23001`. El mapeo de errores de la API debe tratar ambos códigos igual al borrar, para no romper si el proyecto se actualiza más adelante.
 - **`parametros_negocio`** (Fase 2) siempre tiene su fila (`id = 1`, la crea la propia migración 12): `GET /api/parametros` nunca debería dar 404.
 
+## Privilegios EXECUTE de funciones
+
+`CREATE FUNCTION` concede `EXECUTE` a `PUBLIC` por defecto. Eso significa que **revocar `EXECUTE` de `anon`/`authenticated` sin revocarlo también de `PUBLIC` no restringe nada**: cualquier rol hereda el privilegio de `PUBLIC` sin necesitar un grant propio, así que esos roles conservan acceso aunque el `revoke` los nombre explícitamente. Pasó justo esto con `reemplazar_tarifas_servicio()` (PR #12, SCRUM-152): su `revoke execute ... from anon, authenticated;` nunca tocó `PUBLIC`, y `anon`/`authenticated` seguían pudiendo ejecutarla — corregido en `20261030120000_corregir_privilegios_execute_funciones.sql`.
+
+**Patrón correcto para cualquier función nueva** (el que ya usa `registrar_auditoria()` desde `activar_auditoria.sql`, y el que deben seguir todas las funciones nuevas):
+
+```sql
+revoke execute on function public.mi_funcion(...) from public, anon, authenticated;
+grant execute on function public.mi_funcion(...) to service_role; -- solo si es una RPC que la API invoca
+```
+
+`public` es el que realmente importa revocar; `anon`/`authenticated` se listan también por claridad, no porque aporten una restricción adicional una vez que `public` ya no la tiene.
+
+**Funciones de trigger** (`RETURNS trigger`) son un caso aparte: Postgres ya impide llamarlas fuera de un trigger sin importar su `EXECUTE` (`ERROR: trigger functions can only be called as triggers`), y revocarles `EXECUTE` no afecta que sigan disparándose para cualquier rol (el motor de triggers las invoca directamente, sin pasar por esa verificación). Aun así, se revocan de `public`/`anon`/`authenticated` por consistencia y como defensa en profundidad — no por necesidad funcional.
+
+Para auditar el estado real de un esquema completo: `has_function_privilege(rol, funcion, 'execute')` por rol, y `select (aclexplode(proacl)).* from pg_proc where oid = 'public.mi_funcion(...)'::regprocedure` para ver el ACL crudo (incluye la fila de `PUBLIC`, con `grantee` vacío/`0`). `supabase/tests/privilegios_execute_test.sql` corre esta auditoría como regresión estructural en cada `supabase test db`.
+
 ## Recetas de corrección
 
 1. **Error en una migración que aún no está en `develop`**: corrige el archivo de la migración y corre `npx supabase db reset`.
