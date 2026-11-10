@@ -97,6 +97,29 @@ revoke execute on function public.comision_colaborador_periodo(bigint, date, dat
 grant execute on function public.comision_colaborador_periodo(bigint, date, date) to authenticated, service_role;
 
 -- ============================================================
+-- Clave determinística de advisory lock para una quincena: misma clave
+-- para el mismo periodo_inicio en registrar_prestamo() y
+-- liquidar_quincena(), para serializar ambas operaciones sobre la misma
+-- quincena (evita que un préstamo se registre a la vez que se liquida el
+-- mismo periodo).
+-- ============================================================
+
+create function public.clave_bloqueo_quincena(p_periodo_inicio date)
+returns bigint
+language sql
+immutable
+set search_path = ''
+as $$
+  select extract(epoch from p_periodo_inicio)::bigint;
+$$;
+
+comment on function public.clave_bloqueo_quincena(date) is
+  'Clave determinística (derivada de periodo_inicio) para pg_advisory_xact_lock: la misma quincena siempre da la misma clave, usada por registrar_prestamo() y liquidar_quincena() para serializarse entre sí.';
+
+revoke execute on function public.clave_bloqueo_quincena(date) from public, anon, authenticated;
+grant execute on function public.clave_bloqueo_quincena(date) to service_role;
+
+-- ============================================================
 -- liquidaciones_nomina: encabezado de una quincena liquidada. Totales
 -- CONGELADOS en el momento de liquidar. Inmutable (también para
 -- service_role, como pagos_credito).
@@ -219,6 +242,38 @@ create trigger trg_prestamos_colaborador_auditoria after insert or update on pub
   for each row execute function public.registrar_auditoria();
 
 -- ============================================================
+-- Préstamos acumulados de un colaborador en un periodo: fuente única,
+-- reutilizada por registrar_prestamo(), liquidar_quincena() y
+-- validar_cobertura_prestamos_colaborador() (R13/R14 en
+-- proteger_orden_lavado) — nunca se duplica el cálculo. No filtra por
+-- liquidacion_id: mientras la quincena no esté liquidada (la única
+-- situación en que la consultan esas tres funciones), ninguna de sus
+-- filas puede tenerlo distinto de null.
+-- ============================================================
+
+create function public.prestamos_colaborador_periodo(p_colaborador_id bigint, p_inicio date, p_fin date)
+returns integer
+language sql
+stable
+set search_path = ''
+as $$
+  select coalesce(sum(valor), 0)::integer
+  from public.prestamos_colaborador
+  where colaborador_id = p_colaborador_id
+    and fecha between p_inicio and p_fin;
+$$;
+
+comment on function public.prestamos_colaborador_periodo(bigint, date, date) is
+  'Suma de los préstamos del colaborador con fecha en [p_inicio, p_fin]. Única fuente del cálculo: la usan registrar_prestamo(), liquidar_quincena() y validar_cobertura_prestamos_colaborador().';
+
+-- Misma excepción razonada que limites_quincena/comision_orden/
+-- comision_colaborador_periodo: la invoca también
+-- validar_cobertura_prestamos_colaborador(), llamada desde
+-- proteger_orden_lavado(), que puede correr como authenticated.
+revoke execute on function public.prestamos_colaborador_periodo(bigint, date, date) from public, anon;
+grant execute on function public.prestamos_colaborador_periodo(bigint, date, date) to authenticated, service_role;
+
+-- ============================================================
 -- liquidacion_colaboradores: el detalle congelado por colaborador de
 -- cada liquidación. Inmutable también para service_role, igual que
 -- liquidaciones_nomina.
@@ -310,10 +365,89 @@ grant update (
 ) on public.ordenes_lavado to authenticated;
 
 -- ============================================================
+-- Una jornada reabierta no puede producir órdenes "huérfanas" sin
+-- liquidar: BEFORE INSERT en ordenes_lavado, rechaza cualquier orden
+-- cuya fecha caiga en una quincena que ya tiene liquidación.
+-- ============================================================
+
+create function public.impedir_orden_en_quincena_liquidada()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_rango public.rango_fechas;
+begin
+  v_rango := public.limites_quincena(new.fecha);
+
+  if exists (
+    select 1 from public.liquidaciones_nomina
+    where periodo_inicio = v_rango.inicio and periodo_fin = v_rango.fin
+  ) then
+    raise exception 'La quincena % – % ya fue liquidada; no se pueden registrar órdenes en ese periodo',
+      v_rango.inicio, v_rango.fin using errcode = 'check_violation';
+  end if;
+
+  return new;
+end;
+$$;
+
+comment on function public.impedir_orden_en_quincena_liquidada() is
+  'Trigger BEFORE INSERT en ordenes_lavado (SCRUM-159): rechaza cualquier orden cuya fecha caiga en una quincena que ya tiene fila en liquidaciones_nomina.';
+
+create trigger trg_ordenes_lavado_impedir_quincena_liquidada
+  before insert on public.ordenes_lavado
+  for each row execute function public.impedir_orden_en_quincena_liquidada();
+
+-- ============================================================
+-- Validación compartida por R13 (cancelar) y R14 (reasignar
+-- colaborador, ambas en proteger_orden_lavado): la comisión del
+-- colaborador en su quincena, SIN la orden indicada, no puede quedar
+-- por debajo de sus préstamos aún no liquidados.
+-- ============================================================
+
+create function public.validar_cobertura_prestamos_colaborador(
+  p_colaborador_id bigint,
+  p_fecha_orden date,
+  p_valor_orden integer,
+  p_porcentaje_orden numeric,
+  p_mensaje text
+)
+returns void
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_rango public.rango_fechas;
+  v_comision_restante integer;
+  v_prestamos_pendientes integer;
+begin
+  v_rango := public.limites_quincena(p_fecha_orden);
+  v_comision_restante := public.comision_colaborador_periodo(p_colaborador_id, v_rango.inicio, v_rango.fin)
+    - public.comision_orden(p_valor_orden, p_porcentaje_orden);
+  v_prestamos_pendientes := public.prestamos_colaborador_periodo(p_colaborador_id, v_rango.inicio, v_rango.fin);
+
+  if v_comision_restante < v_prestamos_pendientes then
+    raise exception '%', p_mensaje using errcode = 'check_violation';
+  end if;
+end;
+$$;
+
+comment on function public.validar_cobertura_prestamos_colaborador(bigint, date, integer, numeric, text) is
+  'Comparte la validación de R13 (cancelar) y R14 (reasignar colaborador): la comisión del colaborador en su quincena, sin la orden indicada, no puede quedar por debajo de sus préstamos aún no liquidados. Usada desde proteger_orden_lavado().';
+
+-- Misma excepción razonada que limites_quincena/comision_orden/
+-- comision_colaborador_periodo/prestamos_colaborador_periodo: la invoca
+-- proteger_orden_lavado(), que puede correr como authenticated.
+revoke execute on function public.validar_cobertura_prestamos_colaborador(bigint, date, integer, numeric, text) from public, anon;
+grant execute on function public.validar_cobertura_prestamos_colaborador(bigint, date, integer, numeric, text) to authenticated, service_role;
+
+-- ============================================================
 -- proteger_orden_lavado(): conserva TODO lo de agregar_pagos_credito.sql
 -- y agrega el caso especial de liquidacion_id, R12 (no cancelar tras
--- liquidar) y R13 (cancelar no puede dejar la comisión por debajo de los
--- préstamos pendientes de la quincena).
+-- liquidar), R13 (cancelar no puede dejar la comisión por debajo de los
+-- préstamos pendientes de la quincena) y R14 (lo mismo, al reasignar la
+-- orden a otro colaborador).
 -- ============================================================
 
 create or replace function public.proteger_orden_lavado()
@@ -324,9 +458,6 @@ as $$
 declare
   v_porcentaje numeric(5, 4);
   v_solo_pago_o_liquidacion boolean;
-  v_rango public.rango_fechas;
-  v_comision_restante integer;
-  v_prestamos_pendientes integer;
 begin
   -- Caso especial: pago_credito_id O liquidacion_id (nunca junto con
   -- ningún otro campo) pasan de null a un valor, incluso en una orden ya
@@ -366,22 +497,14 @@ begin
 
   -- R13 (SCRUM-159): cancelar una orden ABIERTA (esta sí es alcanzable)
   -- que dejaría la comisión del colaborador en su quincena por debajo de
-  -- sus préstamos ya registrados y aún no liquidados, se bloquea.
+  -- sus préstamos ya registrados y aún no liquidados, se bloquea. Misma
+  -- validación que R14 (reasignar), vía
+  -- validar_cobertura_prestamos_colaborador().
   if new.estado = 'cancelada' and old.estado in ('registrada', 'en_proceso') then
-    v_rango := public.limites_quincena(old.fecha);
-    v_comision_restante := public.comision_colaborador_periodo(old.colaborador_id, v_rango.inicio, v_rango.fin)
-      - public.comision_orden(old.valor, old.porcentaje_comision);
-
-    select coalesce(sum(valor), 0) into v_prestamos_pendientes
-      from public.prestamos_colaborador
-      where colaborador_id = old.colaborador_id
-        and fecha between v_rango.inicio and v_rango.fin
-        and liquidacion_id is null;
-
-    if v_comision_restante < v_prestamos_pendientes then
-      raise exception 'Cancelar esta orden dejaría la comisión del colaborador en la quincena por debajo de sus préstamos ya registrados'
-        using errcode = 'check_violation';
-    end if;
+    perform public.validar_cobertura_prestamos_colaborador(
+      old.colaborador_id, old.fecha, old.valor, old.porcentaje_comision,
+      'Cancelar esta orden dejaría la comisión del colaborador en la quincena por debajo de sus préstamos ya registrados'
+    );
   end if;
 
   if old.estado in ('entregada', 'cancelada') then
@@ -400,6 +523,17 @@ begin
   end if;
 
   if new.colaborador_id <> old.colaborador_id then
+    -- R14 (SCRUM-159): reasignar una orden ABIERTA a otro colaborador no
+    -- puede dejar al colaborador ANTERIOR con comisión por debajo de sus
+    -- préstamos ya registrados y aún no liquidados. Misma validación
+    -- que R13 (cancelar); no aplica a 'terminada' (no es "abierta").
+    if old.estado in ('registrada', 'en_proceso') then
+      perform public.validar_cobertura_prestamos_colaborador(
+        old.colaborador_id, old.fecha, old.valor, old.porcentaje_comision,
+        'Reasignar esta orden a otro colaborador dejaría la comisión del colaborador anterior en la quincena por debajo de sus préstamos ya registrados'
+      );
+    end if;
+
     select c.porcentaje_comision into v_porcentaje
     from public.colaboradores c
     where c.id = new.colaborador_id;
@@ -461,6 +595,10 @@ begin
 
   v_rango := public.limites_quincena(p_fecha);
 
+  -- Mismo candado que liquidar_quincena() sobre esta quincena: serializa
+  -- un préstamo concurrente con una liquidación del mismo periodo.
+  perform pg_advisory_xact_lock(public.clave_bloqueo_quincena(v_rango.inicio));
+
   if exists (
     select 1 from public.liquidaciones_nomina
     where periodo_inicio = v_rango.inicio and periodo_fin = v_rango.fin
@@ -477,10 +615,7 @@ begin
     for update;
 
   v_comision := public.comision_colaborador_periodo(p_colaborador_id, v_rango.inicio, v_rango.fin);
-
-  select coalesce(sum(valor), 0) into v_prestamos_previos
-    from public.prestamos_colaborador
-    where colaborador_id = p_colaborador_id and fecha between v_rango.inicio and v_rango.fin;
+  v_prestamos_previos := public.prestamos_colaborador_periodo(p_colaborador_id, v_rango.inicio, v_rango.fin);
 
   select tope_prestamo_colaborador into v_tope from public.parametros_negocio where id = 1;
 
@@ -503,7 +638,7 @@ end;
 $$;
 
 comment on function public.registrar_prestamo(bigint, integer, date, bigint) is
-  'Valida (colaborador activo, quincena no liquidada, valor <= comisión acumulada menos préstamos ya pedidos, acotado por tope_prestamo_colaborador si es > 0) y solo entonces inserta el préstamo. Bloquea los préstamos existentes del colaborador/quincena para serializar préstamos concurrentes.';
+  'Valida (colaborador activo, quincena no liquidada, valor <= comisión acumulada menos préstamos ya pedidos, acotado por tope_prestamo_colaborador si es > 0) y solo entonces inserta el préstamo. Toma pg_advisory_xact_lock sobre la quincena (misma clave que liquidar_quincena()) antes de verificar si ya fue liquidada, y bloquea los préstamos existentes del colaborador/quincena para serializar préstamos concurrentes.';
 
 revoke execute on function public.registrar_prestamo(bigint, integer, date, bigint) from public, anon, authenticated;
 grant execute on function public.registrar_prestamo(bigint, integer, date, bigint) to service_role;
@@ -533,6 +668,11 @@ begin
     raise exception 'El periodo % – % no es una quincena válida', p_inicio, p_fin using errcode = 'check_violation';
   end if;
 
+  -- Mismo candado que registrar_prestamo() sobre esta quincena:
+  -- serializa esta liquidación con un préstamo concurrente del mismo
+  -- periodo, antes de cualquier verificación sobre si ya fue liquidada.
+  perform pg_advisory_xact_lock(public.clave_bloqueo_quincena(p_inicio));
+
   if p_hoy < p_fin then
     raise exception 'No se puede liquidar una quincena que aún no ha terminado' using errcode = 'check_violation';
   end if;
@@ -551,22 +691,35 @@ begin
   perform 1 from public.ordenes_lavado where fecha between p_inicio and p_fin for update;
   perform 1 from public.prestamos_colaborador where fecha between p_inicio and p_fin for update;
 
+  -- Sin greatest(...,0): si algún colaborador tiene préstamos por encima
+  -- de su comisión del periodo, no se liquida nada. R13/R14 en
+  -- proteger_orden_lavado ya deberían impedir que esto ocurra por las
+  -- rutas normales; esta es la última defensa antes de congelar un neto.
+  if exists (
+    select 1
+    from public.ordenes_lavado o
+    where o.fecha between p_inicio and p_fin
+    group by o.colaborador_id
+    having public.prestamos_colaborador_periodo(o.colaborador_id, p_inicio, p_fin)
+         > public.comision_colaborador_periodo(o.colaborador_id, p_inicio, p_fin)
+  ) then
+    raise exception 'Hay colaboradores con préstamos superiores a su comisión del periodo; no se puede liquidar'
+      using errcode = 'check_violation';
+  end if;
+
   with detalle as (
     select
       o.colaborador_id,
       count(*) filter (where o.estado <> 'cancelada') as servicios,
       coalesce(sum(o.valor) filter (where o.estado <> 'cancelada'), 0) as producido,
       public.comision_colaborador_periodo(o.colaborador_id, p_inicio, p_fin) as comision,
-      coalesce((
-        select sum(pr.valor) from public.prestamos_colaborador pr
-        where pr.colaborador_id = o.colaborador_id and pr.fecha between p_inicio and p_fin
-      ), 0) as prestamos
+      public.prestamos_colaborador_periodo(o.colaborador_id, p_inicio, p_fin) as prestamos
     from public.ordenes_lavado o
     where o.fecha between p_inicio and p_fin
     group by o.colaborador_id
   ), detalle_neto as (
     select colaborador_id, servicios, producido, comision, prestamos,
-      greatest(comision - prestamos, 0) as neto
+      comision - prestamos as neto
     from detalle
   ), nueva_liquidacion as (
     insert into public.liquidaciones_nomina (periodo_inicio, periodo_fin, total_comision, total_prestamos, total_neto, liquidado_por)
@@ -593,7 +746,7 @@ end;
 $$;
 
 comment on function public.liquidar_quincena(date, date, bigint, date) is
-  'Todo o nada: valida el periodo (quincena real, ya terminada, sin órdenes abiertas), bloquea sus filas, calcula el detalle por colaborador (servicios/producido/comisión/préstamos/neto, todo CONGELADO) en una sola sentencia, y marca ordenes_lavado/prestamos_colaborador con el liquidacion_id resultante. p_hoy (default current_date) permite probar con una fecha de referencia fija.';
+  'Todo o nada: toma pg_advisory_xact_lock sobre la quincena (misma clave que registrar_prestamo()), valida el periodo (quincena real, ya terminada, sin órdenes abiertas, ningún colaborador con préstamos por encima de su comisión), bloquea sus filas, calcula el detalle por colaborador (servicios/producido/comisión/préstamos/neto, todo CONGELADO) en una sola sentencia, y marca ordenes_lavado/prestamos_colaborador con el liquidacion_id resultante. p_hoy (default current_date) permite probar con una fecha de referencia fija.';
 
 revoke execute on function public.liquidar_quincena(date, date, bigint, date) from public, anon, authenticated;
 grant execute on function public.liquidar_quincena(date, date, bigint, date) to service_role;

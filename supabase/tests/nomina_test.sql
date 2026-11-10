@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(33);
+select plan(39);
 
 -- ============================================================
 -- Fixtures. Quincena de prueba: 2026-01-01 a 2026-01-15 (ya pasada
@@ -267,6 +267,112 @@ select throws_ok(
   $$update public.ordenes_lavado set estado = 'cancelada', motivo = 'intento' where turno = 965$$,
   null, null,
   'cancelar la única orden abierta de un colaborador con préstamos ya registrados por el total de su comisión falla'
+);
+
+-- ============================================================
+-- Insertar una orden en una quincena ya liquidada falla (R14 del ajuste:
+-- una jornada reabierta no puede producir órdenes sin liquidar).
+-- ============================================================
+
+select throws_ok(
+  format(
+    $sql$insert into public.ordenes_lavado
+      (jornada_id, fecha, turno, vehiculo_id, servicio_id, colaborador_id, medio_pago, valor, estado)
+      values (%s, '2026-01-05', 970, %s, %s, %s, 'efectivo', 1000, 'registrada')$sql$,
+    (select id from public.jornadas where fecha = '2026-01-05'),
+    (select id from public.vehiculos where placa = 'ZZE200'),
+    (select id from public.servicios where numero = 960),
+    (select id from public.colaboradores where codigo = 960)
+  ),
+  null, null,
+  'insertar una orden con fecha en una quincena ya liquidada falla'
+);
+
+-- ============================================================
+-- Reasignar colaborador en una orden abierta: rompe los préstamos del
+-- colaborador anterior (falla) vs. no los rompe (funciona).
+-- ============================================================
+
+-- turno 965 es la única orden de 964, que ya tiene un préstamo por el
+-- total de su comisión: reasignarla lo deja en 0, igual que cancelarla.
+select throws_ok(
+  format(
+    'update public.ordenes_lavado set colaborador_id = %s where turno = 965',
+    (select id from public.colaboradores where codigo = 960)
+  ),
+  null, null,
+  'reasignar la única orden abierta de un colaborador con préstamos ya registrados por el total de su comisión falla'
+);
+
+insert into public.vehiculos (placa, tipo_vehiculo, cliente_id) values
+  ('ZZE201', 'automovil', (select id from public.clientes where documento = '1000000960'));
+insert into public.colaboradores (codigo, nombre, documento, telefono, porcentaje_comision, tipo_vinculacion) values
+  (966, 'Colaborador Reasignar', '2000000966', '3000000966', 0.50, 'fijo');
+insert into public.ordenes_lavado (jornada_id, fecha, turno, vehiculo_id, servicio_id, colaborador_id, medio_pago, valor, estado) values
+  ((select id from public.jornadas where fecha = '2026-02-05'), '2026-02-05', 971,
+   (select id from public.vehiculos where placa = 'ZZE201'),
+   (select id from public.servicios where numero = 960),
+   (select id from public.colaboradores where codigo = 966),
+   'efectivo', 20000, 'entregada'),
+  ((select id from public.jornadas where fecha = '2026-02-05'), '2026-02-05', 972,
+   (select id from public.vehiculos where placa = 'ZZE201'),
+   (select id from public.servicios where numero = 960),
+   (select id from public.colaboradores where codigo = 966),
+   'efectivo', 20000, 'registrada');
+-- comisión de 966: 20000*0.50 (turno 971) + 20000*0.50 (turno 972) = 20000. Préstamo 5000.
+select public.registrar_prestamo((select id from public.colaboradores where codigo = 966), 5000, '2026-02-07',
+  (select id from public.usuarios where email = 'nomina2@carwash.test'));
+
+-- Reasignar turno 972 deja a 966 con 10000 (solo turno 971), todavía por
+-- encima de su préstamo (5000): no rompe nada.
+select lives_ok(
+  format(
+    'update public.ordenes_lavado set colaborador_id = %s where turno = 972',
+    (select id from public.colaboradores where codigo = 960)
+  ),
+  'reasignar una orden abierta que NO rompe los préstamos del colaborador anterior no lanza excepción'
+);
+
+-- ============================================================
+-- Liquidar con préstamos superiores a la comisión del periodo: falla y
+-- no deja ninguna fila. Inalcanzable por las rutas normales (R13/R14 ya
+-- lo impiden) — se fuerza con un INSERT directo en prestamos_colaborador,
+-- sin pasar por registrar_prestamo(), para probar la última defensa
+-- dentro de liquidar_quincena().
+-- ============================================================
+
+insert into public.jornadas (fecha, abierta_por, estado, cerrada_en, cerrada_por) values
+  ('2026-03-05', (select id from public.usuarios where email = 'nomina2@carwash.test'), 'cerrada', now(),
+   (select id from public.usuarios where email = 'nomina2@carwash.test'));
+insert into public.colaboradores (codigo, nombre, documento, telefono, porcentaje_comision, tipo_vinculacion) values
+  (967, 'Colaborador Liquidar Roto', '2000000967', '3000000967', 0.50, 'fijo');
+insert into public.ordenes_lavado (jornada_id, fecha, turno, vehiculo_id, servicio_id, colaborador_id, medio_pago, valor, estado) values
+  ((select id from public.jornadas where fecha = '2026-03-05'), '2026-03-05', 980,
+   (select id from public.vehiculos where placa = 'ZZE200'),
+   (select id from public.servicios where numero = 960),
+   (select id from public.colaboradores where codigo = 967),
+   'efectivo', 20000, 'entregada');
+-- comisión real: 20000*0.50=10000. Préstamo forzado por encima (15000),
+-- sin pasar por registrar_prestamo() (que lo habría rechazado).
+insert into public.prestamos_colaborador (colaborador_id, fecha, valor, registrado_por) values
+  ((select id from public.colaboradores where codigo = 967), '2026-03-07', 15000,
+   (select id from public.usuarios where email = 'nomina2@carwash.test'));
+
+select throws_ok(
+  format(
+    'select public.liquidar_quincena(''2026-03-01'', ''2026-03-15'', %s, ''2026-03-20'')',
+    (select id from public.usuarios where email = 'nomina2@carwash.test')
+  ),
+  null, null,
+  'liquidar un periodo donde un colaborador tiene préstamos por encima de su comisión falla'
+);
+select is_empty(
+  $$select id from public.liquidaciones_nomina where periodo_inicio = '2026-03-01' and periodo_fin = '2026-03-15'$$,
+  'liquidar con préstamos superiores a la comisión no deja ninguna liquidación'
+);
+select is_empty(
+  $$select id from public.liquidacion_colaboradores where colaborador_id = (select id from public.colaboradores where codigo = 967)$$,
+  'liquidar con préstamos superiores a la comisión no deja ningún detalle para ese colaborador'
 );
 
 -- ============================================================
