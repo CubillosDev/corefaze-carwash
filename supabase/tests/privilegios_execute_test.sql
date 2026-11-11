@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(6);
+select plan(7);
 
 -- ============================================================
 -- reemplazar_tarifas_servicio(): anon/authenticated sin EXECUTE,
@@ -77,6 +77,38 @@ select is(
   ),
   0,
   'los default privileges de postgres para funciones nuevas en public (y el default global) no incluyen EXECUTE para PUBLIC/anon/authenticated (pg_default_acl)'
+);
+
+-- ============================================================
+-- Excepción pedida por el revisor en el esquema extensions: el revoke
+-- de PUBLIC de arriba es global ("for role postgres" sin "in schema"),
+-- y la preocupación es que sin esta excepción también apagaría el
+-- EXECUTE de PUBLIC sobre las funciones que crea
+-- `create extension pgtap with schema extensions`, rompiendo
+-- `set local role service_role;` en cualquier prueba. En este entorno
+-- (ver migración y el reporte) `postgres` no es superusuario real y
+-- las funciones de pgTAP quedan con proowner = supabase_admin, así que
+-- el "for role postgres" nunca las toca de todas formas — pero la
+-- excepción se agrega igual (inocua, defensa correcta si la relación
+-- de ownership cambiara). Documenta el resultado esperado: EXECUTE
+-- para PUBLIC SÍ sigue por defecto en extensions, aunque ya no en
+-- public ni en el default global.
+-- ============================================================
+
+select is(
+  (
+    select count(*)::int
+    from pg_default_acl d
+    join pg_namespace n on n.oid = d.defaclnamespace
+    join lateral aclexplode(d.defaclacl) a on true
+    where d.defaclrole = 'postgres'::regrole
+      and d.defaclobjtype = 'f'
+      and n.nspname = 'extensions'
+      and a.grantee = 0
+      and a.privilege_type = 'EXECUTE'
+  ),
+  1,
+  'excepción documentada: en el esquema extensions, los default privileges de postgres SÍ incluyen EXECUTE para PUBLIC (para no romper las funciones de pgTAP)'
 );
 
 -- ============================================================

@@ -128,3 +128,32 @@ alter default privileges for role postgres
 
 alter default privileges for role postgres in schema public
   revoke execute on functions from anon, authenticated;
+
+-- ============================================================
+-- Excepción observada por el revisor: el default privileges de arriba
+-- (el "for role postgres" SIN "in schema") es deliberadamente global —
+-- ver el comentario de más arriba sobre por qué no se acota a un
+-- esquema: el default de PUBLIC que hay que apagar es GLOBAL, y un
+-- revoke "in schema public" no lo apaga en ningún otro esquema. La
+-- preocupación concreta: `extensions` es el esquema donde las pruebas
+-- crean pgTAP (`create extension pgtap with schema extensions`), y si
+-- ese "for role postgres" alcanzara a sus funciones (ok(), is(),
+-- throws_ok(), ...), service_role perdería EXECUTE sobre ellas,
+-- rompiendo toda prueba con `set local role service_role;`.
+--
+-- Reproducido (ver informe): en este entorno (Supabase CLI 2.122.0,
+-- Postgres 17.11) el rol `postgres` NO es superusuario real
+-- (`rolsuper = false`) — `supabase_admin` sí lo es — y CREATE EXTENSION
+-- deja las funciones de pgTAP con `proowner = supabase_admin`, no
+-- `postgres`. El "for role postgres" de arriba nunca llega a tocarlas
+-- (solo afecta objetos creados POR postgres), así que hoy
+-- service_role conserva EXECUTE sobre pgTAP incluso sin esta línea. Se
+-- agrega de todas formas, tal como lo pidió la revisión: es inocua (solo
+-- agrega EXECUTE a PUBLIC en un esquema donde nunca creamos nada
+-- propio) y es la defensa correcta si algún día `postgres` sí termina
+-- siendo el dueño de objetos en `extensions` (otra versión de Postgres/
+-- Supabase, o un Postgres propio sin la separación postgres/
+-- supabase_admin).
+alter default privileges for role postgres in schema extensions
+  grant execute on functions to public;
+-- ============================================================
