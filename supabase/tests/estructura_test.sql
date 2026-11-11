@@ -5,8 +5,8 @@ select plan(13);
 select tables_are(
   'public',
   array[
-    'auditoria', 'clientes', 'colaboradores', 'jornadas', 'ordenes_lavado', 'parametros_negocio',
-    'reaperturas_jornada', 'servicios', 'tarifas_servicio', 'usuarios', 'vehiculos'
+    'auditoria', 'clientes', 'colaboradores', 'jornadas', 'ordenes_lavado', 'pagos_credito',
+    'parametros_negocio', 'reaperturas_jornada', 'servicios', 'tarifas_servicio', 'usuarios', 'vehiculos'
   ],
   'El esquema public tiene exactamente las tablas del modelo'
 );

@@ -2,7 +2,7 @@
 
 Esquema de la base de datos del Car Wash, construido como migraciones versionadas de Supabase (`supabase/migrations/`). Este documento se actualiza al cerrar cada fase de SCRUM-145/SCRUM-146.
 
-**Estado actual: Fase 2 (SCRUM-146) completa — 11 tablas.** El esquema queda cerrado: `usuarios`, `colaboradores`, `servicios`, `tarifas_servicio`, `clientes`, `vehiculos`, `jornadas`, `reaperturas_jornada`, `ordenes_lavado` (Fase 1) + `parametros_negocio`, `auditoria` (Fase 2).
+**Estado actual: Fase 2 (SCRUM-146) completa + crédito empresarial (SCRUM-158) — 12 tablas.** `usuarios`, `colaboradores`, `servicios`, `tarifas_servicio`, `clientes`, `vehiculos`, `jornadas`, `reaperturas_jornada`, `ordenes_lavado` (Fase 1) + `parametros_negocio`, `auditoria` (Fase 2) + `pagos_credito` (SCRUM-158).
 
 ## Diagrama entidad-relación
 
@@ -90,6 +90,14 @@ erDiagram
         boolean autoriza_motor
         text estado
         varchar motivo
+        bigint pago_credito_id FK
+    }
+    PAGOS_CREDITO {
+        bigint id PK
+        bigint cliente_id FK
+        integer valor_total
+        bigint registrado_por FK
+        timestamptz pagado_en
     }
     PARAMETROS_NEGOCIO {
         smallint id PK
@@ -121,6 +129,9 @@ erDiagram
     CLIENTES ||--o{ ORDENES_LAVADO : "paga a crédito (restrict)"
     USUARIOS ||--o{ PARAMETROS_NEGOCIO : "actualiza (restrict)"
     USUARIOS ||--o{ AUDITORIA : "autor de (restrict)"
+    CLIENTES ||--o{ PAGOS_CREDITO : "paga (restrict)"
+    USUARIOS ||--o{ PAGOS_CREDITO : "registra (restrict)"
+    PAGOS_CREDITO ||--o{ ORDENES_LAVADO : "salda (restrict)"
 ```
 
 ## Grafo de dependencias por niveles
@@ -169,6 +180,7 @@ Principio de diseño: la BD solo protege invariantes de **dinero** y de **integr
 | R8 | `clienteId` solo se exige y procesa cuando el pago es a crédito, y el cliente debe tener crédito habilitado | Mixto | BD: `ordenes_lavado_credito_cliente_check` (coherencia medio_pago↔cliente_id) y `clientes_credito_solo_empresa_check` (crédito solo en empresas). API: que el cliente esté `activo` y realmente tenga `creditoHabilitado = true` en el momento de la orden sigue siendo de `resolverClienteCredito` |
 | R9 | Las transiciones de estado siguen la máquina de estados del dominio (no se saltan ni retroceden pasos) | API | `TRANSICIONES_ORDEN` en `ordenesLavado.service.js` — la BD no conoce la máquina de estados, solo que una orden cerrada es inmutable (R10) |
 | R10 | Una orden entregada o cancelada no puede volver a cambiar de estado | BD | Trigger `proteger_orden_lavado` (bloquea cualquier `UPDATE` si `old.estado in ('entregada','cancelada')`) y `impedir_eliminacion` (ninguna orden se borra) |
+| R11 | Una orden con un pago de crédito registrado no se cancela | BD | `proteger_orden_lavado` (SCRUM-158) — hoy inalcanzable en la práctica: `pago_credito_id` solo se asigna a órdenes `entregada`, y R10 ya bloquea cualquier cambio de estado desde ahí; queda como defensa en profundidad (ver ADR 0005) |
 
 Además, el porcentaje de comisión de una orden (`porcentaje_comision`) se copia del colaborador al crearla y queda congelado — lo asigna el trigger `preparar_orden_lavado` e ignora cualquier valor que llegue en el `INSERT`; solo se recalcula si `colaborador_id` cambia mientras la orden sigue abierta (`proteger_orden_lavado`).
 
@@ -190,4 +202,10 @@ Las 11 tablas tienen `enable row level security`, pero hasta esta migración nin
 - `public.rol_actual()` lee `request.jwt.claims -> app_metadata ->> 'rol'` (el claim de Supabase Auth). La API no usa Supabase Auth hoy, así que esta función y las políticas que dependen de ella son defensa en profundidad, no algo que el tráfico real de la API ejercite — la API sigue con `service_role`, que bypasea RLS.
 - Dos políticas son condicionales sobre el valor nuevo de `estado` en un `UPDATE` (mismo criterio que `exigirSuperadminParaReabrir`/`exigirPermisoParaCancelar` en la API): reabrir una jornada (`estado → 'abierta'`) exige `superadmin`; anular una orden (`estado → 'cancelada'`) exige `superadmin` o `administrador`.
 - `usuarios.password_hash` nunca tiene `GRANT` para `authenticated`, en ninguna política ni rol — se bloquea a nivel de columna, antes de que RLS evalúe nada.
-- `pendiente` y `anon` no tienen ninguna política en ninguna tabla: acceso nulo, en las 11.
+- `pendiente` y `anon` no tienen ninguna política en ninguna tabla: acceso nulo.
+
+## Pagos de crédito (SCRUM-158)
+
+`pagos_credito` agrupa N órdenes del mismo cliente, pagadas completas de una sola vez (sin abonos parciales, sin vales, sin cupo). Es de solo inserción — `revoke update, delete, truncate ... from service_role`, igual que `auditoria` — y la única vía de escritura es `registrar_pago_credito(p_cliente_id, p_orden_ids, p_usuario_id)`, que bloquea las filas de las órdenes, valida todo (existencia, mismo cliente, a crédito, `entregada`, sin pago previo, sin ids repetidos) y solo entonces crea el pago y marca `ordenes_lavado.pago_credito_id` en todas — todo o nada.
+
+`authenticated` nunca puede poner `pago_credito_id` directamente: a diferencia de columnas de tablas nuevas, esta se agregó a una tabla que YA tenía un `GRANT` de tabla completa (de `agregar_politicas_rls_por_rol.sql`), así que hubo que revocar `INSERT`/`UPDATE` de tabla completa y volver a concederlos por columnas explícitas sin `pago_credito_id` — un `REVOKE` de columna sola, encima de un `GRANT` de tabla, no restringe nada (confirmado probándolo). Ver ADR 0005 para el detalle completo, incluida la regla R11 (una orden pagada no se cancela) y por qué es inalcanzable hoy.

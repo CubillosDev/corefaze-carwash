@@ -2,7 +2,7 @@
 
 Esquema de la base de datos del proyecto, como migraciones versionadas de Supabase CLI. Ver también [`docs/arquitectura/diagramas/modelo-datos.md`](../docs/arquitectura/diagramas/modelo-datos.md) para el diagrama ER y la matriz BD vs. API.
 
-**Estado actual: Fase 2 (SCRUM-146) completa + Bloque 11 (SCRUM-147)**, 16 migraciones (11 tablas + funciones comunes + triggers de `ordenes_lavado` + auditoría + la función `reemplazar_tarifas_servicio` + políticas RLS por rol). El esquema queda cerrado.
+**Estado actual: Fase 2 (SCRUM-146) completa + Bloque 11 (SCRUM-147) + crédito empresarial (SCRUM-158)**, 17 migraciones (12 tablas + funciones comunes + triggers de `ordenes_lavado` + auditoría + la función `reemplazar_tarifas_servicio` + políticas RLS por rol + pagos de crédito).
 
 ## Requisitos
 
@@ -48,6 +48,7 @@ npx supabase db reset && npx supabase test db && npx supabase db lint
 | 14 | `activar_auditoria` | `registrar_auditoria()` y triggers | — | 2 |
 | 15 | `agregar_reemplazar_tarifas_servicio` | `reemplazar_tarifas_servicio()` | — | API (PR #12) |
 | 16 | `agregar_politicas_rls_por_rol` | `rol_actual()` y políticas RLS por tabla | — | Bloque 11 (SCRUM-147) |
+| 17 | `agregar_pagos_credito` | `pagos_credito`, `registrar_pago_credito()` | 3 | Crédito empresarial (SCRUM-158) |
 
 Detalle de qué depende de qué, y por qué `usuarios` se adelantó a la Fase 1: ver la tabla de niveles en `docs/arquitectura/diagramas/modelo-datos.md`.
 
@@ -85,6 +86,8 @@ Cuando los services de `apps/api` pasen de datos en memoria a Supabase, estas so
   | `23514` de formato | Viola un `CHECK` de formato/enumeración | `400` | El mensaje del CHECK, traducido al campo |
   | `23514` de regla de negocio | Viola un `CHECK` de coherencia (p. ej. crédito↔cliente, motivo↔cancelada) | `409` | El mensaje del CHECK, traducido a la regla |
   | `42501` | Permisos de rol de Postgres mal configurados | `500` | "Error interno de configuración" (nunca se expone el detalle al cliente) |
+
+  Las funciones RPC de escritura (`reemplazar_tarifas_servicio`, `registrar_pago_credito`) no tienen CHECK constraints propios para sus validaciones de negocio: usan `raise exception ... using errcode = '...'` con el mismo SQLSTATE que usaría un CHECK, para que la tabla de arriba siga aplicando sin cambios cuando la API empiece a llamarlas.
 
   **Nota PostgreSQL 18**: al borrar una fila con hijos por `RESTRICT`, PostgreSQL 17 (la versión del proyecto) devuelve `23503`; desde la versión 18 ese mismo caso devuelve `23001`. El mapeo de errores de la API debe tratar ambos códigos igual al borrar, para no romper si el proyecto se actualiza más adelante.
 - **`parametros_negocio`** (Fase 2) siempre tiene su fila (`id = 1`, la crea la propia migración 12): `GET /api/parametros` nunca debería dar 404.
