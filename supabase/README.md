@@ -2,7 +2,7 @@
 
 Esquema de la base de datos del proyecto, como migraciones versionadas de Supabase CLI. Ver también [`docs/arquitectura/diagramas/modelo-datos.md`](../docs/arquitectura/diagramas/modelo-datos.md) para el diagrama ER y la matriz BD vs. API.
 
-**Estado actual: Fase 2 (SCRUM-146) completa + Bloque 11 (SCRUM-147) + crédito empresarial (SCRUM-158)**, 17 migraciones (12 tablas + funciones comunes + triggers de `ordenes_lavado` + auditoría + la función `reemplazar_tarifas_servicio` + políticas RLS por rol + pagos de crédito).
+**Estado actual: Fase 2 (SCRUM-146) completa + Bloque 11 (SCRUM-147) + crédito empresarial (SCRUM-158) + nómina quincenal (SCRUM-159)**, 18 migraciones (15 tablas + funciones comunes + triggers de `ordenes_lavado` + auditoría + `reemplazar_tarifas_servicio` + políticas RLS por rol + pagos de crédito + nómina quincenal).
 
 ## Requisitos
 
@@ -49,6 +49,7 @@ npx supabase db reset && npx supabase test db && npx supabase db lint
 | 15 | `agregar_reemplazar_tarifas_servicio` | `reemplazar_tarifas_servicio()` | — | API (PR #12) |
 | 16 | `agregar_politicas_rls_por_rol` | `rol_actual()` y políticas RLS por tabla | — | Bloque 11 (SCRUM-147) |
 | 17 | `agregar_pagos_credito` | `pagos_credito`, `registrar_pago_credito()` | 3 | Crédito empresarial (SCRUM-158) |
+| 18 | `agregar_nomina_quincenal` | `descuentos_colaborador`, `liquidaciones_nomina`, `liquidacion_colaboradores`, `registrar_descuento()`, `liquidar_quincena()` | 3 | Nómina quincenal (SCRUM-159) |
 
 Detalle de qué depende de qué, y por qué `usuarios` se adelantó a la Fase 1: ver la tabla de niveles en `docs/arquitectura/diagramas/modelo-datos.md`.
 
