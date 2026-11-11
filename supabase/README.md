@@ -2,7 +2,7 @@
 
 Esquema de la base de datos del proyecto, como migraciones versionadas de Supabase CLI. Ver también [`docs/arquitectura/diagramas/modelo-datos.md`](../docs/arquitectura/diagramas/modelo-datos.md) para el diagrama ER y la matriz BD vs. API.
 
-**Estado actual: Fase 2 (SCRUM-146) completa**, 14 migraciones (11 tablas + funciones comunes + triggers de `ordenes_lavado` + auditoría). El esquema queda cerrado.
+**Estado actual: Fase 2 (SCRUM-146) completa + Bloque 11 (SCRUM-147)**, 16 migraciones (11 tablas + funciones comunes + triggers de `ordenes_lavado` + auditoría + la función `reemplazar_tarifas_servicio` + políticas RLS por rol). El esquema queda cerrado.
 
 ## Requisitos
 
@@ -46,6 +46,8 @@ npx supabase db reset && npx supabase test db && npx supabase db lint
 | 12 | `crear_parametros_negocio` | `parametros_negocio` | 1 | 2 |
 | 13 | `crear_auditoria` | `auditoria` | 1 | 2 |
 | 14 | `activar_auditoria` | `registrar_auditoria()` y triggers | — | 2 |
+| 15 | `agregar_reemplazar_tarifas_servicio` | `reemplazar_tarifas_servicio()` | — | API (PR #12) |
+| 16 | `agregar_politicas_rls_por_rol` | `rol_actual()` y políticas RLS por tabla | — | Bloque 11 (SCRUM-147) |
 
 Detalle de qué depende de qué, y por qué `usuarios` se adelantó a la Fase 1: ver la tabla de niveles en `docs/arquitectura/diagramas/modelo-datos.md`.
 
@@ -86,6 +88,16 @@ Cuando los services de `apps/api` pasen de datos en memoria a Supabase, estas so
 
   **Nota PostgreSQL 18**: al borrar una fila con hijos por `RESTRICT`, PostgreSQL 17 (la versión del proyecto) devuelve `23503`; desde la versión 18 ese mismo caso devuelve `23001`. El mapeo de errores de la API debe tratar ambos códigos igual al borrar, para no romper si el proyecto se actualiza más adelante.
 - **`parametros_negocio`** (Fase 2) siempre tiene su fila (`id = 1`, la crea la propia migración 12): `GET /api/parametros` nunca debería dar 404.
+
+## Seguridad: políticas RLS por rol (Bloque 11, SCRUM-147)
+
+Las 11 tablas tienen RLS habilitado desde la Fase 1/2, pero sin ninguna política hasta esta migración (`anon`/`authenticated` tenían cero privilegios: `revoke all ... from anon, authenticated` en cada `crear_*`). El Bloque 11 agrega políticas por rol como **defensa en profundidad**, no como un cambio de cómo funciona la API hoy:
+
+- **La API sigue sin cambios**: siempre usa `service_role` (bypasea RLS por completo) y la autorización real sigue viviendo en sus middlewares (`autenticarJWT`/`autorizarRoles`, ver ADR 0003). Las políticas de esta migración nunca las ejercita el tráfico real de la API.
+- **`public.rol_actual()`** lee el rol de negocio desde `request.jwt.claims -> app_metadata ->> 'rol'` — el claim estándar de Supabase Auth. **La API de este proyecto no usa Supabase Auth todavía** (firma su propio JWT con un secreto distinto al que verifica PostgREST), así que esta función queda inerte hasta una futura migración a Supabase Auth. Detalle completo, incluida la matriz tabla×rol×operación y qué haría falta para esa migración futura: ver el ADR nuevo en `docs/arquitectura/decisiones/`.
+- **Por qué igual vale la pena hoy**: si alguna vez se usan las claves `anon`/`authenticated` directamente contra PostgREST (paneles de BI, un futuro cliente que hable con Supabase en vez de con la API, una fuga de la clave `anon`), las políticas ya reflejan la misma matriz de permisos que la API — en vez de exponer todo (si hubiera un GRANT amplio sin políticas) o nada útil (el estado anterior a esta migración).
+- **Columnas sensibles**: `authenticated` nunca puede leer `usuarios.password_hash` (GRANT de columnas, ni siquiera llega a evaluarse la política).
+- **`auditoria`**: solo lectura, solo `superadmin`. Nadie (ni `service_role`) puede `INSERT`/`UPDATE`/`DELETE` directamente — eso ya estaba así desde la Fase 2 (`registrar_auditoria()` es la única vía, `security definer`).
 
 ## Recetas de corrección
 

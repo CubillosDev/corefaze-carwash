@@ -182,3 +182,12 @@ Además, el porcentaje de comisión de una orden (`porcentaje_comision`) se copi
 - **Dato sensible excluido**: en `usuarios`, `password_hash` se quita del jsonb antes de guardarlo (ni en `valor_anterior` ni en `valor_nuevo`).
 - **La auditoría es inmutable**: `UPDATE` sobre `auditoria` → `23514`; `DELETE` o `TRUNCATE` → `23001`. Ninguno de los dos se puede evitar con un rol superusuario, porque son triggers, no RLS.
 - **`service_role` no escribe auditoría directamente**: solo la función `registrar_auditoria()` (que corre `security definer`) puede insertar en `auditoria`; `service_role` tiene `INSERT`/`UPDATE`/`DELETE`/`TRUNCATE` revocados sobre esa tabla.
+
+## Seguridad: RLS por rol (Bloque 11, SCRUM-147)
+
+Las 11 tablas tienen `enable row level security`, pero hasta esta migración ninguna tenía políticas (`anon`/`authenticated` sin ningún privilegio). `agregar_politicas_rls_por_rol` agrega, por tabla, los GRANT y las políticas que modelan la misma matriz de permisos que ya aplican los middlewares de `apps/api` — ver ADR 0003 para esa matriz a nivel de API, y el ADR de esta migración para la matriz completa a nivel de BD (incluye `usuarios`, `parametros_negocio` y `auditoria`, que el ADR 0003 no cubre).
+
+- `public.rol_actual()` lee `request.jwt.claims -> app_metadata ->> 'rol'` (el claim de Supabase Auth). La API no usa Supabase Auth hoy, así que esta función y las políticas que dependen de ella son defensa en profundidad, no algo que el tráfico real de la API ejercite — la API sigue con `service_role`, que bypasea RLS.
+- Dos políticas son condicionales sobre el valor nuevo de `estado` en un `UPDATE` (mismo criterio que `exigirSuperadminParaReabrir`/`exigirPermisoParaCancelar` en la API): reabrir una jornada (`estado → 'abierta'`) exige `superadmin`; anular una orden (`estado → 'cancelada'`) exige `superadmin` o `administrador`.
+- `usuarios.password_hash` nunca tiene `GRANT` para `authenticated`, en ninguna política ni rol — se bloquea a nivel de columna, antes de que RLS evalúe nada.
+- `pendiente` y `anon` no tienen ninguna política en ninguna tabla: acceso nulo, en las 11.
