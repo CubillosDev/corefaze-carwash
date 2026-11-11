@@ -5,12 +5,20 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { BarraLateral } from '@/components/layout/BarraLateral';
 import { MENU_PRINCIPAL } from '@/constants/rutas';
+import { ProveedorSesion } from '@/features/autenticacion';
+
+const SESION_ADMIN = {
+  usuario: { id: 1, nombre: 'Ana Prueba', email: 'ana@prueba.com', rol: 'administrador' },
+  token: 'token-de-prueba',
+};
 
 function renderizarEn(ruta, propiedades = {}) {
   return render(
-    <MemoryRouter initialEntries={[ruta]}>
-      <BarraLateral {...propiedades} />
-    </MemoryRouter>,
+    <ProveedorSesion sesionInicial={SESION_ADMIN}>
+      <MemoryRouter initialEntries={[ruta]}>
+        <BarraLateral {...propiedades} />
+      </MemoryRouter>
+    </ProveedorSesion>,
   );
 }
 

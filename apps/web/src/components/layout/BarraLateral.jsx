@@ -3,9 +3,16 @@ import { matchPath, NavLink, useLocation } from 'react-router';
 
 import { IconoInicio } from '@/components/ui/iconos/IconoInicio';
 import { IconoPaleta } from '@/components/ui/iconos/IconoPaleta';
+import { IconoVehiculo } from '@/components/ui/iconos/IconoVehiculo';
+import { rolPuedeAcceder } from '@/constants/permisos';
 import { MENU_PRINCIPAL } from '@/constants/rutas';
+import { useSesion } from '@/features/autenticacion';
 
-const ICONOS = Object.freeze({ inicio: IconoInicio, paleta: IconoPaleta });
+const ICONOS = Object.freeze({
+  inicio: IconoInicio,
+  paleta: IconoPaleta,
+  vehiculo: IconoVehiculo,
+});
 
 /** Alto de cada opción (h-8.5) más el espacio entre ellas (gap-0.5), en unidades de --spacing. */
 const PASO_DEL_MENU = 9;
@@ -18,7 +25,9 @@ const ESTILOS_OPCION = [
 
 /**
  * Contenido de la barra lateral: la etiqueta "Menú" y las opciones de
- * MENU_PRINCIPAL. Una píldora blanca se desliza hasta la opción activa.
+ * MENU_PRINCIPAL que el rol de la sesión puede usar (solo es experiencia de
+ * usuario: la API valida igual). Una píldora blanca se desliza hasta la opción
+ * activa.
  *
  * No decide dónde se ubica; LayoutPrincipal la deja fija en escritorio y la
  * convierte en cajón en pantallas angostas.
@@ -30,7 +39,9 @@ const ESTILOS_OPCION = [
 export function BarraLateral({ alNavegar }) {
   const idEtiqueta = useId();
   const { pathname } = useLocation();
-  const indiceActivo = MENU_PRINCIPAL.findIndex(
+  const { usuario } = useSesion();
+  const opciones = MENU_PRINCIPAL.filter(({ ruta }) => rolPuedeAcceder(usuario?.rol, ruta));
+  const indiceActivo = opciones.findIndex(
     ({ ruta, exacta }) => matchPath({ path: ruta, end: exacta }, pathname) !== null,
   );
 
@@ -53,7 +64,7 @@ export function BarraLateral({ alNavegar }) {
         ) : null}
 
         <ul className="relative flex flex-col gap-0.5">
-          {MENU_PRINCIPAL.map(({ ruta, texto, icono, exacta }) => {
+          {opciones.map(({ ruta, texto, icono, exacta }) => {
             const Icono = ICONOS[icono];
             return (
               <li key={ruta}>

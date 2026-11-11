@@ -29,11 +29,10 @@ Sobre `VITE_API_KEY`:
 
 - Es la llave del cliente web y **cualquiera puede verla** en el navegador. Identifica a la
   aplicación ante la API; no protege datos.
-- En desarrollo local, cada persona usa una de las llaves que tiene configuradas en **su propio**
-  `apps/api/.env`, generadas con `crypto` como explica
-  [`apps/api/README.md`](../api/README.md). Esas llaves no se comparten ni se suben al repositorio.
-- Pendiente en el backend: crear una `API_KEY_WEB` propia para este cliente y proteger los
-  recursos con JWT y roles. Hasta entonces, la llave no debe tratarse como control de acceso.
+- En desarrollo local, cada persona copia en `VITE_API_KEY` el valor de `API_KEY_WEB` de **su
+  propio** `apps/api/.env`, generada con `crypto` como explica
+  [`apps/api/README.md`](../api/README.md). Esa llave no se comparte ni se sube al repositorio.
+- La llave no es un control de acceso: los datos los protegen el JWT y los roles de la API.
 
 ## Comandos
 

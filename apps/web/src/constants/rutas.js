@@ -25,6 +25,7 @@ export const RUTAS = Object.freeze({
  */
 export const MENU_PRINCIPAL = Object.freeze([
   Object.freeze({ ruta: RUTAS.INICIO, texto: 'Inicio', icono: 'inicio', exacta: true }),
+  Object.freeze({ ruta: RUTAS.VEHICULOS, texto: 'Vehículos', icono: 'vehiculo', exacta: false }),
   ...(import.meta.env.DEV
     ? [
         Object.freeze({
