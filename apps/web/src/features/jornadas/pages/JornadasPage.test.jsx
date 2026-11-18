@@ -47,6 +47,17 @@ describe('JornadasPage', () => {
     expect(within(fila).getByText('$ 496.000')).toBeInTheDocument();
   });
 
+  it('una jornada reabierta no muestra hora de cierre', async () => {
+    listarJornadas.mockResolvedValue([
+      { ...CERRADA, id: 2, estado: 'abierta', reaperturas: [{ en: '2026-08-03T20:00:00Z' }] },
+    ]);
+    renderizar();
+
+    const fila = (await screen.findAllByRole('row'))[1];
+    expect(within(fila).getByText('Abierta')).toBeInTheDocument();
+    expect(within(fila).getByText('—')).toBeInTheDocument();
+  });
+
   it('abre la jornada y muestra el mensaje de la API si la rechaza', async () => {
     listarJornadas.mockResolvedValue([CERRADA]);
     abrirJornada.mockRejectedValue(new ErrorHttp('Ya existe una jornada registrada para hoy', { estado: 409 }));

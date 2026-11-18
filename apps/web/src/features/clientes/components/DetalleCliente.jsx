@@ -17,6 +17,7 @@ import { listarServicios } from '@/features/servicios';
 import { useCarga } from '@/hooks/useCarga';
 import { formatoFecha } from '@/utils/formatoFecha';
 import { formatoMoneda } from '@/utils/formatoMoneda';
+import { formatoPlaca } from '@/utils/formatoPlaca';
 import { formatoTelefono } from '@/utils/formatoTelefono';
 
 const ULTIMOS = 5;
@@ -100,7 +101,8 @@ export function DetalleCliente({ cliente, vehiculos }) {
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold">{orden.servicio?.nombre ?? 'Servicio'}</span>
                 <span className="block text-nota text-neutro-450">
-                  {formatoFecha(orden.fecha)} · {placaDe(orden.vehiculoId)} · {etiquetaEstadoOrden(orden.estado)}
+                  {formatoFecha(orden.fecha)} · {formatoPlaca(placaDe(orden.vehiculoId))} ·{' '}
+                  {etiquetaEstadoOrden(orden.estado)}
                 </span>
               </span>
               <span className="font-semibold tabular-nums">{formatoMoneda(orden.valor)}</span>

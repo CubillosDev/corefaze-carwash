@@ -43,7 +43,11 @@ export function TablaJornadas({ jornadas, puedeCerrar, puedeReabrir, enviando, a
       clave: 'cerradaEn',
       titulo: 'Cierre',
       render: (jornada) => (
-        <span className="text-neutro-650">{jornada.cerradaEn ? formatoFechaHora(jornada.cerradaEn) : '—'}</span>
+        <span className="text-neutro-650">
+          {jornada.estado === ESTADOS_JORNADA.CERRADA && jornada.cerradaEn
+            ? formatoFechaHora(jornada.cerradaEn)
+            : '—'}
+        </span>
       ),
     },
     {
