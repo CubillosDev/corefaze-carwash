@@ -69,7 +69,15 @@ describe('permisos', () => {
     }
   });
 
-  it('soporte gestiona las órdenes de lavado', () => {
+  it('soporte gestiona las órdenes de lavado y las jornadas', () => {
     expect(rolPuedeGestionar('soporte', RUTAS.ORDENES_LAVADO)).toBe(true);
+    expect(rolPuedeGestionar('soporte', RUTAS.JORNADAS)).toBe(true);
+    expect(rolPuedeGestionar('soporte', RUTAS.SERVICIOS)).toBe(false);
+  });
+
+  it('solo superadmin entra a usuarios, porque solo él cambia roles', () => {
+    expect(rolPuedeAcceder('superadmin', RUTAS.USUARIOS)).toBe(true);
+    expect(rolPuedeAcceder('administrador', RUTAS.USUARIOS)).toBe(false);
+    expect(rolPuedeAcceder('soporte', RUTAS.USUARIOS)).toBe(false);
   });
 });

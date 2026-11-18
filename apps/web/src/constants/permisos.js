@@ -15,18 +15,33 @@ import { RUTAS } from '@/constants/rutas';
  */
 const TODOS_LOS_MODULOS = Object.freeze([
   RUTAS.INICIO,
+  RUTAS.ORDENES_LAVADO,
   RUTAS.CLIENTES,
   RUTAS.VEHICULOS,
-  RUTAS.ORDENES_LAVADO,
-  RUTAS.SERVICIOS,
+  RUTAS.CREDITO,
   RUTAS.COLABORADORES,
+  RUTAS.SERVICIOS,
+  RUTAS.JORNADAS,
+  RUTAS.USUARIOS,
   RUTAS.REPORTES,
 ]);
 
+/** Cambiar el rol de un usuario es solo de superadmin (PATCH /auth/usuarios/:id/rol). */
+const MODULOS_DE_ADMINISTRADOR = Object.freeze(
+  TODOS_LOS_MODULOS.filter((modulo) => modulo !== RUTAS.USUARIOS),
+);
+
 const MODULOS_POR_ROL = Object.freeze({
   superadmin: TODOS_LOS_MODULOS,
-  administrador: TODOS_LOS_MODULOS,
-  soporte: Object.freeze([RUTAS.INICIO, RUTAS.CLIENTES, RUTAS.VEHICULOS, RUTAS.ORDENES_LAVADO]),
+  administrador: MODULOS_DE_ADMINISTRADOR,
+  soporte: Object.freeze([
+    RUTAS.INICIO,
+    RUTAS.ORDENES_LAVADO,
+    RUTAS.CLIENTES,
+    RUTAS.VEHICULOS,
+    RUTAS.CREDITO,
+    RUTAS.JORNADAS,
+  ]),
   pendiente: Object.freeze([]),
 });
 
@@ -36,12 +51,12 @@ const MODULOS_POR_ROL = Object.freeze({
  * soporte consulta clientes y vehículos, pero solo superadmin y administrador
  * los gestionan; la API le responde 403 a soporte si lo intenta. Soporte sí
  * registra y edita órdenes de lavado (anularlas no: ese caso lo resuelve el
- * módulo de órdenes).
+ * módulo de órdenes) y abre y cierra jornadas (reabrirlas es de superadmin).
  */
 const MODULOS_GESTIONABLES_POR_ROL = Object.freeze({
   superadmin: TODOS_LOS_MODULOS,
-  administrador: TODOS_LOS_MODULOS,
-  soporte: Object.freeze([RUTAS.ORDENES_LAVADO]),
+  administrador: MODULOS_DE_ADMINISTRADOR,
+  soporte: Object.freeze([RUTAS.ORDENES_LAVADO, RUTAS.JORNADAS]),
   pendiente: Object.freeze([]),
 });
 

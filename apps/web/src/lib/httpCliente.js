@@ -51,18 +51,23 @@ export class ErrorHttp extends Error {
    * @param {object} [opciones]
    * @param {number} [opciones.estado] Código HTTP; 0 si no hubo respuesta.
    * @param {Record<string, string>} [opciones.erroresPorCampo] En 400: campo -> mensaje.
+   * @param {string} [opciones.mensajeDelServidor] Texto original de la API. No se
+   *   muestra tal cual: quien lo usa decide si habla del negocio o es técnico.
    * @param {unknown} [opciones.causa]
    */
-  constructor(mensaje, { estado = 0, erroresPorCampo = {}, causa } = {}) {
+  constructor(mensaje, { estado = 0, erroresPorCampo = {}, mensajeDelServidor = '', causa } = {}) {
     super(mensaje, { cause: causa });
     this.name = 'ErrorHttp';
     this.estado = estado;
     this.erroresPorCampo = erroresPorCampo;
+    this.mensajeDelServidor = mensajeDelServidor;
   }
 }
 
+const mensajeDelServidorDe = (cuerpo) => (typeof cuerpo?.mensaje === 'string' ? cuerpo.mensaje : '');
+
 function mensajeDeEstado(estado, cuerpo) {
-  const mensajeDelServidor = typeof cuerpo?.mensaje === 'string' ? cuerpo.mensaje : '';
+  const mensajeDelServidor = mensajeDelServidorDe(cuerpo);
 
   if (mensajeDelServidor !== '' && ESTADOS_CON_MENSAJE_DEL_SERVIDOR.has(estado)) {
     return mensajeDelServidor;
@@ -210,6 +215,7 @@ export function crearHttpCliente({
         throw new ErrorHttp(mensajeDeEstado(respuesta.status, cuerpo), {
           estado: respuesta.status,
           erroresPorCampo: erroresPorCampoDe(cuerpo),
+          mensajeDelServidor: mensajeDelServidorDe(cuerpo),
         });
       }
 

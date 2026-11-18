@@ -133,6 +133,15 @@ describe('httpCliente: errores de la API', () => {
     await expect(cliente.obtener('clientes/9')).rejects.toMatchObject({ estado, message: mensaje });
   });
 
+  it('guarda aparte el texto original del servidor, sin usarlo como mensaje si es técnico', async () => {
+    const { cliente } = clienteQueResponde(401, { mensaje: 'Credenciales inválidas' });
+
+    const error = await cliente.crear('auth/login', {}).catch((e) => e);
+
+    expect(error.mensajeDelServidor).toBe('Credenciales inválidas');
+    expect(error.message).not.toBe('Credenciales inválidas');
+  });
+
   it('usa el mensaje propio cuando la API no envía uno', async () => {
     const { cliente } = clienteQueResponde(409, undefined);
 
