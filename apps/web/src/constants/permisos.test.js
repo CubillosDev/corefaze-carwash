@@ -4,7 +4,9 @@ import {
   esRolPendiente,
   etiquetaDeRol,
   rolPuedeAcceder,
+  rolPuedeAnularOrden,
   rolPuedeGestionar,
+  rolPuedeReabrirJornada,
 } from '@/constants/permisos';
 import { RUTAS } from '@/constants/rutas';
 import { ROLES } from '@/constants/dominio';
@@ -69,7 +71,29 @@ describe('permisos', () => {
     }
   });
 
-  it('soporte gestiona las órdenes de lavado', () => {
+  it('soporte gestiona las órdenes de lavado y las jornadas', () => {
     expect(rolPuedeGestionar('soporte', RUTAS.ORDENES_LAVADO)).toBe(true);
+    expect(rolPuedeGestionar('soporte', RUTAS.JORNADAS)).toBe(true);
+    expect(rolPuedeGestionar('soporte', RUTAS.SERVICIOS)).toBe(false);
+  });
+
+  it('solo superadmin entra a usuarios, porque solo él cambia roles', () => {
+    expect(rolPuedeAcceder('superadmin', RUTAS.USUARIOS)).toBe(true);
+    expect(rolPuedeAcceder('administrador', RUTAS.USUARIOS)).toBe(false);
+    expect(rolPuedeAcceder('soporte', RUTAS.USUARIOS)).toBe(false);
+  });
+});
+
+describe('acciones restringidas', () => {
+  it('solo superadmin y administrador anulan órdenes', () => {
+    expect(rolPuedeAnularOrden('superadmin')).toBe(true);
+    expect(rolPuedeAnularOrden('administrador')).toBe(true);
+    expect(rolPuedeAnularOrden('soporte')).toBe(false);
+    expect(rolPuedeAnularOrden(undefined)).toBe(false);
+  });
+
+  it('solo superadmin reabre jornadas', () => {
+    expect(rolPuedeReabrirJornada('superadmin')).toBe(true);
+    expect(rolPuedeReabrirJornada('administrador')).toBe(false);
   });
 });

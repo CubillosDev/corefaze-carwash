@@ -32,25 +32,40 @@ describe('iniciarSesion', () => {
     expect(resultado).toEqual({ usuario, token: 'jwt' });
   });
 
-  it('reporta cualquier 401 con el mensaje único de credenciales incorrectas', async () => {
+  it.each([
+    [401, 'Credenciales inválidas'],
+    [403, 'Usuario deshabilitado'],
+  ])('en %i muestra el mensaje real del servidor', async (estado, mensajeDelServidor) => {
     httpCliente.crear.mockRejectedValue(
-      new ErrorHttp('No pudimos verificar tu acceso.', { estado: 401 }),
+      new ErrorHttp('Mensaje genérico', { estado, mensajeDelServidor }),
     );
 
     await expect(iniciarSesion({ email: 'a@b.co', password: 'x' })).rejects.toMatchObject({
-      message: MENSAJE_CREDENCIALES_INCORRECTAS,
-      estado: 401,
+      message: mensajeDelServidor,
+      estado,
     });
-    expect(MENSAJE_CREDENCIALES_INCORRECTAS).toBe('Usuario o contraseña incorrectos');
   });
 
-  it('explica una cuenta deshabilitada (403)', async () => {
-    httpCliente.crear.mockRejectedValue(new ErrorHttp('x', { estado: 403 }));
+  it('usa un respaldo si la API no envía mensaje', async () => {
+    httpCliente.crear.mockRejectedValueOnce(new ErrorHttp('x', { estado: 401 }));
+    httpCliente.crear.mockRejectedValueOnce(new ErrorHttp('x', { estado: 403 }));
 
     await expect(iniciarSesion({ email: 'a@b.co', password: 'x' })).rejects.toMatchObject({
-      estado: 403,
+      message: MENSAJE_CREDENCIALES_INCORRECTAS,
+    });
+    await expect(iniciarSesion({ email: 'a@b.co', password: 'x' })).rejects.toMatchObject({
       message: expect.stringMatching(/deshabilitada/i),
     });
+  });
+
+  it('no muestra los mensajes técnicos de la API Key', async () => {
+    const error = new ErrorHttp('No pudimos verificar tu acceso.', {
+      estado: 401,
+      mensajeDelServidor: 'API Key inválida',
+    });
+    httpCliente.crear.mockRejectedValue(error);
+
+    await expect(iniciarSesion({ email: 'a@b.co', password: 'x' })).rejects.toBe(error);
   });
 
   it('deja pasar los demás errores con su mensaje (429, sin conexión...)', async () => {

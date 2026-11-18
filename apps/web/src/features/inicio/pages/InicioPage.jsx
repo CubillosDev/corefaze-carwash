@@ -1,77 +1,154 @@
-import { Alerta } from '@/components/ui/Alerta';
-import { Tabla } from '@/components/ui/Tabla';
-import { formatoFecha } from '@/utils/formatoFecha';
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
+
+import { Aviso } from '@/components/ui/Aviso';
+import { Boton } from '@/components/ui/Boton';
+import { ConfirmarAccion } from '@/components/ui/ConfirmarAccion';
+import { EncabezadoPagina } from '@/components/ui/EncabezadoPagina';
+import { EstadoCarga } from '@/components/ui/EstadoCarga';
+import { EstadoError } from '@/components/ui/EstadoError';
+import { IconoMas } from '@/components/ui/iconos/IconoMas';
+import { Indicador } from '@/components/ui/Indicador';
+import { ESTADOS_ORDEN } from '@/constants/dominio';
+import { rolPuedeGestionar } from '@/constants/permisos';
+import { RUTAS } from '@/constants/rutas';
+import { useSesion } from '@/features/autenticacion';
+import { IngresosAcumulados } from '@/features/inicio/components/IngresosAcumulados';
+import { PatioEnVivo } from '@/features/inicio/components/PatioEnVivo';
+import { RequiereAtencion } from '@/features/inicio/components/RequiereAtencion';
+import { useTablero } from '@/features/inicio/hooks/useTablero';
+import { PanelJornada, useAccionesJornada } from '@/features/jornadas';
+import { FormularioOrden } from '@/features/ordenes-lavado';
+import { useAviso } from '@/hooks/useAviso';
+import { contarPorEstado } from '@/utils/estadosOrden';
+import { formatoFecha, formatoFechaLarga } from '@/utils/formatoFecha';
 import { formatoMoneda } from '@/utils/formatoMoneda';
-import { formatoPlaca } from '@/utils/formatoPlaca';
+import { plural } from '@/utils/plural';
 
-/*
- * Datos FICTICIOS, solo para revisar el layout y los formatos. No vienen de la
- * API ni del prototipo de diseño, y se reemplazan cuando el tablero de inicio
- * consuma la API.
+/**
+ * Tablero de inicio: indicadores de la jornada abierta (los totales los
+ * calcula el servidor), lo que requiere atención, el patio por fase y el panel
+ * para abrir o cerrar la jornada.
  */
-const RESUMEN_FICTICIO = [
-  { id: 'ordenes', titulo: 'Órdenes del día', valor: '12' },
-  { id: 'ingresos', titulo: 'Ingresos del día', valor: formatoMoneda(450000) },
-  { id: 'promedio', titulo: 'Valor promedio', valor: formatoMoneda(37500) },
-];
-
-const ORDENES_FICTICIAS = [
-  { id: 1, placa: 'AAA111', servicio: 'Lavado general', fecha: '2026-08-03', valor: 30000 },
-  { id: 2, placa: 'BBB22B', servicio: 'Lavado y encerado', fecha: '2026-08-03', valor: 41000 },
-  { id: 3, placa: 'CCC333', servicio: 'Aspirado interior', fecha: '2026-08-02', valor: 12500 },
-];
-
-const COLUMNAS = [
-  { clave: 'placa', titulo: 'Placa', render: (fila) => formatoPlaca(fila.placa) },
-  { clave: 'servicio', titulo: 'Servicio' },
-  { clave: 'fecha', titulo: 'Fecha', render: (fila) => formatoFecha(fila.fecha) },
-  {
-    clave: 'valor',
-    titulo: 'Valor',
-    alineacion: 'derecha',
-    render: (fila) => formatoMoneda(fila.valor),
-  },
-];
-
-/** Página de entrada del panel, con datos ficticios hasta que exista el tablero real. */
 export function InicioPage() {
+  const tablero = useTablero();
+  const navegar = useNavigate();
+  const { usuario } = useSesion();
+  const { aviso, mostrarAviso } = useAviso();
+  const [formularioAbierto, setFormularioAbierto] = useState(false);
+  const acciones = useAccionesJornada({ alCambiar: tablero.recargar, avisar: mostrarAviso });
+
+  const primerNombre = String(usuario?.nombre ?? '').trim().split(/\s+/)[0];
+  const jornada = tablero.datos?.jornada ?? null;
+  const totales = tablero.datos?.totales ?? null;
+  const conteo = contarPorEstado(tablero.datos?.ordenes ?? []);
+  const enPatio = conteo[ESTADOS_ORDEN.REGISTRADA] + conteo[ESTADOS_ORDEN.EN_PROCESO];
+  const porEntregar = conteo[ESTADOS_ORDEN.TERMINADA];
+
+  function alCrear(orden) {
+    setFormularioAbierto(false);
+    tablero.recargar();
+    mostrarAviso(`Orden registrada · ${formatoMoneda(orden.valor)}`);
+  }
+
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-titulo text-neutro-900">Panel de gestión</h1>
-        <p className="text-detalle text-neutro-600">
-          Armazón del panel web de Car Wash: barra lateral, encabezado y área de contenido.
-        </p>
-      </header>
+    <div className="flex flex-col">
+      <EncabezadoPagina
+        titulo={primerNombre ? `Buen día, ${primerNombre}` : 'Buen día'}
+        descripcion={`${formatoFechaLarga(new Date())} · ${
+          jornada ? `jornada del ${formatoFecha(jornada.fecha)}` : 'sin jornada abierta'
+        }`}
+        acciones={
+          <>
+            <Boton variante="secundario" onClick={() => navegar(RUTAS.ORDENES_LAVADO)}>
+              Ver órdenes
+            </Boton>
+            {rolPuedeGestionar(usuario?.rol, RUTAS.ORDENES_LAVADO) ? (
+              <Boton className="pl-2.75" onClick={() => setFormularioAbierto(true)}>
+                <IconoMas className="size-3.75" />
+                Nueva orden
+              </Boton>
+            ) : null}
+          </>
+        }
+      />
 
-      <Alerta tipo="info" titulo="Página de ejemplo">
-        Todos los datos de esta página son ficticios: sirven para revisar el layout y los formatos.
-        El tablero real se conectará a la API.
-      </Alerta>
+      {tablero.situacion === 'cargando' ? <EstadoCarga texto="Cargando el tablero…" className="mt-6" /> : null}
+      {tablero.situacion === 'error' ? (
+        <EstadoError mensaje={tablero.error} alReintentar={tablero.recargar} className="mt-4" />
+      ) : null}
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-titulo-tarjeta text-neutro-900">Resumen del día (ejemplo)</h2>
-        <div className="grid gap-4 escritorio:grid-cols-3">
-          {RESUMEN_FICTICIO.map((tarjeta) => (
-            <article
-              key={tarjeta.id}
-              className="flex flex-col gap-1 rounded-tarjeta border border-neutro-200 bg-white p-5"
-            >
-              <p className="text-detalle text-neutro-600">{tarjeta.titulo}</p>
-              <p className="text-indicador text-neutro-900">{tarjeta.valor}</p>
-            </article>
-          ))}
+      {tablero.situacion === 'listo' ? (
+        <div className="mt-4 flex flex-wrap items-stretch gap-3 escritorio:flex-nowrap">
+          <div className="flex min-w-0 flex-[1_1_0] flex-col">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(130px,100%),1fr))] gap-3">
+              <Indicador
+                etiqueta="Ingresos de la jornada"
+                valor={formatoMoneda(totales?.totalGeneral ?? 0)}
+                apoyo="Calculado por el sistema"
+                hacia={RUTAS.ORDENES_LAVADO}
+              />
+              <Indicador
+                etiqueta="Servicios de la jornada"
+                valor={String(totales?.cantidadServicios ?? 0)}
+                apoyo={jornada ? `Jornada del ${formatoFecha(jornada.fecha)}` : 'Sin jornada abierta'}
+                hacia={RUTAS.JORNADAS}
+              />
+              <Indicador
+                etiqueta="En patio ahora"
+                valor={String(enPatio)}
+                apoyo="Registradas y en proceso"
+                hacia={RUTAS.ORDENES_LAVADO}
+              />
+              <Indicador
+                etiqueta="Por entregar"
+                valor={String(porEntregar)}
+                nota={porEntregar > 0 ? plural(porEntregar, 'listo', 'listos') : 'Al día'}
+                atencion={porEntregar > 0}
+                apoyo="Terminadas en el tablero"
+                hacia={RUTAS.ORDENES_LAVADO}
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <IngresosAcumulados total={totales?.totalGeneral ?? null} />
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-3">
+              <RequiereAtencion jornada={jornada} conteo={conteo} />
+              <PatioEnVivo conteo={conteo} />
+            </div>
+          </div>
+
+          <PanelJornada
+            jornada={jornada}
+            nombre={usuario?.nombre}
+            puedeGestionar={rolPuedeGestionar(usuario?.rol, RUTAS.JORNADAS)}
+            enviando={acciones.enviando}
+            alAbrir={acciones.abrir}
+            alCerrar={() => acciones.pedirCierre(jornada)}
+          />
         </div>
-      </section>
+      ) : null}
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-titulo-tarjeta text-neutro-900">Últimas órdenes (ejemplo)</h2>
-        <Tabla
-          columnas={COLUMNAS}
-          filas={ORDENES_FICTICIAS}
-          descripcion="Órdenes de lavado ficticias con placa, servicio, fecha y valor"
-        />
-      </section>
+      {formularioAbierto ? (
+        <FormularioOrden alCerrar={() => setFormularioAbierto(false)} alCrear={alCrear} />
+      ) : null}
+
+      <ConfirmarAccion
+        abierto={acciones.porCerrar !== null}
+        titulo={`Cerrar la jornada del ${formatoFecha(acciones.porCerrar?.fecha)}`}
+        textoConfirmar="Cerrar jornada"
+        enviando={acciones.enviando}
+        error={acciones.errorCierre}
+        alConfirmar={acciones.confirmarCierre}
+        alCancelar={acciones.cancelarCierre}
+      >
+        Después de cerrarla no se registran más órdenes en ella. Solo un superadministrador puede
+        reabrirla.
+      </ConfirmarAccion>
+
+      <Aviso aviso={aviso} />
     </div>
   );
 }

@@ -66,7 +66,7 @@ export function IngresoPage() {
         </header>
 
         {motivoCierre === 'expirada' && !errorDeApi ? (
-          <Alerta tipo="info" titulo="Tu sesión terminó">
+          <Alerta tipo="info" titulo="Tu sesión expiró">
             Vuelve a ingresar para continuar.
           </Alerta>
         ) : null}

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatoFecha, formatoFechaHora } from '@/utils/formatoFecha';
+import {
+  formatoFecha,
+  formatoFechaHora,
+  formatoFechaLarga,
+  formatoHora,
+  horaDelDiaEnBogota,
+} from '@/utils/formatoFecha';
 
 /** Lee una fecha en Bogotá igual que lo hace la aplicación al mostrarla. */
 const enBogota = new Intl.DateTimeFormat('es-CO', {
@@ -72,5 +78,37 @@ describe('formatoFechaHora', () => {
   it('devuelve cadena vacía cuando no hay una fecha utilizable', () => {
     expect(formatoFechaHora(null)).toBe('');
     expect(formatoFechaHora('ayer')).toBe('');
+  });
+});
+
+describe('formatoHora', () => {
+  it('devuelve solo la hora en Bogotá con reloj de 12 horas', () => {
+    expect(formatoHora('2026-08-03T14:30:00-05:00')).toBe('2:30 p. m.');
+    expect(formatoHora('2026-08-03T12:05:00Z')).toBe('7:05 a. m.');
+  });
+
+  it('devuelve cadena vacía si no es una fecha', () => {
+    expect(formatoHora('no es fecha')).toBe('');
+  });
+});
+
+describe('formatoFechaLarga', () => {
+  it('escribe el día de la semana y el mes con mayúscula inicial', () => {
+    expect(formatoFechaLarga('2026-08-03')).toBe('Lunes, 3 de agosto');
+  });
+
+  it('usa el día de Bogotá aunque en UTC ya sea el siguiente', () => {
+    expect(formatoFechaLarga('2026-08-04T02:00:00Z')).toBe('Lunes, 3 de agosto');
+  });
+});
+
+describe('horaDelDiaEnBogota', () => {
+  it('convierte a la hora de Bogotá', () => {
+    expect(horaDelDiaEnBogota('2026-08-03T02:00:00Z')).toBe(21);
+    expect(horaDelDiaEnBogota('2026-08-03T05:00:00Z')).toBe(0);
+  });
+
+  it('devuelve null si no es una fecha', () => {
+    expect(horaDelDiaEnBogota('')).toBeNull();
   });
 });

@@ -39,15 +39,15 @@ describe('rutas privadas', () => {
   it('con sesión de un rol operativo muestra el panel con menú y cabecera', async () => {
     renderizarApp('/', sesionDe('administrador'));
 
-    expect(await screen.findByRole('heading', { name: /panel de gestión/i })).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Menú' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /buen día/i }, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Menú principal' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Perfil de Diego Urbano' })).toBeInTheDocument();
   });
 
   it('con una sesión activa, /ingreso redirige al inicio', async () => {
     const enrutador = renderizarApp('/ingreso', sesionDe('administrador'));
 
-    expect(await screen.findByRole('heading', { name: /panel de gestión/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /buen día/i }, { timeout: 4000 })).toBeInTheDocument();
     expect(enrutador.state.location.pathname).toBe('/');
   });
 
@@ -55,7 +55,7 @@ describe('rutas privadas', () => {
     renderizarApp('/reportes', sesionDe('soporte'));
 
     expect(await screen.findByRole('heading', { name: 'Sin permiso' })).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Menú' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Menú principal' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Volver al inicio' })).toHaveAttribute('href', '/');
   });
 
@@ -63,7 +63,7 @@ describe('rutas privadas', () => {
     renderizarApp('/esto-no-existe', sesionDe('soporte'));
 
     expect(screen.queryByRole('heading', { name: 'Sin permiso' })).not.toBeInTheDocument();
-    expect(await screen.findByRole('navigation', { name: 'Menú' })).toBeInTheDocument();
+    expect(await screen.findByRole('navigation', { name: 'Menú principal' })).toBeInTheDocument();
   });
 
   it('una cuenta pendiente ve la pantalla de aprobación y no el panel', async () => {
@@ -72,13 +72,13 @@ describe('rutas privadas', () => {
     expect(
       await screen.findByRole('heading', { name: /tu cuenta está pendiente de aprobación/i }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('navigation', { name: 'Menú' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Menú principal' })).not.toBeInTheDocument();
   });
 
   it('el menú lateral solo muestra los módulos que el rol puede usar', async () => {
     renderizarApp('/', sesionDe('soporte'));
 
-    const menu = await screen.findByRole('navigation', { name: 'Menú' });
+    const menu = await screen.findByRole('navigation', { name: 'Menú principal' });
     expect(menu).toHaveTextContent('Inicio');
   });
 });
@@ -132,14 +132,14 @@ describe('sesión vencida (401)', () => {
       vi.fn(async () => new Response(JSON.stringify({ mensaje: 'Token expirado' }), { status: 401 })),
     );
     const enrutador = renderizarApp('/', sesionDe('administrador'));
-    await screen.findByRole('heading', { name: /panel de gestión/i });
+    await screen.findByRole('navigation', { name: 'Menú principal' });
 
     await act(async () => {
       await httpCliente.obtener('vehiculos').catch(() => {});
     });
 
     expect(await screen.findByRole('heading', { name: /ingresar a carwash/i })).toBeInTheDocument();
-    expect(screen.getByText('Tu sesión terminó')).toBeInTheDocument();
+    expect(screen.getByText('Tu sesión expiró')).toBeInTheDocument();
     expect(enrutador.state.location.pathname).toBe('/ingreso');
   });
 });

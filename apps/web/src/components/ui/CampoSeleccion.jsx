@@ -1,14 +1,16 @@
 import { useId } from 'react';
 
 const ESTILOS_BASE = [
-  'h-10 w-full rounded-control border bg-white px-3 text-cuerpo text-neutro-900',
-  'transition-colors',
-  'focus-visible:outline-2 focus-visible:outline-offset-2',
+  'h-9.5 w-full rounded-control border bg-white px-3 text-cuerpo font-medium text-neutro-900',
+  'cursor-pointer',
+  'transition-[border-color,box-shadow] duration-150 outline-none',
   'disabled:cursor-not-allowed disabled:bg-neutro-100 disabled:text-neutro-500',
 ].join(' ');
 
-const ESTILOS_NORMAL = 'border-neutro-300 hover:not-disabled:border-neutro-400 focus-visible:outline-primario';
-const ESTILOS_CON_ERROR = 'border-error bg-error-suave focus-visible:outline-error';
+const ESTILOS_NORMAL =
+  'border-neutro-300 hover:not-disabled:border-neutro-400 focus-visible:border-primario focus-visible:shadow-foco-campo';
+const ESTILOS_CON_ERROR =
+  'border-error bg-error-suave focus-visible:border-error focus-visible:shadow-foco-campo';
 
 /**
  * Lista desplegable con etiqueta asociada, ayuda y mensaje de error. Es el
