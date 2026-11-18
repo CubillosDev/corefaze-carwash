@@ -87,7 +87,9 @@ export function DetalleOrdenPage() {
             {vehiculo?.marca || etiquetaTipoVehiculo(vehiculo?.tipoVehiculo)}
           </p>
           <p className="mt-0.5 text-detalle text-neutro-550">
-            {[vehiculo?.color, etiquetaTipoVehiculo(vehiculo?.tipoVehiculo)].filter(Boolean).join(' · ')}
+            {[vehiculo?.color, vehiculo?.marca ? etiquetaTipoVehiculo(vehiculo.tipoVehiculo) : null]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
         </div>
         <InsigniaEstadoOrden estado={orden.estado} />
