@@ -139,7 +139,7 @@ describe('sesión vencida (401)', () => {
     });
 
     expect(await screen.findByRole('heading', { name: /ingresar a carwash/i })).toBeInTheDocument();
-    expect(screen.getByText('Tu sesión terminó')).toBeInTheDocument();
+    expect(screen.getByText('Tu sesión expiró')).toBeInTheDocument();
     expect(enrutador.state.location.pathname).toBe('/ingreso');
   });
 });

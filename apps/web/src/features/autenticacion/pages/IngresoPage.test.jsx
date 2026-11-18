@@ -148,7 +148,7 @@ describe('IngresoPage', () => {
     await waitFor(() => expect(screen.getByText('Pantalla de inicio')).toBeInTheDocument());
   });
 
-  it('NO guarda el token ni el usuario en localStorage ni en sessionStorage', async () => {
+  it('guarda el respaldo solo en sessionStorage: nunca en localStorage ni en cookies', async () => {
     api.iniciarSesion.mockResolvedValue({ usuario: USUARIO, token: 'jwt-secreto-de-prueba' });
     const usuarioEvento = userEvent.setup();
     renderizar();
@@ -157,7 +157,8 @@ describe('IngresoPage', () => {
     await screen.findByText('Pantalla de inicio');
 
     expect(window.localStorage).toHaveLength(0);
-    expect(window.sessionStorage).toHaveLength(0);
+    expect(window.sessionStorage.getItem('corefaze.sesion')).toContain('jwt-secreto-de-prueba');
     expect(document.cookie).not.toContain('jwt-secreto-de-prueba');
+    window.sessionStorage.clear();
   });
 });

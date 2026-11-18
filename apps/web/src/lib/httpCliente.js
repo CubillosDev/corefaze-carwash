@@ -5,10 +5,11 @@
  *
  * Contrato de la API (apps/api):
  * - Todo /api/* exige el encabezado X-API-Key, salvo /api/salud.
- * - Cuando hay sesión, se agrega Authorization: Bearer <token>. El token no se
- *   guarda aquí: lo entrega la sesión (ver `vincularSesion`).
- * - Un 401 en una solicitud que llevaba token significa sesión vencida o
- *   inválida: se avisa a la sesión para que se cierre.
+ * - Cuando hay sesión, se agrega Authorization: Bearer <token>. El token lo
+ *   entrega la sesión (ver `vincularSesion`) y su respaldo en sessionStorage
+ *   se maneja aquí (guardarSesion, leerSesionGuardada, borrarSesionGuardada).
+ * - Un 401 en una solicitud que llevaba token, o un token vencido, cierra la
+ *   sesión: se borra el respaldo y se avisa a la sesión.
  * - Los errores llegan como { mensaje } y, en 400, como
  *   { mensaje, errores: [{ campo, mensaje }] }.
  *
@@ -190,6 +191,13 @@ export function crearHttpCliente({
     // Si quien llama ya canceló, no se envía nada.
     signal?.throwIfAborted();
 
+    // Un token vencido no viaja: se cierra la sesión sin esperar el 401.
+    if (token && tokenVencido(token)) {
+      borrarSesionGuardada();
+      alSesionExpirada();
+      throw new ErrorHttp(MENSAJES_POR_ESTADO[401], { estado: 401 });
+    }
+
     const controlador = new AbortController();
     const temporizador = setTimeout(() => controlador.abort(), tiempoDeEstaSolicitud);
     const reenviarCancelacion = () => controlador.abort(signal.reason);
@@ -210,6 +218,7 @@ export function crearHttpCliente({
         // Sin token no hay sesión que cerrar: un 401 al iniciar sesión es solo
         // "credenciales incorrectas" y lo resuelve quien llama.
         if (respuesta.status === 401 && token) {
+          borrarSesionGuardada();
           alSesionExpirada();
         }
         throw new ErrorHttp(mensajeDeEstado(respuesta.status, cuerpo), {
@@ -239,6 +248,76 @@ export function crearHttpCliente({
     actualizar: (ruta, datos, opciones) => solicitar(ruta, { ...opciones, metodo: 'PATCH', datos }),
     eliminar: (ruta, opciones) => solicitar(ruta, { ...opciones, metodo: 'DELETE' }),
   });
+}
+
+/*
+ * Respaldo de la sesión: el token vive en memoria y se copia en
+ * sessionStorage (nunca en localStorage) para no perder la sesión al recargar
+ * la pestaña. sessionStorage se borra al cerrar la pestaña y no se comparte
+ * entre pestañas. Se limpia al cerrar sesión, ante un 401 y si el token vence.
+ */
+const CLAVE_SESION = 'corefaze.sesion';
+
+function almacenDeSesion() {
+  try {
+    return globalThis.sessionStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * ¿El JWT ya venció? Lee solo el campo `exp` del payload, sin validar la
+ * firma (eso lo hace la API). Si no se puede leer, se deja decidir a la API.
+ *
+ * @param {string} token
+ * @param {number} [ahora] Milisegundos; se puede fijar en pruebas.
+ */
+export function tokenVencido(token, ahora = Date.now()) {
+  try {
+    const payload = String(token).split('.')[1];
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const { exp } = JSON.parse(atob(base64));
+    return typeof exp === 'number' && exp * 1000 <= ahora;
+  } catch {
+    return false;
+  }
+}
+
+/** @param {{ usuario: object, token: string }} sesion */
+export function guardarSesion(sesion) {
+  try {
+    almacenDeSesion()?.setItem(CLAVE_SESION, JSON.stringify(sesion));
+  } catch {
+    // Sin almacenamiento disponible (modo privado estricto): la sesión sigue en memoria.
+  }
+}
+
+export function borrarSesionGuardada() {
+  try {
+    almacenDeSesion()?.removeItem(CLAVE_SESION);
+  } catch {
+    // Nada que borrar.
+  }
+}
+
+/**
+ * Sesión guardada en esta pestaña, o null si no hay, está dañada o el token
+ * venció (en esos casos también se borra).
+ *
+ * @returns {{ usuario: object, token: string } | null}
+ */
+export function leerSesionGuardada() {
+  try {
+    const sesion = JSON.parse(almacenDeSesion()?.getItem(CLAVE_SESION) ?? 'null');
+    if (sesion?.token && sesion?.usuario && !tokenVencido(sesion.token)) {
+      return sesion;
+    }
+  } catch {
+    // Contenido dañado: se trata como si no hubiera sesión.
+  }
+  borrarSesionGuardada();
+  return null;
 }
 
 const SIN_SESION = Object.freeze({ obtenerToken: () => null, alSesionExpirada: () => {} });
