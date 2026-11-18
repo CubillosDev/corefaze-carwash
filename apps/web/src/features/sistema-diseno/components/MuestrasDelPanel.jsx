@@ -9,6 +9,7 @@ import { CampoBusqueda } from '@/components/ui/CampoBusqueda';
 import { Contador } from '@/components/ui/Contador';
 import { ControlSegmentado } from '@/components/ui/ControlSegmentado';
 import { EncabezadoPagina } from '@/components/ui/EncabezadoPagina';
+import { EnlaceBoton } from '@/components/ui/EnlaceBoton';
 import { EstadoCarga } from '@/components/ui/EstadoCarga';
 import { EstadoError } from '@/components/ui/EstadoError';
 import { EstadoVacio } from '@/components/ui/EstadoVacio';
@@ -121,6 +122,18 @@ export function MuestrasDelPanel() {
             </>
           }
         />
+      </SeccionDelCatalogo>
+
+      <SeccionDelCatalogo
+        titulo="Enlace con aspecto de botón"
+        descripcion="Navega a otra página (404, 403). Para acciones se usa Boton."
+      >
+        <div className="flex gap-2">
+          <EnlaceBoton hacia="/">Volver al inicio</EnlaceBoton>
+          <EnlaceBoton hacia="/" variante="secundario">
+            Ir a jornadas
+          </EnlaceBoton>
+        </div>
       </SeccionDelCatalogo>
 
       <SeccionDelCatalogo titulo="Filtros y búsqueda">
