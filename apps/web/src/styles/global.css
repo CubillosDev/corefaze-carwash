@@ -33,14 +33,19 @@
 
   /* Capa oscura detrás del cajón de navegación y de los modales. */
   --color-velo: rgba(10, 16, 32, 0.42);
+  /* Capa más clara detrás del panel lateral de detalle. */
+  --color-velo-suave: rgba(10, 16, 32, 0.32);
 
   /* --- Primario: Electric Blue ---------------------------------------------
    * Botones primarios, foco y selección. Solo existen los tonos que usa el
    * diseño.
    * --------------------------------------------------------------------- */
+  --color-primario-25: #f4f8ff; /* Hover del botón secundario */
   --color-primario-50: #f1f6fe; /* Fondo de opción seleccionada */
   --color-primario-100: #e7effd; /* Fondo de insignia azul */
   --color-primario-200: #c9daf8; /* Barras secundarias de gráficos */
+  --color-primario-250: #a9c7f5; /* Borde del botón secundario en hover */
+  --color-primario-300: #9dbef4; /* Botón primario deshabilitado */
   --color-primario-500: #1268e8;
   --color-primario-600: #0f5bcc; /* Hover del botón primario */
   --color-primario-800: #0b3d91; /* Deep Blue: texto sobre selección */
@@ -51,17 +56,30 @@
    * --------------------------------------------------------------------- */
   --color-resalte: #f2c230;
 
-  /* --- Neutros ------------------------------------------------------------- */
+  /* --- Neutros -------------------------------------------------------------
+   * El prototipo usa grises que difieren en 1 o 2 unidades RGB (#f2f3f5 y
+   * #f1f2f4, por ejemplo). Se agrupan en el tono más cercano de esta escala:
+   * la diferencia no se percibe y el sistema queda con un solo gris por uso.
+   * --------------------------------------------------------------------- */
+  --color-neutro-25: #fafbfc; /* Hover de fila y pie de tabla */
   --color-neutro-50: #f5f5f6; /* Fondo del área de contenido */
+  --color-neutro-75: #f5f6f8; /* Bloques internos de tarjetas y hover de menús */
   --color-neutro-100: #f1f2f4; /* Fondo de chip y de placa */
   --color-neutro-150: #eef0f2; /* Divisores */
   --color-neutro-200: #e9eaed; /* Borde de tarjeta */
+  --color-neutro-225: #ebebee; /* Columnas del tablero */
   --color-neutro-250: #e9e9ec; /* Barra lateral y control segmentado */
+  --color-neutro-275: #e3e5e9; /* Borde de filtros y paginación */
   --color-neutro-300: #dfe1e6; /* Borde de campos y botón secundario */
+  --color-neutro-325: #dcdee3; /* Contadores y bordes punteados de vacío */
   --color-neutro-350: #d6d7dc; /* Barra de desplazamiento */
+  --color-neutro-375: #b4b8c2; /* Flechas de fila */
   --color-neutro-400: #a3a7b3; /* Texto de ejemplo en campos */
+  --color-neutro-450: #9a9fad; /* Texto atenuado */
   --color-neutro-500: #8c909c; /* Etiquetas de sección */
+  --color-neutro-550: #7a7f8c; /* Texto de apoyo en tarjetas */
   --color-neutro-600: #6b7080; /* Texto secundario */
+  --color-neutro-650: #5c6170; /* Texto de celdas */
   --color-neutro-700: #4a4f5c; /* Iconos y etiquetas de campo */
   --color-neutro-800: #2f3340; /* Navegación inactiva */
   --color-neutro-900: #171b24; /* Texto principal (Graphite) */
@@ -75,10 +93,11 @@
   --color-exito-suave: #e8f6ee;
 
   --color-advertencia: #a76507;
+  --color-advertencia-fuerte: #b45309; /* Indicadores que piden atención */
   --color-advertencia-solido: #e59a0b;
   --color-advertencia-suave: #fdf3e1;
 
-  --color-error: #c2410c;
+  --color-error: #b91c1c;
   --color-error-suave: #fdecec;
 
   --color-info: #0b3d91;
@@ -93,10 +112,19 @@
 
   /* Escala por rol. El interlineado es el normal de la fuente, como en el
      diseño, salvo donde el rol fija peso o espaciado. */
+  --text-avatar: 9.5px;
+  --text-avatar--font-weight: 700;
+  --text-etiqueta-menu: 10.5px;
+  --text-etiqueta-menu--font-weight: 600;
+  --text-etiqueta-menu--letter-spacing: 0.08em;
   --text-micro: 11px;
   --text-etiqueta: 11px;
   --text-etiqueta--font-weight: 600;
   --text-etiqueta--letter-spacing: 0.08em;
+  --text-encabezado-tabla: 11px;
+  --text-encabezado-tabla--font-weight: 600;
+  --text-encabezado-tabla--letter-spacing: 0.06em;
+  --text-nota: 11.5px;
   --text-meta: 12px;
   --text-detalle: 12.5px;
   --text-control: 13px;
@@ -108,6 +136,9 @@
   --text-marca--letter-spacing: 0.01em;
   --text-titulo-modal: 16px;
   --text-titulo-modal--font-weight: 600;
+  --text-titulo-cajon: 17px;
+  --text-titulo-cajon--font-weight: 600;
+  --text-titulo-cajon--letter-spacing: -0.01em;
   --text-total: 18px;
   --text-total--font-weight: 600;
   --text-total--letter-spacing: -0.01em;
@@ -116,24 +147,47 @@
   --text-titulo--letter-spacing: -0.01em;
   --text-indicador: 22px;
   --text-indicador--font-weight: 600;
+  --text-indicador--letter-spacing: -0.02em;
+  --text-kpi: 23px;
+  --text-kpi--font-weight: 600;
+  --text-kpi--letter-spacing: -0.02em;
 
   /* --- Radios --------------------------------------------------------------- */
   --radius-placa: 6px;
   --radius-opcion: 8px; /* Opciones de menú y botón de cerrar */
   --radius-control: 9px; /* Botones, campos y píldora del menú */
+  --radius-bloque: 10px; /* Bloques internos, avisos y control segmentado */
+  --radius-menu: 12px; /* Menús desplegables y tarjetas del tablero */
   --radius-tarjeta: 14px; /* Tarjetas y tablas */
   --radius-modal: 16px; /* Modal; también el panel y el cajón en móvil */
   --radius-panel: 18px; /* Panel principal y hoja inferior en móvil */
 
   /* --- Sombras -------------------------------------------------------------- */
   --shadow-pildora: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 1px rgba(16, 24, 40, 0.04);
+  --shadow-segmento: 0 1px 3px rgba(16, 24, 40, 0.12);
+  --shadow-tarjeta: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-tarjeta-hover: 0 6px 18px rgba(16, 24, 40, 0.08);
+  --shadow-boton-primario: 0 4px 12px rgba(18, 104, 232, 0.25);
+  --shadow-foco-campo: 0 0 0 3px rgba(18, 104, 232, 0.12);
+  --shadow-menu: 0 12px 32px rgba(10, 16, 32, 0.14);
+  --shadow-desplegable: 0 14px 36px rgba(10, 16, 32, 0.22);
+  --shadow-aviso: 0 12px 30px rgba(10, 16, 32, 0.25);
   --shadow-barra-lateral: inset -12px 0 14px -12px rgba(0, 0, 0, 0.05);
   --shadow-cajon: 0 20px 50px rgba(10, 16, 32, 0.3);
+  --shadow-panel-lateral: -24px 0 60px rgba(10, 16, 32, 0.18);
   --shadow-modal: 0 24px 60px rgba(10, 16, 32, 0.28);
 
   /* --- Medidas del marco ------------------------------------------------------ */
   --spacing-encabezado: 58px;
   --spacing-barra-lateral: 224px;
+  --spacing-panel-lateral: 400px; /* Panel de detalle que entra por la derecha */
+
+  /* --- Espaciado de letras de la placa (JetBrains Mono) --------------------- */
+  --tracking-placa: 0.05em;
+  --tracking-campo-placa: 0.06em;
+
+  /* Desenfoque del velo detrás de los modales. */
+  --blur-velo: 2px;
 
   /* --- Movimiento ------------------------------------------------------------ */
   --ease-suave: cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -143,6 +197,23 @@
   --animate-aparecer-velo: aparecer 220ms linear;
   --animate-entrar-vista: entrar-vista 260ms var(--ease-suave);
   --animate-entrar-modal: entrar-modal 260ms var(--ease-suave);
+  --animate-entrar-lateral: entrar-lateral 260ms var(--ease-suave);
+  --animate-girar: girar 0.8s linear infinite;
+
+  @keyframes entrar-lateral {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: none;
+    }
+  }
+
+  @keyframes girar {
+    to {
+      transform: rotate(360deg);
+    }
+  }
 
   @keyframes aparecer {
     from {

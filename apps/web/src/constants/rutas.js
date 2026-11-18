@@ -7,33 +7,41 @@
 export const RUTAS = Object.freeze({
   INICIO: '/',
   INGRESO: '/ingreso',
+  ORDENES_LAVADO: '/ordenes-lavado',
   CLIENTES: '/clientes',
   VEHICULOS: '/vehiculos',
-  ORDENES_LAVADO: '/ordenes-lavado',
-  SERVICIOS: '/servicios',
+  CREDITO: '/credito',
   COLABORADORES: '/colaboradores',
+  SERVICIOS: '/servicios',
+  JORNADAS: '/jornadas',
+  USUARIOS: '/usuarios',
   REPORTES: '/reportes',
 
   /** Catálogo visual del sistema de diseño. Solo se publica en desarrollo. */
   SISTEMA_DISENO: '/sistema-diseno',
 });
 
+/** Grupos de la barra lateral, en el orden del diseño. */
+export const GRUPOS_MENU = Object.freeze({
+  PRINCIPAL: 'Principal',
+  OPERACION: 'Operación',
+  ADMINISTRACION: 'Administración',
+  DESARROLLO: 'Desarrollo',
+});
+
+const opcion = (ruta, texto, icono, grupo, exacta = false) =>
+  Object.freeze({ ruta, texto, icono, grupo, exacta });
+
 /**
- * Opciones de la barra lateral, en orden. Solo se agrega una sección cuando su
- * página ya está registrada en src/app/router.jsx (una prueba lo verifica).
- * `icono` es la clave del icono que BarraLateral dibuja para la opción.
+ * Opciones de la barra lateral, en orden y agrupadas como en el diseño. Solo se
+ * agrega una sección cuando su página ya está registrada en src/app/router.jsx
+ * (una prueba lo verifica). `icono` es la clave del icono que BarraLateral
+ * dibuja para la opción.
  */
 export const MENU_PRINCIPAL = Object.freeze([
-  Object.freeze({ ruta: RUTAS.INICIO, texto: 'Inicio', icono: 'inicio', exacta: true }),
-  Object.freeze({ ruta: RUTAS.VEHICULOS, texto: 'Vehículos', icono: 'vehiculo', exacta: false }),
+  opcion(RUTAS.INICIO, 'Inicio', 'inicio', GRUPOS_MENU.PRINCIPAL, true),
+  opcion(RUTAS.VEHICULOS, 'Vehículos', 'vehiculo', GRUPOS_MENU.OPERACION),
   ...(import.meta.env.DEV
-    ? [
-        Object.freeze({
-          ruta: RUTAS.SISTEMA_DISENO,
-          texto: 'Sistema de diseño',
-          icono: 'paleta',
-          exacta: false,
-        }),
-      ]
+    ? [opcion(RUTAS.SISTEMA_DISENO, 'Sistema de diseño', 'paleta', GRUPOS_MENU.DESARROLLO)]
     : []),
 ]);

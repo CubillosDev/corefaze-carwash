@@ -25,10 +25,13 @@ function renderizarEn(ruta, propiedades = {}) {
 const pildora = () => document.querySelector('[data-pildora]');
 
 describe('BarraLateral', () => {
-  it('nombra la navegación con su etiqueta "Menú"', () => {
+  it('nombra la navegación y muestra el título de cada grupo, como el diseño', () => {
     renderizarEn('/');
 
-    expect(screen.getByRole('navigation', { name: 'Menú' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Menú principal' })).toBeInTheDocument();
+    for (const grupo of new Set(MENU_PRINCIPAL.map((entrada) => entrada.grupo))) {
+      expect(screen.getByRole('list', { name: grupo })).toBeInTheDocument();
+    }
   });
 
   it('muestra una opción por cada entrada de MENU_PRINCIPAL, en orden', () => {
@@ -48,7 +51,10 @@ describe('BarraLateral', () => {
       'page',
     );
     expect(screen.getByRole('link', { name: 'Inicio' })).not.toHaveAttribute('aria-current');
-    expect(pildora().style.transform).toBe(`translateY(calc(var(--spacing) * ${9 * indice}))`);
+    const gruposAntes = new Set(MENU_PRINCIPAL.slice(0, indice + 1).map((entrada) => entrada.grupo)).size - 1;
+    expect(pildora().style.transform).toBe(
+      `translateY(calc(var(--spacing) * ${9 * indice + 8 * gruposAntes}))`,
+    );
   });
 
   it('pone la píldora en la primera posición para Inicio', () => {

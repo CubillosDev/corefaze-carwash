@@ -10,6 +10,7 @@ import { Tabla } from '@/components/ui/Tabla';
 import { MenuPerfil } from '@/features/autenticacion';
 import { MuestraDeColor } from '@/features/sistema-diseno/components/MuestraDeColor';
 import { MuestraDeForma } from '@/features/sistema-diseno/components/MuestraDeForma';
+import { MuestrasDelPanel } from '@/features/sistema-diseno/components/MuestrasDelPanel';
 import { SeccionDelCatalogo } from '@/features/sistema-diseno/components/SeccionDelCatalogo';
 import { useValoresDeTokens } from '@/features/sistema-diseno/hooks/useValoresDeTokens';
 import { formatoFecha, formatoFechaHora } from '@/utils/formatoFecha';
@@ -23,15 +24,19 @@ const GRUPOS_DE_COLOR = [
     tonos: [
       { token: 'marco', clase: 'bg-marco' },
       { token: 'velo', clase: 'bg-velo' },
+      { token: 'velo-suave', clase: 'bg-velo-suave' },
     ],
   },
   {
     nombre: 'Primario · Electric Blue',
     nota: 'Botones primarios, foco y selección. Solo existen los tonos que usa el diseño.',
     tonos: [
+      { token: 'primario-25', clase: 'bg-primario-25' },
       { token: 'primario-50', clase: 'bg-primario-50' },
       { token: 'primario-100', clase: 'bg-primario-100' },
       { token: 'primario-200', clase: 'bg-primario-200' },
+      { token: 'primario-250', clase: 'bg-primario-250' },
+      { token: 'primario-300', clase: 'bg-primario-300' },
       { token: 'primario-500', clase: 'bg-primario-500' },
       { token: 'primario-600', clase: 'bg-primario-600' },
       { token: 'primario-800', clase: 'bg-primario-800' },
@@ -44,18 +49,27 @@ const GRUPOS_DE_COLOR = [
   },
   {
     nombre: 'Neutros',
-    nota: 'Superficies y bordes en los tonos claros; texto e iconos en los oscuros.',
+    nota: 'Superficies y bordes en los tonos claros; texto e iconos en los oscuros. Los grises del prototipo que difieren en 1 o 2 unidades se agrupan en el tono más cercano.',
     tonos: [
+      { token: 'neutro-25', clase: 'bg-neutro-25' },
       { token: 'neutro-50', clase: 'bg-neutro-50' },
+      { token: 'neutro-75', clase: 'bg-neutro-75' },
       { token: 'neutro-100', clase: 'bg-neutro-100' },
       { token: 'neutro-150', clase: 'bg-neutro-150' },
       { token: 'neutro-200', clase: 'bg-neutro-200' },
+      { token: 'neutro-225', clase: 'bg-neutro-225' },
       { token: 'neutro-250', clase: 'bg-neutro-250' },
+      { token: 'neutro-275', clase: 'bg-neutro-275' },
       { token: 'neutro-300', clase: 'bg-neutro-300' },
+      { token: 'neutro-325', clase: 'bg-neutro-325' },
       { token: 'neutro-350', clase: 'bg-neutro-350' },
+      { token: 'neutro-375', clase: 'bg-neutro-375' },
       { token: 'neutro-400', clase: 'bg-neutro-400' },
+      { token: 'neutro-450', clase: 'bg-neutro-450' },
       { token: 'neutro-500', clase: 'bg-neutro-500' },
+      { token: 'neutro-550', clase: 'bg-neutro-550' },
       { token: 'neutro-600', clase: 'bg-neutro-600' },
+      { token: 'neutro-650', clase: 'bg-neutro-650' },
       { token: 'neutro-700', clase: 'bg-neutro-700' },
       { token: 'neutro-800', clase: 'bg-neutro-800' },
       { token: 'neutro-900', clase: 'bg-neutro-900' },
@@ -69,6 +83,7 @@ const GRUPOS_DE_COLOR = [
       { token: 'exito-solido', clase: 'bg-exito-solido' },
       { token: 'exito-suave', clase: 'bg-exito-suave' },
       { token: 'advertencia', clase: 'bg-advertencia' },
+      { token: 'advertencia-fuerte', clase: 'bg-advertencia-fuerte' },
       { token: 'advertencia-solido', clase: 'bg-advertencia-solido' },
       { token: 'advertencia-suave', clase: 'bg-advertencia-suave' },
       { token: 'error', clase: 'bg-error' },
@@ -80,9 +95,11 @@ const GRUPOS_DE_COLOR = [
 ];
 
 const ESCALA_TIPOGRAFICA = [
-  { clase: 'text-indicador', uso: 'Cifras de indicadores' },
+  { clase: 'text-kpi', uso: 'Valor de los indicadores del tablero' },
+  { clase: 'text-indicador', uso: 'Cifras de tarjetas' },
   { clase: 'text-titulo', uso: 'Título de página' },
   { clase: 'text-total', uso: 'Totales' },
+  { clase: 'text-titulo-cajon', uso: 'Nombre en el panel de detalle' },
   { clase: 'text-titulo-modal', uso: 'Título de ventana modal' },
   { clase: 'text-marca', uso: 'Nombre de la aplicación en la cabecera' },
   { clase: 'text-titulo-tarjeta', uso: 'Título de tarjeta y de sección' },
@@ -90,14 +107,20 @@ const ESCALA_TIPOGRAFICA = [
   { clase: 'text-control', uso: 'Botones y filas de tabla' },
   { clase: 'text-detalle', uso: 'Subtítulos y chips' },
   { clase: 'text-meta', uso: 'Etiquetas de campo y datos secundarios' },
-  { clase: 'text-micro', uso: 'Insignias y encabezados de tabla' },
+  { clase: 'text-nota', uso: 'Líneas de apoyo bajo valores e insignias' },
+  { clase: 'text-micro', uso: 'Contadores y placas pequeñas' },
+  { clase: 'text-encabezado-tabla uppercase', uso: 'Encabezados de tabla, en mayúsculas' },
   { clase: 'text-etiqueta uppercase', uso: 'Etiqueta de sección, siempre en mayúsculas' },
+  { clase: 'text-etiqueta-menu uppercase', uso: 'Título dentro de menús desplegables' },
+  { clase: 'text-avatar', uso: 'Iniciales del avatar pequeño' },
 ];
 
 const RADIOS = [
   { clase: 'rounded-placa', uso: 'Placa' },
   { clase: 'rounded-opcion', uso: 'Opciones de menú y botón de cerrar' },
   { clase: 'rounded-control', uso: 'Botones, campos y píldora del menú' },
+  { clase: 'rounded-bloque', uso: 'Bloques internos, avisos y control segmentado' },
+  { clase: 'rounded-menu', uso: 'Menús desplegables y tarjetas del tablero' },
   { clase: 'rounded-tarjeta', uso: 'Tarjetas y tablas' },
   { clase: 'rounded-modal', uso: 'Modal; panel y cajón en móvil' },
   { clase: 'rounded-panel', uso: 'Panel principal y hoja inferior' },
@@ -105,8 +128,17 @@ const RADIOS = [
 
 const SOMBRAS = [
   { clase: 'shadow-pildora', uso: 'Píldora activa del menú' },
+  { clase: 'shadow-segmento', uso: 'Opción elegida del control segmentado' },
+  { clase: 'shadow-tarjeta', uso: 'Tarjeta del tablero en reposo' },
+  { clase: 'shadow-tarjeta-hover', uso: 'Tarjeta del tablero al pasar el puntero' },
+  { clase: 'shadow-boton-primario', uso: 'Botón principal de la página' },
+  { clase: 'shadow-foco-campo', uso: 'Anillo de foco de los campos' },
+  { clase: 'shadow-menu', uso: 'Menú de acciones de una tarjeta' },
+  { clase: 'shadow-desplegable', uso: 'Menús de la cabecera' },
+  { clase: 'shadow-aviso', uso: 'Aviso flotante' },
   { clase: 'shadow-barra-lateral', uso: 'Borde derecho de la barra lateral' },
   { clase: 'shadow-cajon', uso: 'Cajón de navegación abierto' },
+  { clase: 'shadow-panel-lateral', uso: 'Panel de detalle a la derecha' },
   { clase: 'shadow-modal', uso: 'Ventana modal' },
 ];
 
@@ -115,6 +147,8 @@ const ANIMACIONES = [
   { variable: '--animate-aparecer-velo', uso: 'Velo del cajón de navegación' },
   { variable: '--animate-entrar-vista', uso: 'Entrada del contenido al cambiar de página' },
   { variable: '--animate-entrar-modal', uso: 'Entrada de la ventana modal' },
+  { variable: '--animate-entrar-lateral', uso: 'Entrada del panel de detalle' },
+  { variable: '--animate-girar', uso: 'Indicador de carga' },
 ];
 
 /** La utilidad de texto coincide con su variable: 'text-etiqueta uppercase' -> '--text-etiqueta'. */
@@ -510,12 +544,14 @@ export function SistemaDisenoPage() {
 
       <SeccionDelCatalogo
         titulo="Menú de perfil"
-        descripcion="Va en la cabecera, sobre el marco oscuro: el botón con las iniciales abre un panel con el nombre, el correo, el rol y «Cerrar sesión». Se cierra con Escape o al hacer clic por fuera. Aquí usa la sesión actual."
+        descripcion="Va en la cabecera, sobre el marco oscuro: el botón con la silueta abre un menú con el nombre, el correo, el rol y «Cerrar sesión». Se cierra con Escape o al hacer clic por fuera. Aquí usa la sesión actual."
       >
-        <div className="flex h-24 items-start justify-end rounded-tarjeta bg-marco p-3">
+        <div className="flex h-52 items-start justify-end rounded-tarjeta bg-marco p-3">
           <MenuPerfil />
         </div>
       </SeccionDelCatalogo>
+
+      <MuestrasDelPanel />
     </div>
   );
 }

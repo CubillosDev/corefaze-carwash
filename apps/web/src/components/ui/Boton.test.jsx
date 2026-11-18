@@ -86,11 +86,20 @@ describe('Boton', () => {
     expect(boton).not.toHaveClass('rounded-control');
   });
 
-  it('aplica la altura de cada tamaño', () => {
+  it('aplica la altura de cada tamaño del diseño (32, 34 y 36 px)', () => {
     const { rerender } = render(<Boton tamano="pequeno">Pequeño</Boton>);
     expect(screen.getByRole('button')).toHaveClass('h-8');
 
+    rerender(<Boton>Mediano</Boton>);
+    expect(screen.getByRole('button')).toHaveClass('h-8.5', 'font-semibold');
+
     rerender(<Boton tamano="grande">Grande</Boton>);
-    expect(screen.getByRole('button')).toHaveClass('h-12');
+    expect(screen.getByRole('button')).toHaveClass('h-9');
+  });
+
+  it('el primario deshabilitado usa el azul claro del diseño en vez de transparencia', () => {
+    render(<Boton disabled>Crear servicio</Boton>);
+
+    expect(screen.getByRole('button')).toHaveClass('disabled:bg-primario-300');
   });
 });

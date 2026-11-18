@@ -40,7 +40,7 @@ describe('rutas privadas', () => {
     renderizarApp('/', sesionDe('administrador'));
 
     expect(await screen.findByRole('heading', { name: /panel de gestión/i })).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Menú' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Menú principal' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Perfil de Diego Urbano' })).toBeInTheDocument();
   });
 
@@ -55,7 +55,7 @@ describe('rutas privadas', () => {
     renderizarApp('/reportes', sesionDe('soporte'));
 
     expect(await screen.findByRole('heading', { name: 'Sin permiso' })).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Menú' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Menú principal' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Volver al inicio' })).toHaveAttribute('href', '/');
   });
 
@@ -63,7 +63,7 @@ describe('rutas privadas', () => {
     renderizarApp('/esto-no-existe', sesionDe('soporte'));
 
     expect(screen.queryByRole('heading', { name: 'Sin permiso' })).not.toBeInTheDocument();
-    expect(await screen.findByRole('navigation', { name: 'Menú' })).toBeInTheDocument();
+    expect(await screen.findByRole('navigation', { name: 'Menú principal' })).toBeInTheDocument();
   });
 
   it('una cuenta pendiente ve la pantalla de aprobación y no el panel', async () => {
@@ -72,13 +72,13 @@ describe('rutas privadas', () => {
     expect(
       await screen.findByRole('heading', { name: /tu cuenta está pendiente de aprobación/i }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('navigation', { name: 'Menú' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Menú principal' })).not.toBeInTheDocument();
   });
 
   it('el menú lateral solo muestra los módulos que el rol puede usar', async () => {
     renderizarApp('/', sesionDe('soporte'));
 
-    const menu = await screen.findByRole('navigation', { name: 'Menú' });
+    const menu = await screen.findByRole('navigation', { name: 'Menú principal' });
     expect(menu).toHaveTextContent('Inicio');
   });
 });
