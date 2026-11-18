@@ -16,6 +16,8 @@ import { useValoresDeTokens } from '@/features/sistema-diseno/hooks/useValoresDe
 import { formatoFecha, formatoFechaHora } from '@/utils/formatoFecha';
 import { formatoMoneda } from '@/utils/formatoMoneda';
 import { formatoPlaca } from '@/utils/formatoPlaca';
+import { formatoPorcentaje } from '@/utils/formatoPorcentaje';
+import { formatoTelefono } from '@/utils/formatoTelefono';
 
 const GRUPOS_DE_COLOR = [
   {
@@ -204,6 +206,8 @@ const EJEMPLOS_DE_FORMATO = [
   },
   { id: 7, llamada: "formatoPlaca('aaa-111')", resultado: formatoPlaca('aaa-111') },
   { id: 8, llamada: "formatoPlaca('BBB22B')", resultado: formatoPlaca('BBB22B') },
+  { id: 9, llamada: 'formatoPorcentaje(0.37)', resultado: formatoPorcentaje(0.37) },
+  { id: 10, llamada: "formatoTelefono('3000000001')", resultado: formatoTelefono('3000000001') },
 ];
 
 /**

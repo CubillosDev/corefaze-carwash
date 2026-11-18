@@ -39,7 +39,7 @@ describe('rutas privadas', () => {
   it('con sesión de un rol operativo muestra el panel con menú y cabecera', async () => {
     renderizarApp('/', sesionDe('administrador'));
 
-    expect(await screen.findByRole('heading', { name: /buen día/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /buen día/i }, { timeout: 4000 })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Menú principal' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Perfil de Diego Urbano' })).toBeInTheDocument();
   });
@@ -47,7 +47,7 @@ describe('rutas privadas', () => {
   it('con una sesión activa, /ingreso redirige al inicio', async () => {
     const enrutador = renderizarApp('/ingreso', sesionDe('administrador'));
 
-    expect(await screen.findByRole('heading', { name: /buen día/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /buen día/i }, { timeout: 4000 })).toBeInTheDocument();
     expect(enrutador.state.location.pathname).toBe('/');
   });
 

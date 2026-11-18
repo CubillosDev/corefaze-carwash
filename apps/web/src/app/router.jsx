@@ -60,8 +60,32 @@ export const rutas = [
                 Component: paginaDiferida(() => import('@/features/jornadas'), 'JornadasPage'),
               },
               {
+                path: RUTAS.CLIENTES,
+                Component: paginaDiferida(() => import('@/features/clientes'), 'ClientesPage'),
+              },
+              {
                 path: RUTAS.VEHICULOS,
                 Component: paginaDiferida(() => import('@/features/vehiculos'), 'VehiculosPage'),
+              },
+              {
+                path: RUTAS.CREDITO,
+                Component: paginaDiferida(() => import('@/features/credito'), 'CreditoPage'),
+              },
+              {
+                path: RUTAS.COLABORADORES,
+                Component: paginaDiferida(() => import('@/features/colaboradores'), 'ColaboradoresPage'),
+              },
+              {
+                path: RUTAS.SERVICIOS,
+                Component: paginaDiferida(() => import('@/features/servicios'), 'ServiciosPage'),
+              },
+              {
+                path: RUTAS.USUARIOS,
+                Component: paginaDiferida(() => import('@/features/usuarios'), 'UsuariosPage'),
+              },
+              {
+                path: RUTAS.REPORTES,
+                Component: paginaDiferida(() => import('@/features/reportes'), 'ReportesPage'),
               },
               ...rutasDeDesarrollo,
               { path: '*', Component: paginaDiferida(cargarInicio, 'NoEncontradaPage') },

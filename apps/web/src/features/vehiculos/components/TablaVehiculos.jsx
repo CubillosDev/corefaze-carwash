@@ -1,6 +1,7 @@
 import { Boton } from '@/components/ui/Boton';
 import { Tabla } from '@/components/ui/Tabla';
 import { etiquetaTipoVehiculo } from '@/constants/etiquetas';
+import { Placa } from '@/components/ui/Placa';
 import { formatoPlaca } from '@/utils/formatoPlaca';
 
 const SIN_DATO = '—';
@@ -32,7 +33,7 @@ export function TablaVehiculos({
       clave: 'placa',
       titulo: 'Placa',
       render: (vehiculo) => (
-        <span className="font-mono font-semibold whitespace-nowrap">{formatoPlaca(vehiculo.placa)}</span>
+        <Placa placa={vehiculo.placa} />
       ),
     },
     {

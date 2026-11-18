@@ -7,8 +7,9 @@ import { BarraLateral } from '@/components/layout/BarraLateral';
 import { MENU_PRINCIPAL } from '@/constants/rutas';
 import { ProveedorSesion } from '@/features/autenticacion';
 
+// Superadmin ve todas las opciones del menú (Usuarios es solo suyo).
 const SESION_ADMIN = {
-  usuario: { id: 1, nombre: 'Ana Prueba', email: 'ana@prueba.com', rol: 'administrador' },
+  usuario: { id: 1, nombre: 'Ana Prueba', email: 'ana@prueba.com', rol: 'superadmin' },
   token: 'token-de-prueba',
 };
 

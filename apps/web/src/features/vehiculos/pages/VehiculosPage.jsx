@@ -2,7 +2,9 @@ import { useState } from 'react';
 
 import { Alerta } from '@/components/ui/Alerta';
 import { Boton } from '@/components/ui/Boton';
-import { CampoTexto } from '@/components/ui/CampoTexto';
+import { CampoBusqueda } from '@/components/ui/CampoBusqueda';
+import { EncabezadoPagina } from '@/components/ui/EncabezadoPagina';
+import { IconoMas } from '@/components/ui/iconos/IconoMas';
 import { IconoCargando } from '@/components/ui/iconos/IconoCargando';
 import { rolPuedeGestionar } from '@/constants/permisos';
 import { RUTAS } from '@/constants/rutas';
@@ -63,37 +65,40 @@ export function VehiculosPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-4 escritorio:flex-row escritorio:items-end escritorio:justify-between">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-titulo text-neutro-900">Vehículos</h1>
-          <p className="text-detalle text-neutro-600">
-            {puedeGestionar
-              ? 'Busca un vehículo por su placa, registra uno nuevo o revisa su historial de lavados.'
-              : 'Busca un vehículo por su placa y revisa su historial de lavados.'}
-          </p>
-        </div>
-        {puedeGestionar ? (
-          <Boton onClick={() => setVentana({ tipo: 'formulario', vehiculo: null })}>
-            Nuevo vehículo
-          </Boton>
-        ) : null}
-      </header>
+      <EncabezadoPagina
+        titulo="Vehículos"
+        descripcion={
+          puedeGestionar
+            ? 'Busca un vehículo por su placa, registra uno nuevo o revisa su historial de lavados.'
+            : 'Busca un vehículo por su placa y revisa su historial de lavados.'
+        }
+        acciones={
+          <>
+            <CampoBusqueda
+              etiqueta="Buscar por placa"
+              marcador="Buscar por placa, ej. ABC123"
+              valor={datos.busqueda}
+              alCambiar={datos.buscar}
+              className="w-75 max-w-full"
+            />
+            {puedeGestionar ? (
+              <Boton
+                className="pl-2.75 shadow-boton-primario"
+                onClick={() => setVentana({ tipo: 'formulario', vehiculo: null })}
+              >
+                <IconoMas className="size-3.75" />
+                Nuevo vehículo
+              </Boton>
+            ) : null}
+          </>
+        }
+      />
 
       {aviso ? (
         <Alerta tipo="exito" alCerrar={() => setAviso('')}>
           {aviso}
         </Alerta>
       ) : null}
-
-      <CampoTexto
-        etiqueta="Buscar por placa"
-        type="search"
-        autoComplete="off"
-        placeholder="Ejemplo: ABC123"
-        value={datos.busqueda}
-        onChange={(evento) => datos.buscar(evento.target.value)}
-        className="escritorio:max-w-xs"
-      />
 
       {datos.situacion === 'cargando' ? (
         <p role="status" className="flex items-center gap-2 py-10 text-neutro-600">
