@@ -40,6 +40,8 @@ const opcion = (ruta, texto, icono, grupo, exacta = false) =>
  */
 export const MENU_PRINCIPAL = Object.freeze([
   opcion(RUTAS.INICIO, 'Inicio', 'inicio', GRUPOS_MENU.PRINCIPAL, true),
+  opcion(RUTAS.ORDENES_LAVADO, 'Órdenes', 'ordenes', GRUPOS_MENU.OPERACION),
+  opcion(RUTAS.JORNADAS, 'Jornadas', 'jornadas', GRUPOS_MENU.OPERACION),
   opcion(RUTAS.VEHICULOS, 'Vehículos', 'vehiculo', GRUPOS_MENU.OPERACION),
   ...(import.meta.env.DEV
     ? [opcion(RUTAS.SISTEMA_DISENO, 'Sistema de diseño', 'paleta', GRUPOS_MENU.DESARROLLO)]

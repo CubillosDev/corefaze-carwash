@@ -118,3 +118,22 @@ export function rolPuedeAcceder(rol, direccion) {
 export function rolPuedeGestionar(rol, modulo) {
   return (MODULOS_GESTIONABLES_POR_ROL[rol] ?? []).includes(modulo);
 }
+
+/**
+ * Anular (cancelar) una orden es de superadmin y administrador: a soporte la
+ * API le responde 403. Solo oculta la opción; la API valida igual.
+ *
+ * @param {string|null|undefined} rol
+ */
+export function rolPuedeAnularOrden(rol) {
+  return rol === 'superadmin' || rol === 'administrador';
+}
+
+/**
+ * Reabrir una jornada cerrada es solo de superadmin.
+ *
+ * @param {string|null|undefined} rol
+ */
+export function rolPuedeReabrirJornada(rol) {
+  return rol === 'superadmin';
+}

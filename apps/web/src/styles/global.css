@@ -46,6 +46,7 @@
   --color-primario-200: #c9daf8; /* Barras secundarias de gráficos */
   --color-primario-250: #a9c7f5; /* Borde del botón secundario en hover */
   --color-primario-300: #9dbef4; /* Botón primario deshabilitado */
+  --color-primario-400: #5e97ee; /* Escala azul del patio en vivo */
   --color-primario-500: #1268e8;
   --color-primario-600: #0f5bcc; /* Hover del botón primario */
   --color-primario-800: #0b3d91; /* Deep Blue: texto sobre selección */
@@ -134,6 +135,9 @@
   --text-marca: 15px;
   --text-marca--font-weight: 500;
   --text-marca--letter-spacing: 0.01em;
+  --text-saludo: 15px;
+  --text-saludo--font-weight: 600;
+  --text-saludo--letter-spacing: -0.01em;
   --text-titulo-modal: 16px;
   --text-titulo-modal--font-weight: 600;
   --text-titulo-cajon: 17px;
@@ -176,11 +180,15 @@
   --shadow-cajon: 0 20px 50px rgba(10, 16, 32, 0.3);
   --shadow-panel-lateral: -24px 0 60px rgba(10, 16, 32, 0.18);
   --shadow-modal: 0 24px 60px rgba(10, 16, 32, 0.28);
+  --shadow-punto-activo: 0 0 0 4px rgba(22, 163, 74, 0.14); /* Jornada abierta */
 
   /* --- Medidas del marco ------------------------------------------------------ */
   --spacing-encabezado: 58px;
   --spacing-barra-lateral: 224px;
   --spacing-panel-lateral: 400px; /* Panel de detalle que entra por la derecha */
+
+  /* Interlineado de los textos de apoyo de varias líneas. */
+  --leading-apoyo: 1.45;
 
   /* --- Espaciado de letras de la placa (JetBrains Mono) --------------------- */
   --tracking-placa: 0.05em;
@@ -251,6 +259,9 @@
    * cambia también CONSULTA_PANTALLA_ANGOSTA (una prueba lo verifica).
    * --------------------------------------------------------------------- */
   --breakpoint-escritorio: 47.5rem;
+
+  /* Desde 1100 px el panel de jornada del tablero pasa de 264 a 300 px. */
+  --breakpoint-amplio: 68.75rem;
 }
 
 @layer base {

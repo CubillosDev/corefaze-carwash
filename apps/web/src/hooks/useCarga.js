@@ -8,7 +8,9 @@ const MENSAJE_POR_DEFECTO = 'No pudimos cargar la información. Inténtalo de nu
  * solicitud si el componente se desmonta o si se vuelve a cargar.
  *
  * `cargar` debe ser estable (una función del módulo o envuelta en useCallback):
- * cuando cambia, se vuelve a cargar.
+ * cuando cambia (por ejemplo, otra jornada), se vuelve a cargar y mientras
+ * tanto la situación es "cargando", para no mostrar datos de la consulta
+ * anterior.
  *
  * @template T
  * @param {(signal: AbortSignal) => Promise<T>} cargar
@@ -21,7 +23,7 @@ const MENSAJE_POR_DEFECTO = 'No pudimos cargar la información. Inténtalo de nu
  * }}
  */
 export function useCarga(cargar) {
-  const [estado, setEstado] = useState({ situacion: 'cargando', datos: null, error: '' });
+  const [estado, setEstado] = useState({ origen: null, situacion: 'cargando', datos: null, error: '' });
   const [intento, setIntento] = useState(0);
 
   useEffect(() => {
@@ -29,11 +31,12 @@ export function useCarga(cargar) {
     const { signal } = controlador;
 
     cargar(signal).then(
-      (datos) => setEstado({ situacion: 'listo', datos, error: '' }),
+      (datos) => setEstado({ origen: cargar, situacion: 'listo', datos, error: '' }),
       (error) => {
         if (!signal.aborted) {
           setEstado((anterior) => ({
             ...anterior,
+            origen: cargar,
             situacion: 'error',
             error: error?.message || MENSAJE_POR_DEFECTO,
           }));
@@ -50,8 +53,18 @@ export function useCarga(cargar) {
   }, []);
 
   const actualizar = useCallback((cambio) => {
-    setEstado((anterior) => (anterior.datos === null ? anterior : { ...anterior, datos: cambio(anterior.datos) }));
+    setEstado((anterior) =>
+      anterior.datos === null ? anterior : { ...anterior, datos: cambio(anterior.datos) },
+    );
   }, []);
 
-  return { ...estado, recargar, actualizar };
+  const vigente = estado.origen === cargar;
+
+  return {
+    situacion: vigente ? estado.situacion : 'cargando',
+    datos: estado.datos,
+    error: vigente ? estado.error : '',
+    recargar,
+    actualizar,
+  };
 }

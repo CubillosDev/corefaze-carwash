@@ -40,6 +40,22 @@ describe('useCarga', () => {
     expect(cargar).toHaveBeenCalledOnce();
   });
 
+  it('al cambiar la consulta vuelve a "cargando" en vez de mostrar los datos anteriores', async () => {
+    const primera = vi.fn().mockResolvedValue('jornada 1');
+    let resolver;
+    const segunda = vi.fn(() => new Promise((listo) => (resolver = listo)));
+    const { result, rerender } = renderHook(({ cargar }) => useCarga(cargar), {
+      initialProps: { cargar: primera },
+    });
+    await waitFor(() => expect(result.current.datos).toBe('jornada 1'));
+
+    rerender({ cargar: segunda });
+    expect(result.current.situacion).toBe('cargando');
+
+    await act(async () => resolver('jornada 2'));
+    expect(result.current).toMatchObject({ situacion: 'listo', datos: 'jornada 2' });
+  });
+
   it('cancela la solicitud al desmontarse', () => {
     let senal;
     const cargar = vi.fn((signal) => {

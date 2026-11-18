@@ -9,6 +9,11 @@ const ESTILOS_BASE = [
 
 const ESTILOS_NORMAL =
   'border-neutro-300 hover:not-disabled:border-neutro-400 focus-visible:border-primario focus-visible:shadow-foco-campo';
+const VARIANTES = {
+  normal: '',
+  placa: 'font-mono font-semibold tracking-campo-placa uppercase placeholder:tracking-normal',
+};
+
 const ESTILOS_CON_ERROR =
   'border-error bg-error-suave focus-visible:border-error focus-visible:shadow-foco-campo';
 
@@ -25,6 +30,8 @@ const ESTILOS_CON_ERROR =
  * @param {string} [props.error] Mensaje de error; si viene, el campo se marca inválido.
  * @param {boolean} [props.requerido]
  * @param {string} [props.id] Se genera uno si no se entrega.
+ * @param {'normal'|'placa'} [props.variante] `placa` escribe en JetBrains Mono y
+ *   mayúsculas, como el campo de placa del diseño.
  * @param {string} [props.className] Clases del contenedor.
  */
 export function CampoTexto({
@@ -33,6 +40,7 @@ export function CampoTexto({
   error,
   requerido = false,
   id,
+  variante = 'normal',
   className = '',
   ...resto
 }) {
@@ -62,7 +70,7 @@ export function CampoTexto({
         required={requerido}
         aria-invalid={error ? true : undefined}
         aria-describedby={descritoPor}
-        className={`${ESTILOS_BASE} ${error ? ESTILOS_CON_ERROR : ESTILOS_NORMAL}`}
+        className={`${ESTILOS_BASE} ${VARIANTES[variante] ?? ''} ${error ? ESTILOS_CON_ERROR : ESTILOS_NORMAL}`}
       />
 
       {ayuda ? (

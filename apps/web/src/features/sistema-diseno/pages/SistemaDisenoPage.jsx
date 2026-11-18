@@ -37,6 +37,7 @@ const GRUPOS_DE_COLOR = [
       { token: 'primario-200', clase: 'bg-primario-200' },
       { token: 'primario-250', clase: 'bg-primario-250' },
       { token: 'primario-300', clase: 'bg-primario-300' },
+      { token: 'primario-400', clase: 'bg-primario-400' },
       { token: 'primario-500', clase: 'bg-primario-500' },
       { token: 'primario-600', clase: 'bg-primario-600' },
       { token: 'primario-800', clase: 'bg-primario-800' },
@@ -101,6 +102,7 @@ const ESCALA_TIPOGRAFICA = [
   { clase: 'text-total', uso: 'Totales' },
   { clase: 'text-titulo-cajon', uso: 'Nombre en el panel de detalle' },
   { clase: 'text-titulo-modal', uso: 'Título de ventana modal' },
+  { clase: 'text-saludo', uso: 'Saludo del panel de jornada' },
   { clase: 'text-marca', uso: 'Nombre de la aplicación en la cabecera' },
   { clase: 'text-titulo-tarjeta', uso: 'Título de tarjeta y de sección' },
   { clase: 'text-cuerpo', uso: 'Navegación y campos' },
@@ -140,6 +142,7 @@ const SOMBRAS = [
   { clase: 'shadow-cajon', uso: 'Cajón de navegación abierto' },
   { clase: 'shadow-panel-lateral', uso: 'Panel de detalle a la derecha' },
   { clase: 'shadow-modal', uso: 'Ventana modal' },
+  { clase: 'shadow-punto-activo', uso: 'Punto verde de jornada abierta' },
 ];
 
 const ANIMACIONES = [
@@ -314,7 +317,7 @@ export function SistemaDisenoPage() {
 
       <SeccionDelCatalogo
         titulo="Movimiento y punto de quiebre"
-        descripcion="Una sola curva para todo el sistema. Por debajo del punto escritorio, la barra lateral pasa a ser un cajón."
+        descripcion="Una sola curva para todo el sistema. Por debajo del punto escritorio (760 px), la barra lateral pasa a ser un cajón. Desde el punto amplio (1100 px), el panel de jornada del tablero pasa de 264 a 300 px. El interlineado leading-apoyo (1.45) es el de los textos de apoyo de varias líneas."
       >
         <div className="flex flex-col gap-5">
           <dl className="grid gap-x-6 gap-y-3 text-meta escritorio:grid-cols-[auto_1fr]">
@@ -405,7 +408,8 @@ export function SistemaDisenoPage() {
         <div className="grid gap-5 escritorio:grid-cols-2">
           <CampoTexto
             etiqueta="Placa del vehículo"
-            ayuda="Tres letras y tres números, sin guiones."
+            variante="placa"
+            ayuda="Variante placa: JetBrains Mono y mayúsculas."
             placeholder="ABC123"
             requerido
             value={placa}

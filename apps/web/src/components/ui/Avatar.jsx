@@ -2,6 +2,7 @@ import { iniciales } from '@/utils/iniciales';
 
 const TAMANOS = {
   pequeno: 'size-5.5 text-avatar',
+  compacto: 'size-6 text-avatar',
   mediano: 'size-7.5 text-micro font-bold',
   grande: 'size-13 text-titulo-cajon font-bold',
 };
@@ -18,7 +19,7 @@ const TONOS = {
  * @param {object} props
  * @param {string} props.nombre Nombre completo, o el texto que se muestra tal cual.
  * @param {boolean} [props.textoLiteral] Si es verdadero no calcula iniciales.
- * @param {'pequeno'|'mediano'|'grande'} [props.tamano]
+ * @param {'pequeno'|'compacto'|'mediano'|'grande'} [props.tamano] 22, 24, 30 y 52 px.
  * @param {'primario'|'neutro'} [props.tono]
  */
 export function Avatar({ nombre, textoLiteral = false, tamano = 'mediano', tono = 'primario' }) {

@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Aviso } from '@/components/ui/Aviso';
 import { Boton } from '@/components/ui/Boton';
+import { ConfirmarAccion } from '@/components/ui/ConfirmarAccion';
+import { Dato } from '@/components/ui/Dato';
 import { CampoBusqueda } from '@/components/ui/CampoBusqueda';
 import { Contador } from '@/components/ui/Contador';
 import { ControlSegmentado } from '@/components/ui/ControlSegmentado';
@@ -33,6 +35,8 @@ import { Insignia } from '@/components/ui/Insignia';
 import { Paginacion } from '@/components/ui/Paginacion';
 import { PanelLateral } from '@/components/ui/PanelLateral';
 import { Placa } from '@/components/ui/Placa';
+import { Punto } from '@/components/ui/Punto';
+import { SelectorCompacto } from '@/components/ui/SelectorCompacto';
 import { Tarjeta } from '@/components/ui/Tarjeta';
 import { SeccionDelCatalogo } from '@/features/sistema-diseno/components/SeccionDelCatalogo';
 import { useAviso } from '@/hooks/useAviso';
@@ -79,6 +83,8 @@ export function MuestrasDelPanel() {
   const [busqueda, setBusqueda] = useState('');
   const [pagina, setPagina] = useState(0);
   const [panelAbierto, setPanelAbierto] = useState(false);
+  const [confirmacionAbierta, setConfirmacionAbierta] = useState(false);
+  const [jornada, setJornada] = useState('2');
   const { aviso, mostrarAviso } = useAviso();
 
   return (
@@ -141,6 +147,15 @@ export function MuestrasDelPanel() {
             alCambiar={setBusqueda}
             className="max-w-75"
           />
+          <SelectorCompacto
+            etiqueta="Jornada"
+            valor={jornada}
+            alCambiar={setJornada}
+            opciones={[
+              { valor: '2', texto: '04/08/2026 · Abierta' },
+              { valor: '1', texto: '03/08/2026 · Cerrada' },
+            ]}
+          />
         </div>
       </SeccionDelCatalogo>
 
@@ -154,12 +169,15 @@ export function MuestrasDelPanel() {
           <Insignia tono="exito">Terminada</Insignia>
           <Insignia tono="neutro">Entregada</Insignia>
           <Insignia tono="error">Cancelada</Insignia>
+          <Punto tono="advertencia" />
+          <Punto tono="primario" tamano="grande" />
           <Contador>3</Contador>
           <Contador tono="primario">5</Contador>
           <Placa placa="AAA111" />
           <Placa placa="BBB22B" tamano="pequeno" />
           <Avatar nombre="Ana Prueba" />
           <Avatar nombre="401" textoLiteral tamano="pequeno" tono="neutro" />
+          <Avatar nombre="402" textoLiteral tamano="compacto" tono="neutro" />
           <Avatar nombre="Ana Prueba" tamano="grande" />
         </div>
       </SeccionDelCatalogo>
@@ -171,6 +189,10 @@ export function MuestrasDelPanel() {
           <Tarjeta>
             <p className="text-titulo-tarjeta">Tarjeta</p>
             <p className="mt-1 text-detalle text-neutro-600">Superficie base de las pantallas.</p>
+            <dl className="mt-3 grid grid-cols-2 gap-2">
+              <Dato etiqueta="Apertura">7:00 a. m.</Dato>
+              <Dato etiqueta="Servicios">3</Dato>
+            </dl>
           </Tarjeta>
         </div>
       </SeccionDelCatalogo>
@@ -207,8 +229,8 @@ export function MuestrasDelPanel() {
       </SeccionDelCatalogo>
 
       <SeccionDelCatalogo
-        titulo="Panel lateral y aviso"
-        descripcion="El panel entra por la derecha (400 px; todo el ancho en móvil). El aviso confirma una acción y desaparece solo."
+        titulo="Panel lateral, aviso y confirmación"
+        descripcion="El panel entra por la derecha (400 px; todo el ancho en móvil). El aviso confirma una acción y desaparece solo. La confirmación va antes de cerrar, eliminar o desactivar."
       >
         <div className="flex flex-wrap gap-2">
           <Boton variante="secundario" onClick={() => setPanelAbierto(true)}>
@@ -217,7 +239,20 @@ export function MuestrasDelPanel() {
           <Boton variante="secundario" onClick={() => mostrarAviso('Orden registrada')}>
             Mostrar un aviso
           </Boton>
+          <Boton variante="secundario" onClick={() => setConfirmacionAbierta(true)}>
+            Pedir confirmación
+          </Boton>
         </div>
+
+        <ConfirmarAccion
+          abierto={confirmacionAbierta}
+          titulo="Cerrar la jornada del 04/08/2026"
+          textoConfirmar="Cerrar jornada"
+          alConfirmar={() => setConfirmacionAbierta(false)}
+          alCancelar={() => setConfirmacionAbierta(false)}
+        >
+          Después de cerrarla no se registran más órdenes en ella.
+        </ConfirmarAccion>
 
         <PanelLateral
           abierto={panelAbierto}

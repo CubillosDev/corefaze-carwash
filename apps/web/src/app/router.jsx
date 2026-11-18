@@ -13,6 +13,7 @@ const paginaDiferida = (cargarFeature, nombre) =>
   lazy(() => cargarFeature().then((modulo) => ({ default: modulo[nombre] })));
 
 const cargarInicio = () => import('@/features/inicio');
+const cargarOrdenes = () => import('@/features/ordenes-lavado');
 
 /**
  * El catálogo del sistema de diseño es una herramienta de trabajo: solo existe
@@ -49,6 +50,15 @@ export const rutas = [
             Component: RutaConPermiso,
             children: [
               { index: true, Component: paginaDiferida(cargarInicio, 'InicioPage') },
+              {
+                path: RUTAS.ORDENES_LAVADO,
+                Component: paginaDiferida(cargarOrdenes, 'OrdenesLavadoPage'),
+                children: [{ path: ':idOrden', Component: paginaDiferida(cargarOrdenes, 'DetalleOrdenPage') }],
+              },
+              {
+                path: RUTAS.JORNADAS,
+                Component: paginaDiferida(() => import('@/features/jornadas'), 'JornadasPage'),
+              },
               {
                 path: RUTAS.VEHICULOS,
                 Component: paginaDiferida(() => import('@/features/vehiculos'), 'VehiculosPage'),
