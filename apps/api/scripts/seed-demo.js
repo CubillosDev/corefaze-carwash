@@ -736,10 +736,13 @@ async function main() {
     clientesPorId: new Map(clientes.map((c) => [c.id, c])),
   };
 
+  // --sin-hoy: completa crédito, inventario y nómina sin abrir la jornada ni la caja del día
+  // (útil a deshoras: las órdenes de hoy quedarían todas a la hora en que corre el script).
+  const sinHoy = process.argv.includes('--sin-hoy');
   const hoy = hoyEnBogota();
   const jornadasPasadas = await cargarHistoria(supabase, azar, contexto, usuario.id, hoy);
-  const cajaAnteriorCerrada = await cerrarCajaAnterior(api, hoy);
-  const ordenesHoy = await cargarHoy(api, azar, contexto);
+  const cajaAnteriorCerrada = sinHoy ? false : await cerrarCajaAnterior(api, hoy);
+  const ordenesHoy = sinHoy ? 0 : await cargarHoy(api, azar, contexto);
   // Números de vale ya usados: crédito los recoge antes de que la caja cobre con vales nuevos.
   const valesUsados = new Set();
   const credito = await cargarCredito(
@@ -749,7 +752,9 @@ async function main() {
     hoy,
     valesUsados,
   );
-  const caja = await cargarCaja(api, supabase, azar, contexto, hoy, valesUsados);
+  const caja = sinHoy
+    ? { cobros: 0, egresos: 0 }
+    : await cargarCaja(api, supabase, azar, contexto, hoy, valesUsados);
   const insumos = await cargarInventario(api, azar);
   const descuentos = await cargarNomina(api, colaboradores);
 

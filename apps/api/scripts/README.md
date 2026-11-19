@@ -59,6 +59,10 @@ node --env-file=<ruta-al-archivo> scripts/seed-demo.js
 - Carga menos de 1.000 órdenes porque la API todavía no pagina y PostgREST corta las consultas en
   1.000 filas.
 
+Con `--sin-hoy` (`node --env-file=<ruta> scripts/seed-demo.js --sin-hoy`) completa crédito, inventario y
+nómina sin abrir la jornada ni la caja del día: sirve para cargar a deshoras sin dejar las órdenes de
+hoy en una hora rara.
+
 ## Borrar
 
 ```bash
