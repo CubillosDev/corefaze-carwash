@@ -3,9 +3,9 @@
 Scripts para cargar y quitar datos **ficticios** en un entorno local o de demostración. No cambian el
 código de la API. Nunca los corras contra producción.
 
-| Archivo | Para qué |
-|---|---|
-| `seed-demo.js` | Carga los datos de demostración. Ver el detalle en "Qué carga". |
+| Archivo           | Para qué                                                                          |
+| ----------------- | --------------------------------------------------------------------------------- |
+| `seed-demo.js`    | Carga los datos de demostración. Ver el detalle en "Qué carga".                   |
 | `borrar-demo.sql` | Borra solo lo que creó `seed-demo.js` y desactiva a los usuarios de demostración. |
 
 ## Qué carga
@@ -23,12 +23,12 @@ código de la API. Nunca los corras contra producción.
    luego asígnale el rol. Ese dominio es la marca que usa `borrar-demo.sql` para encontrar los datos.
 4. Un archivo de variables **fuera del repo** con estas variables:
 
-| Variable | Valor |
-|---|---|
-| `DEMO_API_URL` | URL base de la API, por ejemplo `http://localhost:3000/api` |
-| `DEMO_API_KEY` | La `API_KEY_WEB` de la API |
-| `DEMO_EMAIL`, `DEMO_PASSWORD` | Correo y contraseña del superadmin de demostración |
-| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Las que entrega `npx supabase status -o env` |
+| Variable                                    | Valor                                                       |
+| ------------------------------------------- | ----------------------------------------------------------- |
+| `DEMO_API_URL`                              | URL base de la API, por ejemplo `http://localhost:3000/api` |
+| `DEMO_API_KEY`                              | La `API_KEY_WEB` de la API                                  |
+| `DEMO_EMAIL`, `DEMO_PASSWORD`               | Correo y contraseña del superadmin de demostración          |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Las que entrega `npx supabase status -o env`                |
 
 ## Cargar
 
