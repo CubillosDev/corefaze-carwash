@@ -40,38 +40,49 @@ web.
 | Sin medio de pago | "Pago previsto" (se confirma en caja) | La API lo exige al registrar |
 | Sin ingreso ni QR | Ingreso y apertura con QR | Sin ellos la app no se conecta al sistema |
 
-## Configuración
+## Configuración por entorno
 
-La URL de la API y su llave entran al compilar. Copia el ejemplo **fuera del control de versiones**
-(`config/*.json` está en `.gitignore`):
+La URL de la API y su llave entran al compilar, desde un archivo por entorno que **nunca se versiona**
+(`config/*.json` está en `.gitignore`; solo se versionan las plantillas `*.example.json`):
+
+| Entorno | Plantilla | API |
+|---|---|---|
+| Desarrollo | `config/desarrollo.example.json` | Local. Emulador de Android: `http://10.0.2.2:3100/api`. Celular en la misma red: `http://<IP del PC>:3100/api` |
+| Pruebas | `config/pruebas.example.json` | API de pruebas en Render, con HTTPS |
+| Producción | `config/produccion.example.json` | API de producción, con HTTPS |
 
 ```bash
-cp config/desarrollo.example.json config/desarrollo.json
+cp config/pruebas.example.json config/pruebas.json   # y se llenan los valores
 ```
 
 | Variable | Valor |
 |---|---|
-| `API_URL` | Emulador de Android: `http://10.0.2.2:3100/api`. Celular en la misma red: `http://<IP del PC>:3100/api` |
-| `API_KEY` | La `API_KEY_MOVIL` de la API (identifica a la app; no es un secreto de servidor) |
+| `API_URL` | La URL de la API del entorno, con el prefijo `/api` |
+| `API_KEY` | La `API_KEY_MOVIL` de ese entorno |
 
-En el navegador, la API debe permitir el origen de la app (`ALLOWED_ORIGIN`).
+- `API_KEY_MOVIL` queda dentro del APK y cualquiera puede extraerla: identifica a la app, no protege datos
+  (eso lo hacen el JWT y los roles de la API). Nunca se pone en el APK otra llave ni un secreto de servidor.
+- La variante de publicación (`--release`) se niega a arrancar si `API_URL` no usa HTTPS. Las variantes
+  debug y profile de Android permiten HTTP solo para la API local.
+- En el navegador, la API debe permitir el origen de la app (`ALLOWED_ORIGIN`).
 
-## Correr
+## Compilar
 
 ```bash
 flutter pub get
-flutter run --dart-define-from-file=config/desarrollo.json            # Android o Chrome
-flutter build apk --debug --dart-define-from-file=config/desarrollo.json
+flutter run --dart-define-from-file=config/desarrollo.json                       # Android o Chrome
+flutter build apk --release --dart-define-from-file=config/pruebas.json          # APK de pruebas
+flutter build apk --release --dart-define-from-file=config/produccion.json       # APK de producción
 flutter build web --no-web-resources-cdn --dart-define-from-file=config/desarrollo.json
 ```
 
-- Las variantes debug y profile de Android permiten HTTP para la API local. La de publicación
-  exige HTTPS.
+- La firma de publicación (keystore y `key.properties`) vive fuera del repositorio y se respalda aparte.
 - `--no-web-resources-cdn` empaqueta CanvasKit en el build: nada se descarga de un CDN.
 
 ## Calidad
 
 ```bash
+dart format --set-exit-if-changed lib test integration_test
 flutter analyze
 flutter test                                   # unidad, widgets y el recorrido completo
 flutter test integration_test -d DISPOSITIVO   # el mismo recorrido en un dispositivo

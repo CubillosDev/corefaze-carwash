@@ -43,3 +43,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Configuración por entorno: solo se versionan las plantillas *.example.json
+/config/*.json
+!/config/*.example.json
+
+# Artefactos y firma de la app: nunca entran al repositorio
+*.apk
+*.aab
+*.jks
+*.keystore
+key.properties
