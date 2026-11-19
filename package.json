@@ -5,6 +5,7 @@
   "description": "Monorepo del proyecto integrador Car Wash",
   "workspaces": [
     "apps/web",
+    "apps/landing",
     "apps/api"
   ],
   "scripts": {
@@ -13,6 +14,11 @@
     "preview:web": "npm run preview --workspace apps/web",
     "lint:web": "npm run lint --workspace apps/web",
     "test:web": "npm run test --workspace apps/web",
+    "dev:landing": "npm run dev --workspace apps/landing",
+    "build:landing": "npm run build --workspace apps/landing",
+    "preview:landing": "npm run preview --workspace apps/landing",
+    "lint:landing": "npm run lint --workspace apps/landing",
+    "test:landing": "npm run test --workspace apps/landing",
     "dev:api": "npm run dev --workspace apps/api",
     "start:api": "npm run start --workspace apps/api",
     "lint:api": "npm run lint --workspace apps/api",
