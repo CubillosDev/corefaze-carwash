@@ -10,6 +10,7 @@ import {
   rolPuedeReabrirCaja,
   rolPuedeReabrirJornada,
   rolPuedeVerificarVales,
+  tonoDeRol,
 } from '@/constants/permisos';
 import { RUTAS } from '@/constants/rutas';
 import { ROLES } from '@/constants/dominio';
@@ -116,5 +117,11 @@ describe('acciones restringidas', () => {
   it('solo superadmin reabre jornadas', () => {
     expect(rolPuedeReabrirJornada('superadmin')).toBe(true);
     expect(rolPuedeReabrirJornada('administrador')).toBe(false);
+  });
+
+  it('marca en ámbar las cuentas pendientes y en azul a superadmin', () => {
+    expect(tonoDeRol('pendiente')).toBe('advertencia');
+    expect(tonoDeRol('superadmin')).toBe('primario');
+    expect(tonoDeRol('soporte')).toBe('neutro');
   });
 });

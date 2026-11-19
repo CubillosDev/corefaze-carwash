@@ -82,9 +82,33 @@ export const ETIQUETAS_ROL = Object.freeze({
   pendiente: 'Pendiente de aprobación',
 });
 
+/** Roles que un superadministrador puede asignar, del que más puede al que menos. */
+export const ROLES_ASIGNABLES = Object.freeze(['superadmin', 'administrador', 'soporte']);
+
+/** Qué permite cada rol asignable, con la misma matriz de este archivo. */
+export const DESCRIPCIONES_ROL = Object.freeze({
+  superadmin: 'Todo el panel. Aprueba cuentas, cambia roles y reabre jornadas y cajas.',
+  administrador: 'Todos los módulos. Consulta los usuarios, pero no los gestiona.',
+  soporte: 'Operación diaria: órdenes, caja, jornadas, clientes, vehículos, crédito e inventario.',
+});
+
 /** @param {string|null|undefined} rol */
 export function etiquetaDeRol(rol) {
   return ETIQUETAS_ROL[rol] ?? 'Sin rol';
+}
+
+/**
+ * Tono de la insignia del rol: pendiente en ámbar (espera aprobación),
+ * superadministrador en azul y el resto en gris.
+ *
+ * @param {string|null|undefined} rol
+ * @returns {'advertencia'|'primario'|'neutro'}
+ */
+export function tonoDeRol(rol) {
+  if (esRolPendiente(rol)) {
+    return 'advertencia';
+  }
+  return rol === 'superadmin' ? 'primario' : 'neutro';
 }
 
 /** El rol `pendiente` espera que un administrador le asigne acceso. */
