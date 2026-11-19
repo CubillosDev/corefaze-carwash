@@ -64,7 +64,7 @@ Detalle de qué depende de qué, y por qué `usuarios` se adelantó a la Fase 1:
 
 ## El proyecto remoto no se gestiona desde aquí
 
-Nadie corre `supabase login`, `link`, `db push`, `db reset --linked`, `db pull`, `migration repair` ni `db dump --linked` desde este repositorio. El enlace y la aplicación de migraciones al proyecto Supabase real los gestiona Diego Cubillos directamente, con su propio acceso, fase por fase: al cerrar cada fase local (migraciones + `test db` + `db lint` en verde), se le entrega la lista exacta de migraciones creadas (mismo nombre, mismo orden) para que las aplique él mismo al remoto.
+Nadie corre `supabase login`, `link`, `db push`, `db reset --linked`, `db pull`, `migration repair` ni `db dump --linked` desde este repositorio, y las herramientas automatizadas de desarrollo nunca lo hacen bajo ninguna circunstancia. El enlace y la aplicación de migraciones al proyecto Supabase real los gestiona el titular del proyecto directamente, con su propio acceso, fase por fase: al cerrar cada fase local (migraciones + `test db` + `db lint` en verde), se le entrega la lista exacta de migraciones creadas (mismo nombre, mismo orden) para que las aplique él mismo al remoto. Quién es el titular hoy y el checklist completo para recrear el proyecto si hace falta: ver ["Proyecto Supabase: titular y recreación"](../docs/despliegue/README.md#proyecto-supabase-titular-y-recreación) en `docs/despliegue`.
 
 ## Contrato de integración con la API (SCRUM-152)
 
@@ -125,6 +125,9 @@ Desde esa migración, **toda función nueva que cree el rol `postgres` nace sin 
 **Funciones de trigger** (`RETURNS trigger`) son un caso aparte: Postgres ya impide llamarlas fuera de un trigger sin importar su `EXECUTE` (`ERROR: trigger functions can only be called as triggers`), y revocarles `EXECUTE` no afecta que sigan disparándose para cualquier rol (el motor de triggers las invoca directamente, sin pasar por esa verificación). Aun así, se revocan de `public`/`anon`/`authenticated` por consistencia y como defensa en profundidad — no por necesidad funcional.
 
 Para auditar el estado real de un esquema completo: `has_function_privilege(rol, funcion, 'execute')` por rol, y `select (aclexplode(proacl)).* from pg_proc where oid = 'public.mi_funcion(...)'::regprocedure` para ver el ACL crudo (incluye la fila de `PUBLIC`, con `grantee` vacío/`0`). `supabase/tests/privilegios_execute_test.sql` corre esta auditoría como regresión estructural en cada `supabase test db`.
+
+**Importante para recrear el proyecto o agregar una función nueva**: `20261030120000_corregir_privilegios_execute_funciones.sql` debe aplicarse ANTES que cualquier migración que cree funciones nuevas, porque su `alter default privileges` solo cubre lo que el rol `postgres` crea después de correr. `develop` ya la tiene aplicada en su posición cronológica (entre `agregar_reemplazar_tarifas_servicio` y `agregar_politicas_rls_por_rol`): no se edita ni se le cambia la fecha. Cualquier ajuste futuro a estos privilegios por defecto va como una migración nueva, con una fecha posterior a la última que exista — nunca modificando esta.
+
 ## Seguridad: políticas RLS por rol (Bloque 11, SCRUM-147)
 
 Las 11 tablas tienen RLS habilitado desde la Fase 1/2, pero sin ninguna política hasta esta migración (`anon`/`authenticated` tenían cero privilegios: `revoke all ... from anon, authenticated` en cada `crear_*`). El Bloque 11 agrega políticas por rol como **defensa en profundidad**, no como un cambio de cómo funciona la API hoy:
@@ -141,7 +144,7 @@ Las 11 tablas tienen RLS habilitado desde la Fase 1/2, pero sin ninguna polític
 2. **Error en una migración ya integrada o aplicada**: crea una migración nueva (`npx supabase migration new corregir_<objeto>`). Nunca se edita la migración original.
 3. **Cambiar una regla o agregar un valor a una enumeración**: en una sola sentencia, `alter table <tabla> drop constraint <nombre>, add constraint <nombre> check (...);`. Funciona porque todos los nombres de restricción son explícitos. Luego se actualiza `packages/contratos/dominio.json` en un PR de contratos, junto con la prueba correspondiente.
 4. **Corregir un trigger**: migración nueva con `create or replace function`. Las tablas no se tocan — es justo para esto que el comportamiento (triggers) vive separado de la estructura (tablas) en migraciones distintas.
-5. **Remoto desordenado mientras sea de desarrollo, sin datos reales**: lo evalúa y ejecuta Diego Cubillos directamente contra el proyecto real, no desde este repositorio.
-6. **Local y remoto desincronizados** (`migration list`, `db pull`, `migration repair`): lo revisa Diego Cubillos cuando aplique.
-7. **Antes de cualquier cambio en un remoto con datos reales**: Diego respalda con `db dump --linked --data-only` antes de aplicar nada. Los respaldos (`respaldo_*.sql`) nunca se versionan (están en `.gitignore`).
+5. **Remoto desordenado mientras sea de desarrollo, sin datos reales**: lo evalúa y ejecuta el titular del proyecto directamente contra el proyecto real, no desde este repositorio.
+6. **Local y remoto desincronizados** (`migration list`, `db pull`, `migration repair`): lo revisa el titular del proyecto cuando aplique.
+7. **Antes de cualquier cambio en un remoto con datos reales**: el titular respalda con `db dump --linked --data-only` antes de aplicar nada. Los respaldos (`respaldo_*.sql`) nunca se versionan (están en `.gitignore`).
 8. **Un dato operativo mal registrado**: las órdenes no se borran, se cancelan con motivo (`motivo` es obligatorio al cancelar). Toda corrección de datos pasa por la API, nunca por SQL directo, para que quede en la auditoría (Fase 2).
