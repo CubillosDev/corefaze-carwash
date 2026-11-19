@@ -153,3 +153,17 @@ export function horaDelDiaEnBogota(valor) {
   const fecha = aFecha(valor);
   return fecha === null ? null : Number(FORMATEADOR_HORA_DEL_DIA.format(fecha));
 }
+
+const FORMATEADOR_FECHA_ISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' });
+
+/**
+ * Fecha de hoy (o del instante dado) en Bogotá, sin hora: 2026-11-19. Es la
+ * fecha de negocio, no la del equipo.
+ *
+ * @param {Date|number|string} [valor]
+ * @returns {string}
+ */
+export function fechaEnBogota(valor = new Date()) {
+  const fecha = aFecha(valor);
+  return fecha === null ? '' : FORMATEADOR_FECHA_ISO.format(fecha);
+}

@@ -4,7 +4,7 @@
  * - `punteado`: recuadro con borde discontinuo (columna sin vehículos, "Todo
  *   en orden").
  * - `simple`: título y descripción centrados, sin borde (búsqueda sin
- *   resultados, módulo disponible próximamente).
+ *   resultados).
  *
  * @param {object} props
  * @param {string} props.titulo

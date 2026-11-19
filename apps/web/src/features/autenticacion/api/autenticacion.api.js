@@ -18,6 +18,19 @@ const RESPALDO_POR_ESTADO = Object.freeze({
 });
 
 /**
+ * POST /api/auth/registro: solicita una cuenta. La API la crea con rol
+ * `pendiente` y no devuelve token; un superadministrador le asigna el rol.
+ *
+ * @param {{ nombre: string, email: string, password: string }} datos
+ * @returns {Promise<{ id: number, nombre: string, email: string, rol: string }>}
+ * @throws {ErrorHttp} 400 por campo o 409 si el correo ya tiene cuenta.
+ */
+export async function registrarCuenta({ nombre, email, password }) {
+  const cuerpo = await httpCliente.crear('auth/registro', { nombre, email, password });
+  return cuerpo.usuario;
+}
+
+/**
  * POST /api/auth/login
  *
  * Ante 401 ("Credenciales inválidas") y 403 ("Usuario deshabilitado") muestra

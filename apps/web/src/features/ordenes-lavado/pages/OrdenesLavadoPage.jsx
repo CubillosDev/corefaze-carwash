@@ -11,6 +11,7 @@ import { EstadoVacio } from '@/components/ui/EstadoVacio';
 import { GrupoFiltros } from '@/components/ui/GrupoFiltros';
 import { IconoJornadas } from '@/components/ui/iconos/IconoJornadas';
 import { IconoMas } from '@/components/ui/iconos/IconoMas';
+import { Paginacion } from '@/components/ui/Paginacion';
 import { SelectorCompacto } from '@/components/ui/SelectorCompacto';
 import { Tarjeta } from '@/components/ui/Tarjeta';
 import { ESTADOS_ORDEN_CERRADOS } from '@/constants/dominio';
@@ -25,8 +26,10 @@ import { TableroOrdenes } from '@/features/ordenes-lavado/components/TableroOrde
 import { useCambioEstadoOrden } from '@/features/ordenes-lavado/hooks/useCambioEstadoOrden';
 import { useOrdenesLavado } from '@/features/ordenes-lavado/hooks/useOrdenesLavado';
 import { useAviso } from '@/hooks/useAviso';
+import { useFilasPorPagina } from '@/hooks/useFilasPorPagina';
 import { formatoFecha } from '@/utils/formatoFecha';
 import { formatoMoneda } from '@/utils/formatoMoneda';
+import { paginar } from '@/utils/paginar';
 import { plural } from '@/utils/plural';
 
 const TODAS = 'todas';
@@ -48,6 +51,8 @@ export function OrdenesLavadoPage() {
   const { aviso, mostrarAviso } = useAviso();
   const [vista, setVista] = useState('tablero');
   const [categoria, setCategoria] = useState(TODAS);
+  const [pagina, setPagina] = useState(0);
+  const filasPorPagina = useFilasPorPagina({ reservado: 330, altoFila: 50 });
   const [formularioAbierto, setFormularioAbierto] = useState(false);
   const cambio = useCambioEstadoOrden({ alCambiar: datos.reemplazarOrden, avisar: mostrarAviso });
 
@@ -72,6 +77,12 @@ export function OrdenesLavadoPage() {
   const visibles =
     categoria === TODAS ? datos.ordenes : datos.ordenes.filter((orden) => categoriaDe(orden) === categoria);
   const enPatio = datos.ordenes.filter((orden) => !ESTADOS_ORDEN_CERRADOS.includes(orden.estado)).length;
+  const vistaLista = paginar(visibles, pagina, filasPorPagina);
+
+  const elegirCategoria = (valor) => {
+    setCategoria(valor);
+    setPagina(0);
+  };
 
   const cambiarEstado = (orden, estado) => cambio.cambiar(orden, estado, datos.vehiculoDe(orden.vehiculoId)?.placa);
 
@@ -83,7 +94,7 @@ export function OrdenesLavadoPage() {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <EncabezadoPagina
         titulo="Órdenes de lavado"
         descripcion={
@@ -128,11 +139,14 @@ export function OrdenesLavadoPage() {
       {datos.situacion === 'listo' && datos.jornada ? (
         <>
           <div className="mt-4.5 flex flex-wrap items-center justify-between gap-3">
-            <GrupoFiltros etiqueta="Filtrar por categoría" opciones={filtros} valor={categoria} alCambiar={setCategoria} />
+            <GrupoFiltros etiqueta="Filtrar por categoría" opciones={filtros} valor={categoria} alCambiar={elegirCategoria} />
             <SelectorCompacto
               etiqueta="Jornada"
               valor={datos.jornada.id}
-              alCambiar={(id) => datos.elegirJornada(Number(id))}
+              alCambiar={(id) => {
+                datos.elegirJornada(Number(id));
+                setPagina(0);
+              }}
               opciones={[...datos.jornadas]
                 .sort((a, b) => b.fecha.localeCompare(a.fecha))
                 .map((jornada) => ({
@@ -151,7 +165,18 @@ export function OrdenesLavadoPage() {
               alCambiarEstado={cambiarEstado}
             />
           ) : (
-            <TablaOrdenes ordenes={visibles} datosDe={datosDe} />
+            <Tarjeta relleno="ninguno" className="mt-3.5 overflow-hidden">
+              <TablaOrdenes ordenes={vistaLista.elementos} datosDe={datosDe} />
+              {visibles.length > filasPorPagina ? (
+                <Paginacion
+                  pagina={vistaLista.pagina}
+                  totalPaginas={vistaLista.totalPaginas}
+                  totalElementos={visibles.length}
+                  porPagina={filasPorPagina}
+                  alCambiar={setPagina}
+                />
+              ) : null}
+            </Tarjeta>
           )}
         </>
       ) : null}

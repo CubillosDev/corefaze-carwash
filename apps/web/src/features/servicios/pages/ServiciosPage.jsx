@@ -9,7 +9,9 @@ import { EstadoError } from '@/components/ui/EstadoError';
 import { GrupoFiltros } from '@/components/ui/GrupoFiltros';
 import { IconoMas } from '@/components/ui/iconos/IconoMas';
 import { Insignia } from '@/components/ui/Insignia';
+import { Paginacion } from '@/components/ui/Paginacion';
 import { Tabla } from '@/components/ui/Tabla';
+import { Tarjeta } from '@/components/ui/Tarjeta';
 import { TIPOS_VEHICULO } from '@/constants/dominio';
 import { etiquetaCategoria, etiquetaTipoVehiculo } from '@/constants/etiquetas';
 import { rolPuedeGestionar } from '@/constants/permisos';
@@ -20,7 +22,9 @@ import { FormularioServicio } from '@/features/servicios/components/FormularioSe
 import { useAviso } from '@/hooks/useAviso';
 import { useCarga } from '@/hooks/useCarga';
 import { useConfirmacion } from '@/hooks/useConfirmacion';
+import { useFilasPorPagina } from '@/hooks/useFilasPorPagina';
 import { formatoMoneda } from '@/utils/formatoMoneda';
+import { paginar } from '@/utils/paginar';
 
 const TODAS = 'todas';
 const ORDEN_TIPOS = Object.values(TIPOS_VEHICULO);
@@ -37,6 +41,9 @@ export function ServiciosPage() {
   const lista = useCarga(cargarServicios);
   const { aviso, mostrarAviso } = useAviso();
   const [categoria, setCategoria] = useState(TODAS);
+  const [pagina, setPagina] = useState(0);
+  // Cada servicio muestra sus tarifas en tres líneas: la fila es más alta.
+  const porPagina = useFilasPorPagina({ reservado: 290, altoFila: 69, enAngosta: 6 });
   const [edicion, setEdicion] = useState(null);
   const puedeGestionar = rolPuedeGestionar(usuario?.rol, RUTAS.SERVICIOS);
 
@@ -52,6 +59,7 @@ export function ServiciosPage() {
   const categorias = [...new Set(servicios.map((servicio) => etiquetaCategoria(servicio.categoria)))];
   const visibles =
     categoria === TODAS ? servicios : servicios.filter((servicio) => etiquetaCategoria(servicio.categoria) === categoria);
+  const vista = paginar(visibles, pagina, porPagina);
 
   const columnas = [
     {
@@ -141,7 +149,10 @@ export function ServiciosPage() {
             <GrupoFiltros
               etiqueta="Filtrar por categoría"
               valor={categoria}
-              alCambiar={setCategoria}
+              alCambiar={(valor) => {
+                setCategoria(valor);
+                setPagina(0);
+              }}
               opciones={[
                 { valor: TODAS, texto: 'Todas', cantidad: servicios.length },
                 ...categorias.map((nombre) => ({
@@ -152,13 +163,24 @@ export function ServiciosPage() {
               ]}
             />
           </div>
-          <Tabla
-            columnas={columnas}
-            filas={visibles}
-            descripcion="Servicios del catálogo con sus tarifas"
-            mensajeVacio="No hay servicios registrados."
-            className="mt-3"
-          />
+          <Tarjeta relleno="ninguno" className="mt-3 overflow-hidden">
+            <Tabla
+              columnas={columnas}
+              filas={vista.elementos}
+              descripcion="Servicios del catálogo con sus tarifas"
+              mensajeVacio="No hay servicios registrados."
+              enTarjeta
+            />
+            {visibles.length > porPagina ? (
+              <Paginacion
+                pagina={vista.pagina}
+                totalPaginas={vista.totalPaginas}
+                totalElementos={visibles.length}
+                porPagina={porPagina}
+                alCambiar={setPagina}
+              />
+            ) : null}
+          </Tarjeta>
         </>
       ) : null}
 

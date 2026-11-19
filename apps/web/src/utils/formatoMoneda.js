@@ -25,3 +25,23 @@ export function formatoMoneda(valor) {
   // Math.round(-0.4) devuelve -0 y se formatearía como "-$ 0".
   return normalizarEspacios(FORMATEADOR_PESOS.format(pesos === 0 ? 0 : pesos));
 }
+
+/**
+ * Pesos abreviados para etiquetas de gráficos, como en el diseño:
+ *
+ *   formatoMonedaCorta(620000)  -> "$620k"
+ *   formatoMonedaCorta(1250000) -> "$1,3 M"
+ *
+ * @param {number} valor Pesos como entero.
+ * @returns {string}
+ */
+export function formatoMonedaCorta(valor) {
+  const pesos = Number.isFinite(Number(valor)) ? Number(valor) : 0;
+  if (Math.abs(pesos) >= 1000000) {
+    return `$${(pesos / 1000000).toLocaleString('es-CO', { maximumFractionDigits: 1 })} M`;
+  }
+  if (Math.abs(pesos) >= 1000) {
+    return `$${Math.round(pesos / 1000)}k`;
+  }
+  return `$${pesos}`;
+}

@@ -26,9 +26,8 @@ import { listarVehiculos, normalizarPlaca } from '@/features/vehiculos';
 import { useAviso } from '@/hooks/useAviso';
 import { useCarga } from '@/hooks/useCarga';
 import { useConfirmacion } from '@/hooks/useConfirmacion';
+import { useFilasPorPagina } from '@/hooks/useFilasPorPagina';
 import { paginar } from '@/utils/paginar';
-
-const POR_PAGINA = 10;
 
 /** Segmentos del diseño, con los datos que sí tiene un cliente en la API. */
 const SEGMENTOS = [
@@ -65,6 +64,7 @@ export function ClientesPage() {
   const [segmento, setSegmento] = useState('todos');
   const [orden, setOrden] = useState('nombre');
   const [pagina, setPagina] = useState(0);
+  const porPagina = useFilasPorPagina();
   const [elegidoId, setElegidoId] = useState(null);
   const [edicion, setEdicion] = useState(null);
   const puedeGestionar = rolPuedeGestionar(usuario?.rol, RUTAS.CLIENTES);
@@ -94,7 +94,7 @@ export function ClientesPage() {
   const encontrados = clientes.filter(coincide);
   const segmentoActual = SEGMENTOS.find((opcion) => opcion.valor === segmento);
   const filtrados = encontrados.filter(segmentoActual.cumple).sort(ORDENES[orden].comparar);
-  const vista = paginar(filtrados, pagina, POR_PAGINA);
+  const vista = paginar(filtrados, pagina, porPagina);
   const elegido = clientes.find((cliente) => cliente.id === elegidoId) ?? null;
 
   const cambiarFiltro = (cambiar) => (valor) => {
@@ -168,7 +168,7 @@ export function ClientesPage() {
               pagina={vista.pagina}
               totalPaginas={vista.totalPaginas}
               totalElementos={filtrados.length}
-              porPagina={POR_PAGINA}
+              porPagina={porPagina}
               alCambiar={setPagina}
             />
           </Tarjeta>

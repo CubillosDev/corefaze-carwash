@@ -14,7 +14,10 @@ import { EstadoCarga } from '@/components/ui/EstadoCarga';
 import { EstadoError } from '@/components/ui/EstadoError';
 import { EstadoVacio } from '@/components/ui/EstadoVacio';
 import { GrupoFiltros } from '@/components/ui/GrupoFiltros';
+import { IconoAuriculares } from '@/components/ui/iconos/IconoAuriculares';
+import { IconoAyuda } from '@/components/ui/iconos/IconoAyuda';
 import { IconoBuscar } from '@/components/ui/iconos/IconoBuscar';
+import { IconoCaja } from '@/components/ui/iconos/IconoCaja';
 import { IconoCatalogo } from '@/components/ui/iconos/IconoCatalogo';
 import { IconoCelular } from '@/components/ui/iconos/IconoCelular';
 import { IconoClientes } from '@/components/ui/iconos/IconoClientes';
@@ -23,8 +26,12 @@ import { IconoCredito } from '@/components/ui/iconos/IconoCredito';
 import { IconoFlechaAbajo } from '@/components/ui/iconos/IconoFlechaAbajo';
 import { IconoFlechaDerecha } from '@/components/ui/iconos/IconoFlechaDerecha';
 import { IconoFlechaIzquierda } from '@/components/ui/iconos/IconoFlechaIzquierda';
+import { IconoInventario } from '@/components/ui/iconos/IconoInventario';
 import { IconoJornadas } from '@/components/ui/iconos/IconoJornadas';
 import { IconoMas } from '@/components/ui/iconos/IconoMas';
+import { IconoNomina } from '@/components/ui/iconos/IconoNomina';
+import { IconoOjo } from '@/components/ui/iconos/IconoOjo';
+import { IconoOjoTachado } from '@/components/ui/iconos/IconoOjoTachado';
 import { IconoOrdenes } from '@/components/ui/iconos/IconoOrdenes';
 import { IconoPerfil } from '@/components/ui/iconos/IconoPerfil';
 import { IconoPuntos } from '@/components/ui/iconos/IconoPuntos';
@@ -33,7 +40,6 @@ import { IconoUsuarios } from '@/components/ui/iconos/IconoUsuarios';
 import { IconoVisto } from '@/components/ui/iconos/IconoVisto';
 import { Indicador } from '@/components/ui/Indicador';
 import { Insignia } from '@/components/ui/Insignia';
-import { ModuloProximamente } from '@/components/ui/ModuloProximamente';
 import { Paginacion } from '@/components/ui/Paginacion';
 import { PanelLateral } from '@/components/ui/PanelLateral';
 import { Placa } from '@/components/ui/Placa';
@@ -45,6 +51,9 @@ import { useAviso } from '@/hooks/useAviso';
 
 const ICONOS = [
   ['IconoOrdenes', IconoOrdenes],
+  ['IconoCaja', IconoCaja],
+  ['IconoNomina', IconoNomina],
+  ['IconoInventario', IconoInventario],
   ['IconoClientes', IconoClientes],
   ['IconoCredito', IconoCredito],
   ['IconoColaboradores', IconoColaboradores],
@@ -56,11 +65,15 @@ const ICONOS = [
   ['IconoBuscar', IconoBuscar],
   ['IconoMas', IconoMas],
   ['IconoVisto', IconoVisto],
+  ['IconoOjo', IconoOjo],
+  ['IconoOjoTachado', IconoOjoTachado],
   ['IconoCelular', IconoCelular],
   ['IconoPuntos', IconoPuntos],
   ['IconoFlechaIzquierda', IconoFlechaIzquierda],
   ['IconoFlechaDerecha', IconoFlechaDerecha],
   ['IconoFlechaAbajo', IconoFlechaAbajo],
+  ['IconoAyuda', IconoAyuda],
+  ['IconoAuriculares', IconoAuriculares],
 ];
 
 const VISTAS = [
@@ -218,8 +231,8 @@ export function MuestrasDelPanel() {
         <div className="grid gap-3 escritorio:grid-cols-2">
           <Tarjeta relleno="ninguno">
             <EstadoVacio
-              titulo="Disponible próximamente"
-              descripcion="La API todavía no ofrece esta información."
+              titulo="Sin resultados"
+              descripcion="No hay movimientos que coincidan con la búsqueda."
               icono={<IconoReportes className="size-5" />}
             />
           </Tarjeta>
@@ -234,18 +247,6 @@ export function MuestrasDelPanel() {
             <EstadoError mensaje="No pudimos comunicarnos con el servidor." alReintentar={() => {}} />
           </Tarjeta>
         </div>
-      </SeccionDelCatalogo>
-
-      <SeccionDelCatalogo
-        titulo="Módulo disponible próximamente"
-        descripcion="Para las pantallas del diseño que la API todavía no soporta: marco fiel, sin datos inventados."
-      >
-        <ModuloProximamente
-          titulo="Reportes"
-          descripcion="Ventas, servicios y colaboradores por periodo"
-          motivo="La API todavía no entrega reportes por periodo."
-          icono={<IconoReportes className="size-5" />}
-        />
       </SeccionDelCatalogo>
 
       <SeccionDelCatalogo titulo="Paginación">

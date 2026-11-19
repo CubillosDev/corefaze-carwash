@@ -25,6 +25,17 @@ export async function listarJornadas(filtros = {}, { signal } = {}) {
 }
 
 /**
+ * POST /api/jornadas/qr: código de un solo uso para abrir la jornada desde la
+ * app móvil. Vence a los `vigenciaSegundos`; el servidor guarda solo su hash.
+ *
+ * @returns {Promise<{ contenido: string, expiraEn: string, vigenciaSegundos: number }>}
+ */
+export async function generarQrJornada() {
+  const cuerpo = await httpCliente.crear('jornadas/qr', undefined);
+  return cuerpo.qr;
+}
+
+/**
  * POST /api/jornadas: abre la jornada de hoy. No lleva cuerpo.
  *
  * @returns {Promise<Jornada>}

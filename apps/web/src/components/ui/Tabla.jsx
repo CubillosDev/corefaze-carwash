@@ -30,6 +30,8 @@ function claseDeAlineacion(columna) {
  * @param {string} props.descripcion Resumen de la tabla para lectores de pantalla.
  * @param {string} [props.claveFila] Campo que identifica cada fila. Por defecto 'id'.
  * @param {string} [props.mensajeVacio]
+ * @param {boolean} [props.enTarjeta] Sin borde ni fondo propios: la tabla vive
+ *   dentro de una Tarjeta, normalmente con la paginación al pie.
  * @param {string} [props.className]
  */
 export function Tabla({
@@ -38,6 +40,7 @@ export function Tabla({
   descripcion,
   claveFila = 'id',
   mensajeVacio = 'Todavía no hay información para mostrar.',
+  enTarjeta = false,
   className = '',
 }) {
   return (
@@ -45,7 +48,7 @@ export function Tabla({
       role="region"
       aria-label={descripcion}
       tabIndex={0}
-      className={`relative overflow-x-auto rounded-tarjeta border border-neutro-200 bg-white ${className}`}
+      className={`relative overflow-x-auto ${enTarjeta ? '' : 'rounded-tarjeta border border-neutro-200 bg-white'} ${className}`}
     >
       <table className="w-full min-w-md border-collapse text-control">
         <caption className="sr-only">{descripcion}</caption>

@@ -2,11 +2,16 @@ import { useState } from 'react';
 
 import { Alerta } from '@/components/ui/Alerta';
 import { Boton } from '@/components/ui/Boton';
+import { CampoMonto } from '@/components/ui/CampoMonto';
 import { CampoSeleccion } from '@/components/ui/CampoSeleccion';
 import { CampoTexto } from '@/components/ui/CampoTexto';
 import { IconoMenu } from '@/components/ui/iconos/IconoMenu';
+import { IconoOjo } from '@/components/ui/iconos/IconoOjo';
+import { MarcaCorefaze } from '@/components/ui/MarcaCorefaze';
 import { Modal } from '@/components/ui/Modal';
+import { Paginacion } from '@/components/ui/Paginacion';
 import { Tabla } from '@/components/ui/Tabla';
+import { Tarjeta } from '@/components/ui/Tarjeta';
 import { MenuPerfil } from '@/features/autenticacion';
 import { MuestraDeColor } from '@/features/sistema-diseno/components/MuestraDeColor';
 import { MuestraDeForma } from '@/features/sistema-diseno/components/MuestraDeForma';
@@ -49,6 +54,14 @@ const GRUPOS_DE_COLOR = [
     nombre: 'Resalte',
     nota: 'Amarillo de placa física. Solo como fondo y con texto oscuro encima.',
     tonos: [{ token: 'resalte', clase: 'bg-resalte' }],
+  },
+  {
+    nombre: 'Gráficos',
+    nota: 'Series del mix de servicios en Reportes, después de primario y primario-800. Solo para marcas de gráficos, nunca para texto.',
+    tonos: [
+      { token: 'grafico-cian', clase: 'bg-grafico-cian' },
+      { token: 'grafico-violeta', clase: 'bg-grafico-violeta' },
+    ],
   },
   {
     nombre: 'Neutros',
@@ -98,6 +111,9 @@ const GRUPOS_DE_COLOR = [
 ];
 
 const ESCALA_TIPOGRAFICA = [
+  { clase: 'text-portada', uso: 'Titular de la pantalla de ingreso' },
+  { clase: 'text-cifra', uso: 'Total a cobrar y cambio en la caja' },
+  { clase: 'text-portada-movil', uso: 'Titular de la pantalla de ingreso en móvil' },
   { clase: 'text-kpi', uso: 'Valor de los indicadores del tablero' },
   { clase: 'text-indicador', uso: 'Cifras de tarjetas' },
   { clase: 'text-titulo', uso: 'Título de página' },
@@ -117,9 +133,11 @@ const ESCALA_TIPOGRAFICA = [
   { clase: 'text-etiqueta uppercase', uso: 'Etiqueta de sección, siempre en mayúsculas' },
   { clase: 'text-etiqueta-menu uppercase', uso: 'Título dentro de menús desplegables' },
   { clase: 'text-avatar', uso: 'Iniciales del avatar pequeño' },
+  { clase: 'text-letra-menuda', uso: 'Leyendas al pie del comprobante' },
 ];
 
 const RADIOS = [
+  { clase: 'rounded-comprobante', uso: 'Papel del comprobante de pago' },
   { clase: 'rounded-placa', uso: 'Placa' },
   { clase: 'rounded-opcion', uso: 'Opciones de menú y botón de cerrar' },
   { clase: 'rounded-control', uso: 'Botones, campos y píldora del menú' },
@@ -144,7 +162,10 @@ const SOMBRAS = [
   { clase: 'shadow-cajon', uso: 'Cajón de navegación abierto' },
   { clase: 'shadow-panel-lateral', uso: 'Panel de detalle a la derecha' },
   { clase: 'shadow-modal', uso: 'Ventana modal' },
+  { clase: 'shadow-comprobante', uso: 'Papel del comprobante de pago' },
   { clase: 'shadow-punto-activo', uso: 'Punto verde de jornada abierta' },
+  { clase: 'shadow-boton-flotante', uso: 'Botón flotante de ayuda' },
+  { clase: 'shadow-ayuda', uso: 'Panel de preguntas frecuentes' },
 ];
 
 const ANIMACIONES = [
@@ -154,6 +175,9 @@ const ANIMACIONES = [
   { variable: '--animate-entrar-modal', uso: 'Entrada de la ventana modal' },
   { variable: '--animate-entrar-lateral', uso: 'Entrada del panel de detalle' },
   { variable: '--animate-girar', uso: 'Indicador de carga' },
+  { variable: '--animate-entrar-ayuda', uso: 'Entrada del panel de ayuda' },
+  { variable: '--animate-flotar', uso: 'Piezas de la escena de ingreso' },
+  { variable: '--animate-brillo', uso: 'Halo de la escena de ingreso' },
 ];
 
 /** La utilidad de texto coincide con su variable: 'text-etiqueta uppercase' -> '--text-etiqueta'. */
@@ -220,6 +244,7 @@ const EJEMPLOS_DE_FORMATO = [
  */
 export function SistemaDisenoPage() {
   const [modalAbierto, setModalAbierto] = useState(false);
+  const [monto, setMonto] = useState(28000);
   const [alertaVisible, setAlertaVisible] = useState(true);
   const [placa, setPlaca] = useState('');
   const [repeticiones, setRepeticiones] = useState(0);
@@ -321,7 +346,7 @@ export function SistemaDisenoPage() {
 
       <SeccionDelCatalogo
         titulo="Movimiento y punto de quiebre"
-        descripcion="Una sola curva para todo el sistema. Por debajo del punto escritorio (760 px), la barra lateral pasa a ser un cajón. Desde el punto amplio (1100 px), el panel de jornada del tablero pasa de 264 a 300 px. El interlineado leading-apoyo (1.45) es el de los textos de apoyo de varias líneas."
+        descripcion="Una sola curva para todo el sistema. Por debajo del punto escritorio (760 px), la barra lateral pasa a ser un cajón. Desde el punto amplio (1100 px), el panel de jornada del tablero pasa de 264 a 300 px. La variante ajustado (desde 1200 × 720 px) hace que el tablero de inicio quepa sin scroll, con la curva de ingresos elástica. El interlineado leading-apoyo (1.45) es el de los textos de apoyo de varias líneas."
       >
         <div className="flex flex-col gap-5">
           <dl className="grid gap-x-6 gap-y-3 text-meta escritorio:grid-cols-[auto_1fr]">
@@ -381,6 +406,7 @@ export function SistemaDisenoPage() {
             <Boton tamano="pequeno">Pequeño</Boton>
             <Boton tamano="mediano">Mediano</Boton>
             <Boton tamano="grande">Grande</Boton>
+            <Boton tamano="alto">Alto</Boton>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -426,6 +452,45 @@ export function SistemaDisenoPage() {
           />
           <CampoTexto etiqueta="Observaciones" placeholder="Opcional" />
           <CampoTexto etiqueta="Código interno" defaultValue="CW-0001" disabled />
+          <CampoTexto
+            etiqueta="Correo (tamaño grande)"
+            tamano="grande"
+            placeholder="nombre@empresa.com"
+            ayuda="Tamaño grande, 44 px: formularios de una sola columna, como el ingreso."
+          />
+          <CampoMonto
+            etiqueta="Monto (campo de dinero)"
+            valor={monto}
+            alCambiar={setMonto}
+            ayuda="Muestra $ 28.000 mientras se escribe y entrega un entero."
+          />
+          <CampoTexto
+            etiqueta="Contraseña (con acción)"
+            type="password"
+            tamano="grande"
+            defaultValue="clave-de-ejemplo"
+            ayuda="La acción es un botón pequeño dentro del campo, a la derecha."
+            accion={
+              <span className="inline-flex size-9 items-center justify-center text-neutro-500">
+                <IconoOjo className="size-4.5" />
+              </span>
+            }
+          />
+        </div>
+      </SeccionDelCatalogo>
+
+      <SeccionDelCatalogo
+        titulo="Marca de Corefaze"
+        descripcion="El cubo isométrico del logo en vectores, con el color del texto: sirve donde el logo completo (blanco) no cabe o va sobre un fondo claro."
+      >
+        <div className="flex flex-wrap items-center gap-4">
+          <span className="inline-flex size-11 items-center justify-center rounded-bloque bg-linear-to-br from-primario-500 to-primario-800 shadow-boton-primario">
+            <MarcaCorefaze className="size-5.5 text-white" />
+          </span>
+          <MarcaCorefaze className="size-8 text-primario" titulo="Corefaze" />
+          <span className="inline-flex size-11 items-center justify-center rounded-bloque bg-marco">
+            <MarcaCorefaze className="size-5.5 text-white" />
+          </span>
         </div>
       </SeccionDelCatalogo>
 
@@ -491,7 +556,7 @@ export function SistemaDisenoPage() {
 
       <SeccionDelCatalogo
         titulo="Tabla"
-        descripcion="Recibe columnas y filas. En pantallas angostas se desplaza de lado dentro de su contenedor, y tiene estado vacío."
+        descripcion="Recibe columnas y filas. En pantallas angostas se desplaza de lado dentro de su contenedor, y tiene estado vacío. La variante enTarjeta no lleva marco propio: va dentro de una Tarjeta, con la paginación al pie."
       >
         <div className="flex flex-col gap-6">
           <Tabla
@@ -499,6 +564,15 @@ export function SistemaDisenoPage() {
             filas={SERVICIOS_DE_EJEMPLO}
             descripcion="Servicios de ejemplo con duración y precio"
           />
+          <Tarjeta relleno="ninguno" className="overflow-hidden">
+            <Tabla
+              enTarjeta
+              columnas={COLUMNAS_DE_SERVICIOS}
+              filas={SERVICIOS_DE_EJEMPLO}
+              descripcion="Servicios de ejemplo dentro de una tarjeta con paginación"
+            />
+            <Paginacion pagina={0} totalPaginas={3} totalElementos={SERVICIOS_DE_EJEMPLO.length * 3} porPagina={SERVICIOS_DE_EJEMPLO.length} alCambiar={() => {}} />
+          </Tarjeta>
           <Tabla
             columnas={COLUMNAS_DE_SERVICIOS}
             filas={[]}

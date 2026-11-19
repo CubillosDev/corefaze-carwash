@@ -16,31 +16,39 @@ import { RUTAS } from '@/constants/rutas';
 const TODOS_LOS_MODULOS = Object.freeze([
   RUTAS.INICIO,
   RUTAS.ORDENES_LAVADO,
+  RUTAS.CAJA,
   RUTAS.CLIENTES,
   RUTAS.VEHICULOS,
   RUTAS.CREDITO,
+  RUTAS.JORNADAS,
+  RUTAS.NOMINA,
+  RUTAS.INVENTARIO,
+  RUTAS.REPORTES,
   RUTAS.COLABORADORES,
   RUTAS.SERVICIOS,
-  RUTAS.JORNADAS,
   RUTAS.USUARIOS,
-  RUTAS.REPORTES,
 ]);
 
-/** Cambiar el rol de un usuario es solo de superadmin (PATCH /auth/usuarios/:id/rol). */
-const MODULOS_DE_ADMINISTRADOR = Object.freeze(
+/**
+ * El administrador consulta los usuarios (GET /api/usuarios), pero activar,
+ * desactivar y cambiar el rol de una cuenta es solo de superadmin.
+ */
+const MODULOS_GESTIONABLES_DE_ADMINISTRADOR = Object.freeze(
   TODOS_LOS_MODULOS.filter((modulo) => modulo !== RUTAS.USUARIOS),
 );
 
 const MODULOS_POR_ROL = Object.freeze({
   superadmin: TODOS_LOS_MODULOS,
-  administrador: MODULOS_DE_ADMINISTRADOR,
+  administrador: TODOS_LOS_MODULOS,
   soporte: Object.freeze([
     RUTAS.INICIO,
     RUTAS.ORDENES_LAVADO,
+    RUTAS.CAJA,
     RUTAS.CLIENTES,
     RUTAS.VEHICULOS,
     RUTAS.CREDITO,
     RUTAS.JORNADAS,
+    RUTAS.INVENTARIO,
   ]),
   pendiente: Object.freeze([]),
 });
@@ -52,11 +60,14 @@ const MODULOS_POR_ROL = Object.freeze({
  * los gestionan; la API le responde 403 a soporte si lo intenta. Soporte sí
  * registra y edita órdenes de lavado (anularlas no: ese caso lo resuelve el
  * módulo de órdenes) y abre y cierra jornadas (reabrirlas es de superadmin).
+ * También opera la caja (cobros, egresos, cierre). En crédito e inventario
+ * hace la parte del día a día (verificar vales, sumar o restar insumos), que
+ * deciden rolPuedeVerificarVales y rolPuedeMoverInventario.
  */
 const MODULOS_GESTIONABLES_POR_ROL = Object.freeze({
   superadmin: TODOS_LOS_MODULOS,
-  administrador: MODULOS_DE_ADMINISTRADOR,
-  soporte: Object.freeze([RUTAS.ORDENES_LAVADO, RUTAS.JORNADAS]),
+  administrador: MODULOS_GESTIONABLES_DE_ADMINISTRADOR,
+  soporte: Object.freeze([RUTAS.ORDENES_LAVADO, RUTAS.JORNADAS, RUTAS.CAJA]),
   pendiente: Object.freeze([]),
 });
 
@@ -71,9 +82,33 @@ export const ETIQUETAS_ROL = Object.freeze({
   pendiente: 'Pendiente de aprobación',
 });
 
+/** Roles que un superadministrador puede asignar, del que más puede al que menos. */
+export const ROLES_ASIGNABLES = Object.freeze(['superadmin', 'administrador', 'soporte']);
+
+/** Qué permite cada rol asignable, con la misma matriz de este archivo. */
+export const DESCRIPCIONES_ROL = Object.freeze({
+  superadmin: 'Todo el panel. Aprueba cuentas, cambia roles y reabre jornadas y cajas.',
+  administrador: 'Todos los módulos. Consulta los usuarios, pero no los gestiona.',
+  soporte: 'Operación diaria: órdenes, caja, jornadas, clientes, vehículos, crédito e inventario.',
+});
+
 /** @param {string|null|undefined} rol */
 export function etiquetaDeRol(rol) {
   return ETIQUETAS_ROL[rol] ?? 'Sin rol';
+}
+
+/**
+ * Tono de la insignia del rol: pendiente en ámbar (espera aprobación),
+ * superadministrador en azul y el resto en gris.
+ *
+ * @param {string|null|undefined} rol
+ * @returns {'advertencia'|'primario'|'neutro'}
+ */
+export function tonoDeRol(rol) {
+  if (esRolPendiente(rol)) {
+    return 'advertencia';
+  }
+  return rol === 'superadmin' ? 'primario' : 'neutro';
 }
 
 /** El rol `pendiente` espera que un administrador le asigne acceso. */
@@ -136,4 +171,35 @@ export function rolPuedeAnularOrden(rol) {
  */
 export function rolPuedeReabrirJornada(rol) {
   return rol === 'superadmin';
+}
+
+const ROLES_QUE_OPERAN = Object.freeze(['superadmin', 'administrador', 'soporte']);
+
+/**
+ * Reabrir una caja ya arqueada es solo de superadmin, como la jornada.
+ *
+ * @param {string|null|undefined} rol
+ */
+export function rolPuedeReabrirCaja(rol) {
+  return rol === 'superadmin';
+}
+
+/**
+ * Recibir y verificar vales de crédito es operación diaria: también soporte.
+ * Pagar y fijar cupo o corte lo decide rolPuedeGestionar(rol, RUTAS.CREDITO).
+ *
+ * @param {string|null|undefined} rol
+ */
+export function rolPuedeVerificarVales(rol) {
+  return ROLES_QUE_OPERAN.includes(rol);
+}
+
+/**
+ * Sumar o restar unidades de un insumo es del día a día: también soporte.
+ * Crear, editar o desactivar insumos lo decide rolPuedeGestionar(rol, RUTAS.INVENTARIO).
+ *
+ * @param {string|null|undefined} rol
+ */
+export function rolPuedeMoverInventario(rol) {
+  return ROLES_QUE_OPERAN.includes(rol);
 }

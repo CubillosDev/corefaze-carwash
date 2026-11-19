@@ -10,7 +10,8 @@ import { formatoPlaca } from '@/utils/formatoPlaca';
 
 /**
  * Vista de lista de las órdenes de la jornada, con las columnas del diseño. El
- * valor es el que calculó el servidor. La placa abre el detalle.
+ * valor es el que calculó el servidor. La placa abre el detalle. Va dentro de
+ * una Tarjeta, con la paginación al pie.
  *
  * @param {object} props
  * @param {object[]} props.ordenes
@@ -72,7 +73,7 @@ export function TablaOrdenes({ ordenes, datosDe }) {
       filas={filas}
       descripcion="Órdenes de lavado de la jornada"
       mensajeVacio="No hay órdenes en esta jornada."
-      className="mt-3.5"
+      enTarjeta
     />
   );
 }

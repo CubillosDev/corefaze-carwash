@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Navigate, useLocation } from 'react-router';
+import { Link, Navigate, useLocation } from 'react-router';
 
-import logoCorefaze from '@/assets/images/logo-corefaze.webp';
 import { Alerta } from '@/components/ui/Alerta';
 import { Boton } from '@/components/ui/Boton';
 import { CampoTexto } from '@/components/ui/CampoTexto';
+import { IconoFlechaDerecha } from '@/components/ui/iconos/IconoFlechaDerecha';
 import { RUTAS } from '@/constants/rutas';
+import { BotonVerClave } from '@/features/autenticacion/components/BotonVerClave';
+import { MarcoAcceso } from '@/features/autenticacion/components/MarcoAcceso';
 import { useSesion } from '@/features/autenticacion/hooks/useSesion';
 import { validarInicioSesion } from '@/features/autenticacion/validators/inicioSesion.schema';
 
@@ -15,7 +17,7 @@ function destinoSeguro(desde) {
   return esInterna && !desde.startsWith(RUTAS.INGRESO) ? desde : RUTAS.INICIO;
 }
 
-/** Pantalla de ingreso: correo, contraseña y botón "Ingresar". */
+/** Pantalla de ingreso con correo y contraseña. */
 export function IngresoPage() {
   const { usuario, motivoCierre, iniciarSesion } = useSesion();
   const ubicacion = useLocation();
@@ -23,6 +25,7 @@ export function IngresoPage() {
   const [errores, setErrores] = useState({});
   const [errorDeApi, setErrorDeApi] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [verClave, setVerClave] = useState(false);
 
   if (usuario) {
     return <Navigate to={destinoSeguro(ubicacion.state?.desde)} replace />;
@@ -55,55 +58,57 @@ export function IngresoPage() {
   }
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-marco px-4 py-8">
-      {/* El logo es blanco: va sobre el marco oscuro, no sobre la tarjeta. */}
-      <img src={logoCorefaze} alt="Corefaze" className="h-7 w-auto" />
+    <MarcoAcceso titulo="Ingresar a CarWash" descripcion="Usa el correo y la contraseña de tu cuenta.">
+      {motivoCierre === 'expirada' && !errorDeApi ? (
+        <Alerta tipo="info" titulo="Tu sesión expiró">
+          Vuelve a ingresar para continuar.
+        </Alerta>
+      ) : null}
 
-      <div className="flex w-full max-w-sm flex-col gap-6 rounded-modal bg-white p-6 shadow-modal escritorio:p-8">
-        <header className="flex flex-col gap-1 text-center">
-          <h1 className="text-titulo text-neutro-900">Ingresar a CarWash</h1>
-          <p className="text-detalle text-neutro-600">Usa el correo y la contraseña de tu cuenta.</p>
-        </header>
+      {errorDeApi ? (
+        <Alerta tipo="error" titulo="No pudimos ingresar">
+          {errorDeApi}
+        </Alerta>
+      ) : null}
 
-        {motivoCierre === 'expirada' && !errorDeApi ? (
-          <Alerta tipo="info" titulo="Tu sesión expiró">
-            Vuelve a ingresar para continuar.
-          </Alerta>
-        ) : null}
+      <form noValidate onSubmit={enviar} className="flex flex-col gap-4">
+        <CampoTexto
+          etiqueta="Correo electrónico"
+          type="email"
+          name="email"
+          autoComplete="username"
+          inputMode="email"
+          placeholder="nombre@empresa.com"
+          tamano="grande"
+          value={valores.email}
+          onChange={cambiar('email')}
+          error={errores.email}
+          requerido
+        />
+        <CampoTexto
+          etiqueta="Contraseña"
+          type={verClave ? 'text' : 'password'}
+          name="password"
+          autoComplete="current-password"
+          tamano="grande"
+          value={valores.password}
+          onChange={cambiar('password')}
+          error={errores.password}
+          requerido
+          accion={<BotonVerClave visible={verClave} alCambiar={setVerClave} />}
+        />
+        <Boton type="submit" tamano="alto" cargando={enviando} className="mt-1 w-full shadow-boton-primario">
+          Ingresar
+          {enviando ? null : <IconoFlechaDerecha className="size-4" />}
+        </Boton>
+      </form>
 
-        {errorDeApi ? (
-          <Alerta tipo="error" titulo="No pudimos ingresar">
-            {errorDeApi}
-          </Alerta>
-        ) : null}
-
-        <form noValidate onSubmit={enviar} className="flex flex-col gap-4">
-          <CampoTexto
-            etiqueta="Correo electrónico"
-            type="email"
-            name="email"
-            autoComplete="username"
-            inputMode="email"
-            value={valores.email}
-            onChange={cambiar('email')}
-            error={errores.email}
-            requerido
-          />
-          <CampoTexto
-            etiqueta="Contraseña"
-            type="password"
-            name="password"
-            autoComplete="current-password"
-            value={valores.password}
-            onChange={cambiar('password')}
-            error={errores.password}
-            requerido
-          />
-          <Boton type="submit" tamano="grande" cargando={enviando} className="w-full">
-            Ingresar
-          </Boton>
-        </form>
-      </div>
-    </main>
+      <p className="border-t border-neutro-200 pt-4 text-detalle leading-apoyo text-neutro-600">
+        ¿Aún no tienes cuenta?{' '}
+        <Link to={RUTAS.REGISTRO} className="font-semibold text-primario hover:text-primario-600">
+          Solicitar acceso
+        </Link>
+      </p>
+    </MarcoAcceso>
   );
 }

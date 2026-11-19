@@ -57,6 +57,13 @@
    * --------------------------------------------------------------------- */
   --color-resalte: #f2c230;
 
+  /* --- Gráficos --------------------------------------------------------------
+   * Series del "Mix de servicios" de Reportes, después del azul y del Deep
+   * Blue. Solo para marcas de gráficos, nunca para texto.
+   * --------------------------------------------------------------------- */
+  --color-grafico-cian: #0ea5c6;
+  --color-grafico-violeta: #8b5cf6;
+
   /* --- Neutros -------------------------------------------------------------
    * El prototipo usa grises que difieren en 1 o 2 unidades RGB (#f2f3f5 y
    * #f1f2f4, por ejemplo). Se agrupan en el tono más cercano de esta escala:
@@ -113,6 +120,8 @@
 
   /* Escala por rol. El interlineado es el normal de la fuente, como en el
      diseño, salvo donde el rol fija peso o espaciado. */
+  /* Letra menuda del comprobante (leyendas al pie). */
+  --text-letra-menuda: 9.5px;
   --text-avatar: 9.5px;
   --text-avatar--font-weight: 700;
   --text-etiqueta-menu: 10.5px;
@@ -155,8 +164,24 @@
   --text-kpi: 23px;
   --text-kpi--font-weight: 600;
   --text-kpi--letter-spacing: -0.02em;
+  /* Titular de la pantalla de ingreso (no está en el diseño: se diseñó con
+     su misma escala, más grande, para la portada). */
+  /* Total a cobrar y cambio a entregar en la caja. */
+  --text-cifra: 28px;
+  --text-cifra--font-weight: 600;
+  --text-cifra--letter-spacing: -0.03em;
+  --text-cifra--line-height: 1.1;
+  --text-portada: 40px;
+  --text-portada--font-weight: 600;
+  --text-portada--letter-spacing: -0.03em;
+  --text-portada--line-height: 1.08;
+  --text-portada-movil: 27px;
+  --text-portada-movil--font-weight: 600;
+  --text-portada-movil--letter-spacing: -0.025em;
+  --text-portada-movil--line-height: 1.12;
 
   /* --- Radios --------------------------------------------------------------- */
+  --radius-comprobante: 4px; /* Papel del comprobante de pago */
   --radius-placa: 6px;
   --radius-opcion: 8px; /* Opciones de menú y botón de cerrar */
   --radius-control: 9px; /* Botones, campos y píldora del menú */
@@ -180,7 +205,10 @@
   --shadow-cajon: 0 20px 50px rgba(10, 16, 32, 0.3);
   --shadow-panel-lateral: -24px 0 60px rgba(10, 16, 32, 0.18);
   --shadow-modal: 0 24px 60px rgba(10, 16, 32, 0.28);
+  --shadow-comprobante: 0 1px 2px rgba(10, 16, 32, 0.06), 0 10px 24px rgba(10, 16, 32, 0.08);
   --shadow-punto-activo: 0 0 0 4px rgba(22, 163, 74, 0.14); /* Jornada abierta */
+  --shadow-boton-flotante: 0 12px 30px rgba(10, 16, 32, 0.14), 0 1px 3px rgba(10, 16, 32, 0.08); /* Botón de ayuda */
+  --shadow-ayuda: 0 28px 70px rgba(10, 16, 32, 0.2), 0 2px 8px rgba(10, 16, 32, 0.06); /* Panel de ayuda */
 
   /* --- Medidas del marco ------------------------------------------------------ */
   --spacing-encabezado: 58px;
@@ -207,12 +235,45 @@
   --animate-entrar-modal: entrar-modal 260ms var(--ease-suave);
   --animate-entrar-lateral: entrar-lateral 260ms var(--ease-suave);
   --animate-girar: girar 0.8s linear infinite;
+  --animate-entrar-ayuda: entrar-ayuda 220ms var(--ease-suave);
+  /* Escena de la pantalla de ingreso: piezas que flotan y un halo que respira. */
+  --animate-flotar: flotar 7s var(--ease-suave) infinite alternate;
+  --animate-brillo: brillo 6s ease-in-out infinite alternate;
+
+  @keyframes flotar {
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(-12px);
+    }
+  }
+
+  @keyframes brillo {
+    from {
+      opacity: 0.45;
+    }
+    to {
+      opacity: 0.85;
+    }
+  }
 
   @keyframes entrar-lateral {
     from {
       transform: translateX(100%);
     }
     to {
+      transform: none;
+    }
+  }
+
+  @keyframes entrar-ayuda {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.96);
+    }
+    to {
+      opacity: 1;
       transform: none;
     }
   }
@@ -263,6 +324,10 @@
   /* Desde 1100 px el panel de jornada del tablero pasa de 264 a 300 px. */
   --breakpoint-amplio: 68.75rem;
 }
+
+/* Desde 1200 × 720 px el tablero de inicio cabe sin scroll, como en el diseño:
+   ocupa el alto de la ventana y la curva de ingresos se estira o se encoge. */
+@custom-variant ajustado (@media (width >= 75rem) and (height >= 45rem));
 
 @layer base {
   html {
@@ -317,6 +382,25 @@
   td,
   th {
     overflow-wrap: break-word;
+  }
+}
+
+/* Al imprimir un comprobante solo sale ese papel: el resto de la página se oculta. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  [data-impresion],
+  [data-impresion] * {
+    visibility: visible;
+  }
+
+  [data-impresion] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    box-shadow: none;
   }
 }
 

@@ -1,12 +1,15 @@
 import { useId } from 'react';
 import { matchPath, NavLink, useLocation } from 'react-router';
 
+import { IconoCaja } from '@/components/ui/iconos/IconoCaja';
 import { IconoCatalogo } from '@/components/ui/iconos/IconoCatalogo';
 import { IconoClientes } from '@/components/ui/iconos/IconoClientes';
 import { IconoColaboradores } from '@/components/ui/iconos/IconoColaboradores';
 import { IconoCredito } from '@/components/ui/iconos/IconoCredito';
 import { IconoInicio } from '@/components/ui/iconos/IconoInicio';
+import { IconoInventario } from '@/components/ui/iconos/IconoInventario';
 import { IconoJornadas } from '@/components/ui/iconos/IconoJornadas';
+import { IconoNomina } from '@/components/ui/iconos/IconoNomina';
 import { IconoOrdenes } from '@/components/ui/iconos/IconoOrdenes';
 import { IconoPaleta } from '@/components/ui/iconos/IconoPaleta';
 import { IconoReportes } from '@/components/ui/iconos/IconoReportes';
@@ -18,6 +21,9 @@ import { useSesion } from '@/features/autenticacion';
 
 const ICONOS = Object.freeze({
   inicio: IconoInicio,
+  caja: IconoCaja,
+  nomina: IconoNomina,
+  inventario: IconoInventario,
   ordenes: IconoOrdenes,
   clientes: IconoClientes,
   vehiculo: IconoVehiculo,

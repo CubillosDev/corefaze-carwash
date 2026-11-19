@@ -1,6 +1,7 @@
 import { useNavigate, useOutletContext, useParams } from 'react-router';
 
 import { Boton } from '@/components/ui/Boton';
+import { EnlaceBoton } from '@/components/ui/EnlaceBoton';
 import { Dato } from '@/components/ui/Dato';
 import { EstadoCarga } from '@/components/ui/EstadoCarga';
 import { EstadoVacio } from '@/components/ui/EstadoVacio';
@@ -65,7 +66,12 @@ export function DetalleOrdenPage() {
                 Anular orden
               </Boton>
             ) : null}
-            {avances.map((estado) => (
+            {avances.map((estado) =>
+              estado === ESTADOS_ORDEN.ENTREGADA ? (
+                <EnlaceBoton key={estado} hacia={`${RUTAS.CAJA}?orden=${orden.id}`}>
+                  Cobrar en caja
+                </EnlaceBoton>
+              ) : (
               <Boton
                 key={estado}
                 tamano="grande"
@@ -75,7 +81,8 @@ export function DetalleOrdenPage() {
               >
                 Pasar a {etiquetaEstadoOrden(estado).toLowerCase()}
               </Boton>
-            ))}
+              ),
+            )}
           </>
         ) : null
       }
