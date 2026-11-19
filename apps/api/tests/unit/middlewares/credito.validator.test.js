@@ -68,6 +68,25 @@ describe('credito.validator', () => {
       expect(resultado.array().some((error) => error.path === 'ordenIds')).toBe(true);
     });
 
+    it('rechaza más de 200 órdenes en un solo pago', async () => {
+      const resultado = await ejecutarValidaciones(validarRegistrarPago, {
+        clienteId: 1,
+        ordenIds: Array.from({ length: 201 }, (_, indice) => indice + 1),
+        medio: 'transferencia',
+      });
+      expect(resultado.isEmpty()).toBe(false);
+      expect(resultado.array().some((error) => error.path === 'ordenIds')).toBe(true);
+    });
+
+    it('acepta exactamente 200 órdenes', async () => {
+      const resultado = await ejecutarValidaciones(validarRegistrarPago, {
+        clienteId: 1,
+        ordenIds: Array.from({ length: 200 }, (_, indice) => indice + 1),
+        medio: 'transferencia',
+      });
+      expect(resultado.isEmpty()).toBe(true);
+    });
+
     it('rechaza cuando falta ordenIds', async () => {
       const resultado = await ejecutarValidaciones(validarRegistrarPago, {
         clienteId: 1,
