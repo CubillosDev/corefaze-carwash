@@ -2,6 +2,7 @@ import { Suspense, useCallback, useEffect, useId, useRef, useState } from 'react
 import { Outlet, useLocation, useMatches } from 'react-router';
 
 import { BarraLateral } from '@/components/layout/BarraLateral';
+import { BotonAyuda } from '@/components/layout/BotonAyuda';
 import { Encabezado } from '@/components/layout/Encabezado';
 import { useFocoAtrapado } from '@/hooks/useFocoAtrapado';
 import { usePantallaAngosta } from '@/hooks/usePantallaAngosta';
@@ -127,6 +128,8 @@ export function LayoutPrincipal() {
           </div>
         </main>
       </div>
+
+      <BotonAyuda />
     </div>
   );
 }

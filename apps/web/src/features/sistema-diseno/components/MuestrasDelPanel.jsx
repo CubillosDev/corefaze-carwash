@@ -14,6 +14,8 @@ import { EstadoCarga } from '@/components/ui/EstadoCarga';
 import { EstadoError } from '@/components/ui/EstadoError';
 import { EstadoVacio } from '@/components/ui/EstadoVacio';
 import { GrupoFiltros } from '@/components/ui/GrupoFiltros';
+import { IconoAuriculares } from '@/components/ui/iconos/IconoAuriculares';
+import { IconoAyuda } from '@/components/ui/iconos/IconoAyuda';
 import { IconoBuscar } from '@/components/ui/iconos/IconoBuscar';
 import { IconoCaja } from '@/components/ui/iconos/IconoCaja';
 import { IconoCatalogo } from '@/components/ui/iconos/IconoCatalogo';
@@ -71,6 +73,8 @@ const ICONOS = [
   ['IconoFlechaIzquierda', IconoFlechaIzquierda],
   ['IconoFlechaDerecha', IconoFlechaDerecha],
   ['IconoFlechaAbajo', IconoFlechaAbajo],
+  ['IconoAyuda', IconoAyuda],
+  ['IconoAuriculares', IconoAuriculares],
 ];
 
 const VISTAS = [

@@ -207,6 +207,8 @@
   --shadow-modal: 0 24px 60px rgba(10, 16, 32, 0.28);
   --shadow-comprobante: 0 1px 2px rgba(10, 16, 32, 0.06), 0 10px 24px rgba(10, 16, 32, 0.08);
   --shadow-punto-activo: 0 0 0 4px rgba(22, 163, 74, 0.14); /* Jornada abierta */
+  --shadow-boton-flotante: 0 12px 30px rgba(10, 16, 32, 0.14), 0 1px 3px rgba(10, 16, 32, 0.08); /* Botón de ayuda */
+  --shadow-ayuda: 0 28px 70px rgba(10, 16, 32, 0.2), 0 2px 8px rgba(10, 16, 32, 0.06); /* Panel de ayuda */
 
   /* --- Medidas del marco ------------------------------------------------------ */
   --spacing-encabezado: 58px;
@@ -233,6 +235,7 @@
   --animate-entrar-modal: entrar-modal 260ms var(--ease-suave);
   --animate-entrar-lateral: entrar-lateral 260ms var(--ease-suave);
   --animate-girar: girar 0.8s linear infinite;
+  --animate-entrar-ayuda: entrar-ayuda 220ms var(--ease-suave);
   /* Escena de la pantalla de ingreso: piezas que flotan y un halo que respira. */
   --animate-flotar: flotar 7s var(--ease-suave) infinite alternate;
   --animate-brillo: brillo 6s ease-in-out infinite alternate;
@@ -260,6 +263,17 @@
       transform: translateX(100%);
     }
     to {
+      transform: none;
+    }
+  }
+
+  @keyframes entrar-ayuda {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.96);
+    }
+    to {
+      opacity: 1;
       transform: none;
     }
   }

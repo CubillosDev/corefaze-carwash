@@ -164,6 +164,8 @@ const SOMBRAS = [
   { clase: 'shadow-modal', uso: 'Ventana modal' },
   { clase: 'shadow-comprobante', uso: 'Papel del comprobante de pago' },
   { clase: 'shadow-punto-activo', uso: 'Punto verde de jornada abierta' },
+  { clase: 'shadow-boton-flotante', uso: 'Botón flotante de ayuda' },
+  { clase: 'shadow-ayuda', uso: 'Panel de preguntas frecuentes' },
 ];
 
 const ANIMACIONES = [
@@ -173,6 +175,7 @@ const ANIMACIONES = [
   { variable: '--animate-entrar-modal', uso: 'Entrada de la ventana modal' },
   { variable: '--animate-entrar-lateral', uso: 'Entrada del panel de detalle' },
   { variable: '--animate-girar', uso: 'Indicador de carga' },
+  { variable: '--animate-entrar-ayuda', uso: 'Entrada del panel de ayuda' },
   { variable: '--animate-flotar', uso: 'Piezas de la escena de ingreso' },
   { variable: '--animate-brillo', uso: 'Halo de la escena de ingreso' },
 ];
