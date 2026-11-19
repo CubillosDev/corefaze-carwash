@@ -58,7 +58,7 @@ export function IngresoPage() {
   }
 
   return (
-    <MarcoAcceso titulo="Ingresar a CarWash" descripcion="Usa el correo y la contraseña de tu cuenta.">
+    <MarcoAcceso titulo="Hola de nuevo" descripcion="Ingresa con el correo y la contraseña de tu cuenta.">
       {motivoCierre === 'expirada' && !errorDeApi ? (
         <Alerta tipo="info" titulo="Tu sesión expiró">
           Vuelve a ingresar para continuar.

@@ -31,7 +31,7 @@ describe('rutas privadas', () => {
   it('sin sesión, cualquier ruta privada lleva a /ingreso', async () => {
     const enrutador = renderizarApp('/clientes', undefined);
 
-    expect(await screen.findByRole('heading', { name: /ingresar a carwash/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /hola de nuevo/i })).toBeInTheDocument();
     expect(enrutador.state.location.pathname).toBe('/ingreso');
     expect(enrutador.state.location.state).toEqual({ desde: '/clientes' });
   });
@@ -95,7 +95,7 @@ describe('menú de perfil', () => {
 
     await usuarioEvento.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
 
-    expect(await screen.findByRole('heading', { name: /ingresar a carwash/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /hola de nuevo/i })).toBeInTheDocument();
     expect(enrutador.state.location.pathname).toBe('/ingreso');
   });
 
@@ -138,7 +138,7 @@ describe('sesión vencida (401)', () => {
       await httpCliente.obtener('vehiculos').catch(() => {});
     });
 
-    expect(await screen.findByRole('heading', { name: /ingresar a carwash/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /hola de nuevo/i })).toBeInTheDocument();
     expect(screen.getByText('Tu sesión expiró')).toBeInTheDocument();
     expect(enrutador.state.location.pathname).toBe('/ingreso');
   });
