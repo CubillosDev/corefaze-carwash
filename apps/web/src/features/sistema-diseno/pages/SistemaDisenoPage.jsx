@@ -153,6 +153,7 @@ const SOMBRAS = [
   { clase: 'shadow-segmento', uso: 'Opción elegida del control segmentado' },
   { clase: 'shadow-tarjeta', uso: 'Tarjeta del tablero en reposo' },
   { clase: 'shadow-tarjeta-hover', uso: 'Tarjeta del tablero al pasar el puntero' },
+  { clase: 'shadow-tarjeta-arrastrada', uso: 'Tarjeta del tablero levantada al arrastrarla' },
   { clase: 'shadow-boton-primario', uso: 'Botón principal de la página' },
   { clase: 'shadow-foco-campo', uso: 'Anillo de foco de los campos' },
   { clase: 'shadow-menu', uso: 'Menú de acciones de una tarjeta' },
@@ -176,6 +177,7 @@ const ANIMACIONES = [
   { variable: '--animate-entrar-lateral', uso: 'Entrada del panel de detalle' },
   { variable: '--animate-girar', uso: 'Indicador de carga' },
   { variable: '--animate-entrar-ayuda', uso: 'Entrada del panel de ayuda' },
+  { variable: '--animate-aterrizar', uso: 'Tarjeta que llega a su nueva fase en el tablero' },
   { variable: '--animate-flotar', uso: 'Piezas de la escena de ingreso' },
   { variable: '--animate-brillo', uso: 'Halo de la escena de ingreso' },
 ];

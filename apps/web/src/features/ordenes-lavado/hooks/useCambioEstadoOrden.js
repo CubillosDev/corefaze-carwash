@@ -47,7 +47,7 @@ export function useCambioEstadoOrden({ alCambiar, avisar }) {
         setPorAnular({ orden, placa });
         return;
       }
-      enviar(orden, estado);
+      return enviar(orden, estado);
     },
     [enviar],
   );

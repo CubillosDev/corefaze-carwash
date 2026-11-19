@@ -23,6 +23,7 @@ const RESULTADOS = {
  * servidor al cerrar.
  *
  * @param {object} props
+ * @param {string} [props.titulo] Por ejemplo, el de una caja que quedó abierta en otra jornada.
  * @param {number} props.baseInicial
  * @param {import('@/features/caja/api/caja.api').TotalesCaja} props.totales
  * @param {boolean} props.enviando
@@ -30,7 +31,7 @@ const RESULTADOS = {
  * @param {(efectivoContado: number) => void} props.alConfirmar
  * @param {() => void} props.alCerrar
  */
-export function CierreCaja({ baseInicial, totales, enviando, error, alConfirmar, alCerrar }) {
+export function CierreCaja({ titulo = 'Cierre de caja', baseInicial, totales, enviando, error, alConfirmar, alCerrar }) {
   const [contado, setContado] = useState(null);
   const diferencia = contado === null ? null : contado - totales.efectivoEsperado;
   const resultado =
@@ -55,7 +56,7 @@ export function CierreCaja({ baseInicial, totales, enviando, error, alConfirmar,
     <Modal
       abierto
       alCerrar={alCerrar}
-      titulo="Cierre de caja"
+      titulo={titulo}
       descripcion="Cuenta el efectivo de la caja y compáralo con lo esperado."
       tamano="pequeno"
       pie={

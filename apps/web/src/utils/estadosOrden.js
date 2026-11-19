@@ -1,4 +1,5 @@
 import { ESTADOS_ORDEN, TRANSICIONES_ORDEN } from '@/constants/dominio';
+import { etiquetaEstadoOrden } from '@/constants/etiquetas';
 
 /**
  * Fases por las que pasa una orden en el tablero, en el orden del contrato.
@@ -24,6 +25,37 @@ export function siguientesEstados(estado, puedeAnular) {
   return (TRANSICIONES_ORDEN[estado] ?? []).filter(
     (siguiente) => puedeAnular || siguiente !== ESTADOS_ORDEN.CANCELADA,
   );
+}
+
+/**
+ * Qué pasa al soltar una orden en la columna de otro estado del tablero:
+ * "cambiar" si es su fase siguiente, "cobrar" si es Entregada (la entrega se
+ * registra al cobrar en caja, ADR 0007) y null si no es un movimiento
+ * permitido. La cancelación no se hace arrastrando: pide un motivo.
+ *
+ * @param {string} estado
+ * @param {string|null} destino
+ * @returns {'cambiar'|'cobrar'|null}
+ */
+export function accionAlSoltar(estado, destino) {
+  if (!destino || destino === ESTADOS_ORDEN.CANCELADA || !(TRANSICIONES_ORDEN[estado] ?? []).includes(destino)) {
+    return null;
+  }
+  return destino === ESTADOS_ORDEN.ENTREGADA ? 'cobrar' : 'cambiar';
+}
+
+/**
+ * Por qué una orden no se puede soltar en otra columna.
+ *
+ * @param {string} estado
+ * @returns {string} Por ejemplo, "Registrada solo avanza a En proceso".
+ */
+export function motivoMovimientoNoPermitido(estado) {
+  const [siguiente] = (TRANSICIONES_ORDEN[estado] ?? []).filter((destino) => destino !== ESTADOS_ORDEN.CANCELADA);
+  if (!siguiente) {
+    return `Una orden ${etiquetaEstadoOrden(estado).toLowerCase()} ya no cambia de fase`;
+  }
+  return `${etiquetaEstadoOrden(estado)} solo avanza a ${etiquetaEstadoOrden(siguiente)}`;
 }
 
 /**

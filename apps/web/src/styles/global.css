@@ -196,6 +196,7 @@
   --shadow-segmento: 0 1px 3px rgba(16, 24, 40, 0.12);
   --shadow-tarjeta: 0 1px 2px rgba(16, 24, 40, 0.05);
   --shadow-tarjeta-hover: 0 6px 18px rgba(16, 24, 40, 0.08);
+  --shadow-tarjeta-arrastrada: 0 18px 40px rgba(10, 16, 32, 0.22); /* Tarjeta levantada al arrastrarla */
   --shadow-boton-primario: 0 4px 12px rgba(18, 104, 232, 0.25);
   --shadow-foco-campo: 0 0 0 3px rgba(18, 104, 232, 0.12);
   --shadow-menu: 0 12px 32px rgba(10, 16, 32, 0.14);
@@ -236,6 +237,7 @@
   --animate-entrar-lateral: entrar-lateral 260ms var(--ease-suave);
   --animate-girar: girar 0.8s linear infinite;
   --animate-entrar-ayuda: entrar-ayuda 220ms var(--ease-suave);
+  --animate-aterrizar: aterrizar 360ms var(--ease-suave);
   /* Escena de la pantalla de ingreso: piezas que flotan y un halo que respira. */
   --animate-flotar: flotar 7s var(--ease-suave) infinite alternate;
   --animate-brillo: brillo 6s ease-in-out infinite alternate;
@@ -297,6 +299,17 @@
     from {
       opacity: 0;
       transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes aterrizar {
+    from {
+      opacity: 0.6;
+      transform: scale(0.96);
     }
     to {
       opacity: 1;

@@ -14,7 +14,9 @@ import { httpCliente } from '@/lib/httpCliente';
 
 /**
  * GET /api/caja: la caja de una jornada (por defecto, la abierta) con sus
- * totales, cobros, egresos, órdenes por cobrar y en el patio.
+ * totales, cobros, egresos, órdenes por cobrar y en el patio. Si quedó
+ * abierta la caja de otra jornada, viene en `cajaAnterior` con su fecha y sus
+ * totales (si no, null).
  *
  * @param {{ jornadaId?: number }} [filtros]
  * @param {{ signal?: AbortSignal }} [opciones]

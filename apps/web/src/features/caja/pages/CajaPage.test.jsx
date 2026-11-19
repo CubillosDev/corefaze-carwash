@@ -195,6 +195,31 @@ describe('CajaPage', () => {
     expect(cerrarCaja).toHaveBeenCalledWith(95000);
   });
 
+  it('con la caja de otra jornada abierta pide cerrarla antes de abrir la de hoy', async () => {
+    const usuario = userEvent.setup();
+    const anterior = {
+      id: 3,
+      estado: 'abierta',
+      baseInicial: 50000,
+      fecha: '2026-11-17',
+      totales: { ...TOTALES, efectivoEsperado: 50000 },
+    };
+    obtenerEstadoCaja.mockResolvedValue(estado({ caja: null, cajaAnterior: anterior }));
+    cerrarCaja.mockResolvedValue({ ...anterior, estado: 'cerrada' });
+    renderizar();
+
+    expect(await screen.findByText('La caja del 17/11/2026 sigue abierta')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Abrir caja' })).not.toBeInTheDocument();
+    expect(screen.getByText('Primero cierra la caja del 17/11/2026; luego abre la de hoy.')).toBeInTheDocument();
+
+    await usuario.click(screen.getByRole('button', { name: 'Cerrar caja anterior' }));
+    const dialogo = screen.getByRole('dialog', { name: 'Cierre de la caja del 17/11/2026' });
+    await usuario.type(within(dialogo).getByLabelText(/^Efectivo contado/), '50000');
+    expect(within(dialogo).getByText('Caja cuadrada')).toBeInTheDocument();
+    await usuario.click(within(dialogo).getByRole('button', { name: 'Confirmar cierre' }));
+    expect(cerrarCaja).toHaveBeenCalledWith(50000);
+  });
+
   it('sin jornadas lleva a abrir una', async () => {
     obtenerEstadoCaja.mockResolvedValue(estado({ jornada: null, caja: null, porCobrar: [] }));
     renderizar();
