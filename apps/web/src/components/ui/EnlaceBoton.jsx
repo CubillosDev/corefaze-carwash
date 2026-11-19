@@ -9,11 +9,13 @@ import { clasesDeBoton } from '@/components/ui/estilosBoton';
  * @param {object} props
  * @param {string} props.hacia Ruta del navegador.
  * @param {'primario'|'secundario'} [props.variante]
+ * @param {'mediano'|'grande'|'alto'} [props.tamano]
+ * @param {string} [props.className]
  * @param {import('react').ReactNode} props.children
  */
-export function EnlaceBoton({ hacia, variante = 'primario', children }) {
+export function EnlaceBoton({ hacia, variante = 'primario', tamano = 'mediano', className = '', children }) {
   return (
-    <Link to={hacia} className={clasesDeBoton({ variante })}>
+    <Link to={hacia} className={clasesDeBoton({ variante, tamano, className })}>
       {children}
     </Link>
   );

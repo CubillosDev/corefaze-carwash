@@ -7,6 +7,7 @@
 export const RUTAS = Object.freeze({
   INICIO: '/',
   INGRESO: '/ingreso',
+  REGISTRO: '/registro',
   ORDENES_LAVADO: '/ordenes-lavado',
   CAJA: '/caja',
   CLIENTES: '/clientes',

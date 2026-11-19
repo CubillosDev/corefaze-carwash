@@ -3,7 +3,7 @@ import { createBrowserRouter } from 'react-router';
 
 import { LayoutPrincipal } from '@/components/layout/LayoutPrincipal';
 import { RUTAS } from '@/constants/rutas';
-import { IngresoPage, RutaConPermiso, RutaPrivada } from '@/features/autenticacion';
+import { IngresoPage, RegistroPage, RutaConPermiso, RutaPrivada } from '@/features/autenticacion';
 
 /**
  * Página con carga diferida: se descarga aparte, la primera vez que se visita.
@@ -32,6 +32,7 @@ const rutasDeDesarrollo = import.meta.env.DEV
 /*
  * Estructura:
  *   /ingreso            pública
+ *   /registro           pública: solicitud de acceso (la cuenta nace pendiente)
  *   RutaPrivada         sin sesión -> /ingreso; cuenta pendiente -> pantalla de espera
  *     LayoutPrincipal   cabecera, menú y área de contenido
  *       RutaConPermiso  rol sin acceso al módulo -> "Sin permiso" (403)
@@ -39,6 +40,7 @@ const rutasDeDesarrollo = import.meta.env.DEV
  */
 export const rutas = [
   { path: RUTAS.INGRESO, Component: IngresoPage },
+  { path: RUTAS.REGISTRO, Component: RegistroPage },
   {
     Component: RutaPrivada,
     children: [

@@ -4,3 +4,4 @@ export { RutaConPermiso } from '@/features/autenticacion/components/RutaConPermi
 export { RutaPrivada } from '@/features/autenticacion/components/RutaPrivada';
 export { useSesion } from '@/features/autenticacion/hooks/useSesion';
 export { IngresoPage } from '@/features/autenticacion/pages/IngresoPage';
+export { RegistroPage } from '@/features/autenticacion/pages/RegistroPage';
