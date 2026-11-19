@@ -21,7 +21,7 @@ const POR_PAGINA_MAXIMO_PAGOS = 100;
 // tenga en false (ver su JSDoc), y sin este campo no habría forma de
 // distinguir ese caso desde la respuesta.
 const COLUMNAS_CLIENTE_CON_CREDITO =
-  'id, nombre, documento, telefono, email, estado, credito_habilitado';
+  'id, nombre, documento, telefono, email, estado, credito_habilitado, tipo, cupo_credito, dia_corte, contacto';
 
 // vehiculo/servicio/colaborador son selects anidados sobre una FK directa
 // de ordenes_lavado (vehiculo_id, servicio_id, colaborador_id): mismo
@@ -29,9 +29,12 @@ const COLUMNAS_CLIENTE_CON_CREDITO =
 // que aquí la FK es directa en vez de inversa. Reemplaza los *_id crudos
 // que tenía antes esta lista: lo que necesita quien va a pagar o a
 // revisar un pago ya pagado es placa/nombre/código, no un id interno.
+// estado y vale (ADR 0007): la pestaña de pendientes del diseño muestra el
+// vale de cada servicio y si ya se recibió.
 const COLUMNAS_ORDEN_LEGIBLE =
-  'id, fecha, turno, valor, ' +
-  'vehiculo:vehiculos(placa), servicio:servicios(nombre), colaborador:colaboradores(codigo, nombre)';
+  'id, fecha, turno, valor, estado, ' +
+  'vehiculo:vehiculos(placa), servicio:servicios(nombre), colaborador:colaboradores(codigo, nombre), ' +
+  'vale:vales_credito(numero, verificado_en)';
 
 // Nunca *: así nunca se filtran creado_en ni columnas internas mientras el
 // contrato HTTP no las incluya (ver supabase/README.md, "Contrato de
@@ -39,7 +42,7 @@ const COLUMNAS_ORDEN_LEGIBLE =
 // tarifas/reaperturas (select anidado sobre la relación inversa de una FK):
 // ordenes_lavado.pago_credito_id -> pagos_credito.id.
 const COLUMNAS_PAGO =
-  'id, cliente_id, valor_total, registrado_por, pagado_en, ' +
+  'id, cliente_id, valor_total, registrado_por, pagado_en, detalle:detalles_pago_credito(medio), ' +
   `ordenes:ordenes_lavado(${COLUMNAS_ORDEN_LEGIBLE})`;
 
 /**
@@ -57,6 +60,18 @@ const COLUMNAS_PAGO =
  * ya distinguen significados distintos de un mismo SQLSTATE por el índice
  * o restricción involucrada.
  */
+// vale (ordenes_lavado <- vales_credito) y detalle (pagos_credito <-
+// detalles_pago_credito) son relaciones 1:1: según cómo las resuelva
+// PostgREST llegan como objeto o como arreglo. Siempre se entregan como
+// objeto o null.
+const unaRelacion = (valor) => (Array.isArray(valor) ? (valor[0] ?? null) : (valor ?? null));
+const normalizarOrden = (orden) => ({ ...orden, vale: unaRelacion(orden.vale) });
+const normalizarPago = (pago) => ({
+  ...pago,
+  detalle: unaRelacion(pago.detalle),
+  ordenes: (pago.ordenes ?? []).map(normalizarOrden),
+});
+
 const traducirErrorPostgres = crearTraductorErroresPostgres({
   tabla: 'pagos_credito',
   etiqueta: 'pago de crédito',
@@ -226,7 +241,7 @@ const listarOrdenesPendientesDeCliente = async (clienteId) => {
       .range(desde, hasta),
   );
 
-  return aCamelCase(ordenes);
+  return aCamelCase(ordenes).map(normalizarOrden);
 };
 
 /**
@@ -245,7 +260,7 @@ const obtenerPagoPorId = async (id) => {
     throw new Error(`No se pudo obtener el pago de crédito: ${error.message}`);
   }
 
-  return data ? aCamelCase(data) : null;
+  return data ? normalizarPago(aCamelCase(data)) : null;
 };
 
 /**
@@ -296,7 +311,7 @@ const listarPagos = async ({
   }
 
   return {
-    pagos: aCamelCase(data),
+    pagos: aCamelCase(data).map(normalizarPago),
     total: count,
     pagina,
     porPagina: porPaginaEfectivo,
@@ -332,13 +347,23 @@ const listarPagos = async ({
  * @throws {Conflicto} si alguna orden no es del cliente, no es a crédito, no está entregada, o ya tiene pago
  * @throws {SolicitudInvalida} si el arreglo de órdenes viene vacío o con ids repetidos
  */
-const registrarPagoCredito = async ({ clienteId, ordenIds }, usuarioId) => {
+const registrarPagoCredito = async ({ clienteId, ordenIds, medio }, usuarioId) => {
   await clientesService.obtenerClienteOFallar(clienteId);
 
-  const { data: pagoId, error } = await crearClienteConUsuario(usuarioId).rpc(
-    'registrar_pago_credito',
-    { p_cliente_id: clienteId, p_orden_ids: ordenIds, p_usuario_id: usuarioId },
-  );
+  // Con medio (ADR 0007), el pago exige vales verificados y guarda cómo se
+  // pagó. Sin medio se conserva el contrato original de SCRUM-160.
+  const { data: pagoId, error } = medio
+    ? await crearClienteConUsuario(usuarioId).rpc('registrar_pago_credito_con_medio', {
+        p_cliente_id: clienteId,
+        p_orden_ids: ordenIds,
+        p_usuario_id: usuarioId,
+        p_medio: medio,
+      })
+    : await crearClienteConUsuario(usuarioId).rpc('registrar_pago_credito', {
+        p_cliente_id: clienteId,
+        p_orden_ids: ordenIds,
+        p_usuario_id: usuarioId,
+      });
 
   if (error) {
     throw traducirErrorPostgres(error);
@@ -347,11 +372,184 @@ const registrarPagoCredito = async ({ clienteId, ordenIds }, usuarioId) => {
   return obtenerPagoOFallar(pagoId);
 };
 
+// ---------------------------------------------------------------------
+// Cupo, corte, contacto y vales (ADR 0007, diseño del módulo Crédito)
+// ---------------------------------------------------------------------
+
+/**
+ * Órdenes a crédito de una empresa para las pestañas del diseño:
+ * - pendientes: sin pago y no canceladas, en cualquier estado (la deuda
+ *   existe desde que se registra la orden), con su vale.
+ * - pagadas: con su pago (fecha y medio).
+ *
+ * @param {number|string} clienteId
+ * @param {{ tipo?: 'pendientes'|'pagadas' }} [filtros]
+ */
+const listarOrdenesCreditoDeCliente = async (clienteId, { tipo = 'pendientes' } = {}) => {
+  await clientesService.obtenerClienteOFallar(clienteId);
+  const pagadas = tipo === 'pagadas';
+  const columnas = pagadas
+    ? `${COLUMNAS_ORDEN_LEGIBLE}, pago:pagos_credito(id, pagado_en, detalle:detalles_pago_credito(medio))`
+    : COLUMNAS_ORDEN_LEGIBLE;
+
+  const ordenes = await traerTodasLasFilas((desde, hasta) => {
+    const consulta = supabase
+      .from('ordenes_lavado')
+      .select(columnas)
+      .eq('cliente_id', clienteId)
+      .eq('medio_pago', MEDIOS_PAGO.CREDITO)
+      .neq('estado', ESTADOS_ORDEN.CANCELADA);
+    return (pagadas ? consulta.not('pago_credito_id', 'is', null) : consulta.is('pago_credito_id', null))
+      .order('fecha', { ascending: false })
+      .order('turno', { ascending: false })
+      .range(desde, hasta);
+  });
+
+  return aCamelCase(ordenes).map((orden) => {
+    const normalizada = normalizarOrden(orden);
+    return orden.pago
+      ? { ...normalizada, pago: { ...orden.pago, detalle: unaRelacion(orden.pago.detalle) } }
+      : normalizada;
+  });
+};
+
+/**
+ * Cupo, día de corte y contacto de una empresa. Solo una empresa los tiene
+ * (clientes_condiciones_credito_check).
+ */
+const actualizarCondiciones = async (clienteId, { cupoCredito = null, diaCorte = null, contacto = null }, usuarioId) => {
+  const cliente = await clientesService.obtenerClienteOFallar(clienteId);
+  if (cliente.tipo !== 'empresa') {
+    throw new Conflicto('Solo una empresa tiene condiciones de crédito');
+  }
+
+  const { error } = await crearClienteConUsuario(usuarioId)
+    .from('clientes')
+    .update({ cupo_credito: cupoCredito, dia_corte: diaCorte, contacto })
+    .eq('id', clienteId);
+  if (error) {
+    throw new SolicitudInvalida([], 'Condiciones de crédito inválidas');
+  }
+
+  const { data, error: errorLectura } = await supabase
+    .from('clientes')
+    .select(COLUMNAS_CLIENTE_CON_CREDITO)
+    .eq('id', clienteId)
+    .single();
+  if (errorLectura) {
+    throw new Error(`No se pudo leer el cliente: ${errorLectura.message}`);
+  }
+  return aCamelCase(data);
+};
+
+const COLUMNAS_VALE =
+  'id, orden_id, cliente_id, numero, verificado_en, verificado_por, creado_en, ' +
+  'cliente:clientes(id, nombre), orden:ordenes_lavado(id, fecha, turno, valor, estado, pago_credito_id, ' +
+  'vehiculo:vehiculos(placa), servicio:servicios(nombre))';
+
+const leerVale = async (filtro, valor) => {
+  const { data, error } = await supabase.from('vales_credito').select(COLUMNAS_VALE).eq(filtro, valor).maybeSingle();
+  if (error) {
+    throw new Error(`No se pudo consultar el vale: ${error.message}`);
+  }
+  return data ? aCamelCase(data) : null;
+};
+
+const traducirErrorVale = crearTraductorErroresPostgres({
+  tabla: 'vales_credito',
+  etiqueta: 'vale',
+  mapeo: {
+    23505: (error) =>
+      error.message.includes('vales_credito_orden_id_key')
+        ? new Conflicto('Esa orden ya tiene un vale')
+        : new Conflicto('Ese número de vale ya está registrado'),
+    23514: (error) =>
+      error.message.includes('violates check constraint')
+        ? new SolicitudInvalida([], 'Datos del vale inválidos')
+        : new Conflicto(error.message),
+  },
+});
+
+/** Marca o desmarca el vale de una orden como recibido (casilla del diseño). */
+const marcarVerificacion = async (ordenId, verificado, usuarioId) => {
+  const actual = await leerVale('orden_id', ordenId);
+  if (!actual) {
+    throw new NoEncontrado('La orden no tiene vale registrado');
+  }
+  const { error } = await crearClienteConUsuario(usuarioId)
+    .from('vales_credito')
+    .update(
+      verificado
+        ? { verificado_en: new Date().toISOString(), verificado_por: usuarioId }
+        : { verificado_en: null, verificado_por: null },
+    )
+    .eq('orden_id', ordenId);
+  if (error) {
+    throw traducirErrorVale(error);
+  }
+  return leerVale('orden_id', ordenId);
+};
+
+/** Registra el vale de una orden a crédito que todavía no lo tiene. */
+const registrarVale = async ({ ordenId, numero }, usuarioId) => {
+  const { data: orden, error } = await supabase
+    .from('ordenes_lavado')
+    .select('id, cliente_id, medio_pago')
+    .eq('id', ordenId)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`No se pudo consultar la orden: ${error.message}`);
+  }
+  if (!orden) {
+    throw new NoEncontrado('Orden de lavado no encontrada');
+  }
+  if (orden.medio_pago !== MEDIOS_PAGO.CREDITO) {
+    throw new Conflicto('Solo una orden a crédito lleva vale');
+  }
+
+  const { error: errorInsercion } = await crearClienteConUsuario(usuarioId)
+    .from('vales_credito')
+    .insert({ orden_id: ordenId, cliente_id: orden.cliente_id, numero, creado_por: usuarioId });
+  if (errorInsercion) {
+    throw traducirErrorVale(errorInsercion);
+  }
+  return leerVale('orden_id', ordenId);
+};
+
+/**
+ * "Verificar vale" del diseño: busca el número y, si es de esa empresa y
+ * sigue pendiente, lo marca como recibido. Devuelve qué pasó para que el
+ * panel muestre el mensaje: coincide, ya pagado, de otra empresa o no existe.
+ *
+ * @returns {Promise<{ resultado: 'coincide'|'pagado'|'otra_empresa'|'no_existe', vale: object|null }>}
+ */
+const verificarVale = async ({ clienteId, numero }, usuarioId) => {
+  const vale = await leerVale('numero', numero);
+  if (!vale) {
+    return { resultado: 'no_existe', vale: null };
+  }
+  if (vale.clienteId !== clienteId) {
+    return { resultado: 'otra_empresa', vale: { numero: vale.numero } };
+  }
+  if (vale.orden?.pagoCreditoId) {
+    return { resultado: 'pagado', vale };
+  }
+  if (!vale.verificadoEn) {
+    return { resultado: 'coincide', vale: await marcarVerificacion(vale.ordenId, true, usuarioId) };
+  }
+  return { resultado: 'coincide', vale };
+};
+
 module.exports = {
   listarClientesConCredito,
   listarOrdenesPendientesDeCliente,
+  listarOrdenesCreditoDeCliente,
   obtenerPagoPorId,
   obtenerPagoOFallar,
   listarPagos,
   registrarPagoCredito,
+  actualizarCondiciones,
+  registrarVale,
+  verificarVale,
+  marcarVerificacion,
 };

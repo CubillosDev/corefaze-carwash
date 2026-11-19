@@ -38,10 +38,49 @@ const registrarPago = async (req, res) => {
   return res.status(201).json({ mensaje: 'Pago de crédito registrado correctamente', pago });
 };
 
+/** GET /api/credito/clientes/:id/ordenes */
+const listarOrdenesDeCliente = async (req, res) => {
+  const ordenes = await creditoService.listarOrdenesCreditoDeCliente(req.datos.parametros.id, req.datos.consulta);
+  return res.status(200).json({ ordenes });
+};
+
+/** PATCH /api/credito/clientes/:id/condiciones */
+const actualizarCondiciones = async (req, res) => {
+  const cliente = await creditoService.actualizarCondiciones(req.datos.parametros.id, req.datos.cuerpo, req.usuario.id);
+  return res.status(200).json({ mensaje: 'Condiciones de crédito actualizadas', cliente });
+};
+
+/** POST /api/credito/vales */
+const registrarVale = async (req, res) => {
+  const vale = await creditoService.registrarVale(req.datos.cuerpo, req.usuario.id);
+  return res.status(201).json({ mensaje: 'Vale registrado', vale });
+};
+
+/** POST /api/credito/vales/verificacion */
+const verificarVale = async (req, res) => {
+  const verificacion = await creditoService.verificarVale(req.datos.cuerpo, req.usuario.id);
+  return res.status(200).json({ verificacion });
+};
+
+/** PATCH /api/credito/vales/:ordenId */
+const marcarVale = async (req, res) => {
+  const vale = await creditoService.marcarVerificacion(
+    req.datos.parametros.ordenId,
+    req.datos.cuerpo.verificado,
+    req.usuario.id,
+  );
+  return res.status(200).json({ vale });
+};
+
 module.exports = {
   listarClientes,
   listarOrdenesPendientes,
   listarPagos,
   obtenerPagoPorId,
   registrarPago,
+  listarOrdenesDeCliente,
+  actualizarCondiciones,
+  registrarVale,
+  verificarVale,
+  marcarVale,
 };
