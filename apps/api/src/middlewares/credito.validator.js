@@ -7,6 +7,12 @@ const PATRON_VALE = /^[A-Za-z0-9-]{3,30}$/;
 /** Mismo criterio que tieneTipoVehiculoDuplicado en servicios.validator.js. */
 const tieneIdsRepetidos = (ordenIds) => new Set(ordenIds).size !== ordenIds.length;
 
+// Tope de ordenIds por pago: credito.service.js verifica que todas existan
+// con un .in('id', ordenIds) antes de llamar al RPC (ver registrarPagoCredito);
+// una lista sin límite podría exceder la longitud de esa URL o el max_rows
+// de PostgREST (supabase/config.toml).
+const ORDENES_MAXIMO = 200;
+
 // Mismos límites que usuarios.validator.js (validarListar), para que
 // GET /api/credito/pagos pagine con el mismo contrato que GET /api/usuarios.
 const PAGINA_MINIMA = 1;
@@ -23,8 +29,8 @@ const POR_PAGINA_MAXIMO = 100;
 const validarRegistrarPago = [
   body('clienteId').isInt({ min: 1 }).withMessage('clienteId debe ser un entero positivo').toInt(),
   body('ordenIds')
-    .isArray({ min: 1 })
-    .withMessage('Debe incluir al menos una orden para pagar')
+    .isArray({ min: 1, max: ORDENES_MAXIMO })
+    .withMessage(`Debe incluir entre 1 y ${ORDENES_MAXIMO} órdenes para pagar`)
     .bail()
     .custom((ordenIds) => !tieneIdsRepetidos(ordenIds))
     .withMessage('El arreglo de órdenes no puede tener ids repetidos'),
@@ -33,9 +39,8 @@ const validarRegistrarPago = [
     .withMessage('Cada id de orden debe ser un entero positivo')
     .toInt(),
   body('medio')
-    .optional({ values: 'null' })
     .isIn(MEDIOS_PAGO_CREDITO)
-    .withMessage(`medio debe ser uno de: ${MEDIOS_PAGO_CREDITO.join(', ')}`),
+    .withMessage(`medio es obligatorio y debe ser uno de: ${MEDIOS_PAGO_CREDITO.join(', ')}`),
 ];
 
 /** GET /api/credito/pagos: todos los filtros/paginación son opcionales. */
