@@ -646,6 +646,22 @@ describe('PATCH /api/ordenes-lavado/:id/estado', () => {
     expect(respuesta.status).toBe(409);
   });
 
+  it('"Devolver a la fase anterior": de terminada vuelve a en_proceso y de ahí a registrada (200)', async () => {
+    const escenario = await construirEscenarioBase();
+    const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));
+    const ruta = `/api/ordenes-lavado/${creada.body.orden.id}/estado`;
+
+    await conToken('patch', ruta).send({ estado: 'en_proceso' });
+    await conToken('patch', ruta).send({ estado: 'terminada' });
+    const aEnProceso = await conToken('patch', ruta).send({ estado: 'en_proceso' });
+    expect(aEnProceso.status).toBe(200);
+    expect(aEnProceso.body.orden.estado).toBe('en_proceso');
+
+    const aRegistrada = await conToken('patch', ruta).send({ estado: 'registrada' });
+    expect(aRegistrada.status).toBe(200);
+    expect(aRegistrada.body.orden.estado).toBe('registrada');
+  });
+
   it('"Retroceder estado": rechaza volver de entregada a en_proceso (409)', async () => {
     const escenario = await construirEscenarioBase();
     const creada = await conToken('post', '/api/ordenes-lavado').send(datosOrden(escenario));

@@ -5,6 +5,7 @@ import {
   accionAlSoltar,
   avanceDeFase,
   contarPorEstado,
+  esRetroceso,
   FASES_DEL_TABLERO,
   motivoMovimientoNoPermitido,
   siguientesEstados,
@@ -13,11 +14,13 @@ import {
 const { REGISTRADA, EN_PROCESO, TERMINADA, ENTREGADA, CANCELADA } = ESTADOS_ORDEN;
 
 describe('accionAlSoltar', () => {
-  it('solo deja avanzar a la fase siguiente', () => {
+  it('deja avanzar a la fase siguiente o volver a la anterior, sin saltos', () => {
     expect(accionAlSoltar(REGISTRADA, EN_PROCESO)).toBe('cambiar');
     expect(accionAlSoltar(EN_PROCESO, TERMINADA)).toBe('cambiar');
+    expect(accionAlSoltar(EN_PROCESO, REGISTRADA)).toBe('cambiar');
+    expect(accionAlSoltar(TERMINADA, EN_PROCESO)).toBe('cambiar');
     expect(accionAlSoltar(REGISTRADA, TERMINADA)).toBeNull();
-    expect(accionAlSoltar(TERMINADA, EN_PROCESO)).toBeNull();
+    expect(accionAlSoltar(TERMINADA, REGISTRADA)).toBeNull();
   });
 
   it('entregar es cobrar en caja', () => {
@@ -33,10 +36,21 @@ describe('accionAlSoltar', () => {
   });
 });
 
+describe('esRetroceso', () => {
+  it('reconoce volver a una fase anterior del tablero', () => {
+    expect(esRetroceso(EN_PROCESO, REGISTRADA)).toBe(true);
+    expect(esRetroceso(REGISTRADA, EN_PROCESO)).toBe(false);
+    expect(esRetroceso(REGISTRADA, CANCELADA)).toBe(false);
+  });
+});
+
 describe('motivoMovimientoNoPermitido', () => {
-  it('dice a qué fase puede pasar', () => {
-    expect(motivoMovimientoNoPermitido(REGISTRADA)).toBe('Registrada solo avanza a En proceso');
-    expect(motivoMovimientoNoPermitido(TERMINADA)).toBe('Terminada solo avanza a Entregada');
+  it('dice a qué fases puede pasar o volver', () => {
+    expect(motivoMovimientoNoPermitido(REGISTRADA)).toBe('Registrada solo puede pasar a En proceso');
+    expect(motivoMovimientoNoPermitido(EN_PROCESO)).toBe(
+      'En proceso solo puede pasar a Terminada o volver a Registrada',
+    );
+    expect(motivoMovimientoNoPermitido(TERMINADA)).toBe('Terminada solo puede pasar a Entregada o volver a En proceso');
     expect(motivoMovimientoNoPermitido(ENTREGADA)).toBe('Una orden entregada ya no cambia de fase');
   });
 });

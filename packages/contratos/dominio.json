@@ -4,8 +4,8 @@
   "estadosOrdenCerrados": ["entregada", "cancelada"],
   "transicionesOrden": {
     "registrada": ["en_proceso", "cancelada"],
-    "en_proceso": ["terminada", "cancelada"],
-    "terminada": ["entregada"],
+    "en_proceso": ["terminada", "registrada", "cancelada"],
+    "terminada": ["entregada", "en_proceso"],
     "entregada": [],
     "cancelada": []
   },
