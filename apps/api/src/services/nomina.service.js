@@ -9,6 +9,7 @@ const colaboradoresService = require('./colaboradores.service');
 const { TIPOS_DESCUENTO } = require('../constants/dominio');
 const { Conflicto, NoEncontrado, SolicitudInvalida } = require('../utils/errores');
 const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
+const { fechaDeHoyEnBogota } = require('../utils/fechaNegocio');
 
 const POR_PAGINA_DEFECTO_LIQUIDACIONES = 20;
 const POR_PAGINA_MAXIMO_LIQUIDACIONES = 100;
@@ -73,83 +74,31 @@ const traducirErrorLiquidarQuincena = crearTraductorErroresPostgres({
   },
 });
 
-/**
- * Suma de los 4 tipos ya calculados por descuentos_colaborador_periodo
- * (uno por tipo). No es un recálculo: cada valor ya es la suma hecha en
- * SQL; aquí solo se combinan los 4 totales ya correctos.
- */
-const sumarDescuentos = (porTipo) => porTipo.prestamo + porTipo.jabon + porTipo.multa + porTipo.cxc;
-
-/**
- * Comisión y descuentos (por tipo y total) de un colaborador en un
- * periodo, vía las funciones SQL únicas del dominio (comision_colaborador_periodo,
- * descuentos_colaborador_periodo) — nunca se trae una orden o un
- * descuento a memoria para sumarlo en JS.
- */
-const llamarDescuentosPorTipo = async (colaboradorId, inicio, fin, tipo) => {
-  const { data, error } = await supabase.rpc('descuentos_colaborador_periodo', {
-    p_colaborador_id: colaboradorId,
-    p_inicio: inicio,
-    p_fin: fin,
-    p_tipo: tipo,
-  });
-
-  if (error) {
-    throw new Error(`No se pudo calcular el resumen de nómina: ${error.message}`);
-  }
-  return data;
-};
-
-/**
- * Secuencial (no Promise.all): obtenerResumenQuincena ya llama esto una
- * vez por colaborador activo, también en secuencia (ver más abajo) — con
- * decenas de colaboradores, disparar 5 fetches a la vez por cada uno
- * multiplica la presión sobre Postgrest/Kong sin necesidad; uno a la vez
- * es trivialmente más lento (RPCs de solo lectura, milisegundos) y mucho
- * más robusto bajo carga.
- */
-const calcularResumenColaborador = async (colaboradorId, inicio, fin) => {
-  const { data: comision, error: errorComision } = await supabase.rpc(
-    'comision_colaborador_periodo',
-    { p_colaborador_id: colaboradorId, p_inicio: inicio, p_fin: fin },
-  );
-  if (errorComision) {
-    throw new Error(`No se pudo calcular el resumen de nómina: ${errorComision.message}`);
-  }
-
-  const descuentosPorTipo = {
-    prestamo: await llamarDescuentosPorTipo(colaboradorId, inicio, fin, TIPOS_DESCUENTO.PRESTAMO),
-    jabon: await llamarDescuentosPorTipo(colaboradorId, inicio, fin, TIPOS_DESCUENTO.JABON),
-    multa: await llamarDescuentosPorTipo(colaboradorId, inicio, fin, TIPOS_DESCUENTO.MULTA),
-    cxc: await llamarDescuentosPorTipo(colaboradorId, inicio, fin, TIPOS_DESCUENTO.CXC),
-  };
-  const descuentosTotal = sumarDescuentos(descuentosPorTipo);
-
-  return {
-    comision,
-    descuentosPorTipo,
-    descuentosTotal,
-    neto: Math.max(comision - descuentosTotal, 0),
-    saldoPendiente: Math.max(descuentosTotal - comision, 0),
-  };
-};
+const sumar = (filas, campo) => filas.reduce((total, fila) => total + Number(fila[campo] ?? 0), 0);
 
 /**
  * Resumen proyectado de una quincena: por cada colaborador con alguna
  * orden O descuento en el periodo — la misma unión (colaboradores_periodo)
  * que usa liquidar_quincena, sin filtrar por estado activo/inactivo: un
  * colaborador ya inactivo que tuvo órdenes en la quincena igual se
- * liquida, así que debe aparecer aquí igual. Por colaborador: comisión,
- * descuentos por tipo, neto y saldo pendiente PROYECTADOS (lo que
- * liquidar_quincena calcularía si se liquidara ahora mismo), más si la
- * quincena ya fue liquidada.
+ * liquida, así que debe aparecer aquí igual. Por colaborador: servicios,
+ * producido, comisión, descuentos por tipo, neto y saldo pendiente
+ * PROYECTADOS (lo que liquidar_quincena calcularía si se liquidara ahora
+ * mismo). Además: los totales, los descuentos del periodo, si ya fue
+ * liquidada y si ya se puede liquidar (la quincena terminó).
+ *
+ * Todo el cálculo lo hace resumen_nomina_periodo() en UNA consulta, con las
+ * mismas funciones del dominio que liquidar_quincena()
+ * (comision_colaborador_periodo, descuentos_colaborador_periodo): nunca se
+ * trae una orden o un descuento a memoria para sumarlo en JS, ni se hace
+ * una consulta por colaborador.
  *
  * inicio/fin deben ser exactamente los límites de una quincena real
  * (1–15 o 16–fin de mes): se valida contra limites_quincena(), la misma
  * función que usa liquidar_quincena(), nunca reimplementada en JS.
  *
  * @param {{ inicio: string, fin: string }} periodo fechas ISO (YYYY-MM-DD)
- * @returns {Promise<{ inicio: string, fin: string, liquidada: boolean, liquidacionId: number|null, colaboradores: object[] }>}
+ * @returns {Promise<{ inicio: string, fin: string, liquidada: boolean, liquidacionId: number|null, puedeLiquidar: boolean, totales: object, colaboradores: object[], descuentosDelPeriodo: object[] }>}
  * @throws {SolicitudInvalida} si [inicio, fin] no es exactamente una quincena real
  */
 const obtenerResumenQuincena = async ({ inicio, fin }) => {
@@ -167,100 +116,93 @@ const obtenerResumenQuincena = async ({ inicio, fin }) => {
     ]);
   }
 
-  const { data: liquidacion, error: errorLiquidacion } = await supabase
-    .from('liquidaciones_nomina')
-    .select('id')
-    .eq('periodo_inicio', inicio)
-    .eq('periodo_fin', fin)
-    .maybeSingle();
-
-  if (errorLiquidacion) {
-    throw new Error(
-      `No se pudo verificar si la quincena ya fue liquidada: ${errorLiquidacion.message}`,
-    );
-  }
-
-  // colaboradores_periodo de liquidar_quincena: unión de colaborador_id
-  // con una orden O un descuento en el periodo — sin filtrar por estado
-  // ni por estado de la orden/descuento (igual que esa CTE). Solo se
-  // trae colaborador_id (no las filas completas) para no violar "nunca
-  // más de 1000 filas en memoria" sin necesidad: identificar QUIÉN tuvo
-  // actividad no es recalcular comisión/descuentos en JS.
-  const idsConOrdenes = await traerTodasLasFilas((desde, hasta) =>
+  const [resumen, liquidacion, descuentosDelPeriodo] = await Promise.all([
     supabase
-      .from('ordenes_lavado')
-      .select('colaborador_id')
-      .gte('fecha', inicio)
-      .lte('fecha', fin)
-      .order('colaborador_id', { ascending: true })
-      .range(desde, hasta),
-  );
-  const idsConDescuentos = await traerTodasLasFilas((desde, hasta) =>
+      .rpc('resumen_nomina_periodo', { p_inicio: inicio, p_fin: fin })
+      .then(({ data, error }) => {
+        if (error) {
+          throw new Error(`No se pudo calcular el resumen de nómina: ${error.message}`);
+        }
+        return data ?? [];
+      }),
     supabase
-      .from('descuentos_colaborador')
-      .select('colaborador_id')
-      .gte('fecha', inicio)
-      .lte('fecha', fin)
-      .order('colaborador_id', { ascending: true })
-      .range(desde, hasta),
-  );
+      .from('liquidaciones_nomina')
+      .select('id')
+      .eq('periodo_inicio', inicio)
+      .eq('periodo_fin', fin)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) {
+          throw new Error(`No se pudo verificar si la quincena ya fue liquidada: ${error.message}`);
+        }
+        return data;
+      }),
+    traerTodasLasFilas((desde, hasta) =>
+      supabase
+        .from('descuentos_colaborador')
+        .select(`${COLUMNAS_DESCUENTO}, colaborador:colaboradores(codigo, nombre)`)
+        .gte('fecha', inicio)
+        .lte('fecha', fin)
+        .order('fecha', { ascending: false })
+        .order('id', { ascending: false })
+        .range(desde, hasta),
+    ),
+  ]);
 
-  const idsConActividad = [
-    ...new Set([
-      ...idsConOrdenes.map((fila) => fila.colaborador_id),
-      ...idsConDescuentos.map((fila) => fila.colaborador_id),
-    ]),
-  ];
-
-  if (idsConActividad.length === 0) {
-    return {
-      inicio,
-      fin,
-      liquidada: Boolean(liquidacion),
-      liquidacionId: liquidacion?.id ?? null,
-      colaboradores: [],
-    };
+  // El estado (activo/inactivo) no lo trae resumen_nomina_periodo: una sola
+  // consulta más, por lotes, para todos los colaboradores del resumen.
+  const ids = resumen.map((fila) => fila.colaborador_id);
+  const estados = new Map();
+  for (const grupo of trocear(ids, TAMANO_PAGINA_AGREGADO)) {
+    const { data, error } = await supabase
+      .from('colaboradores')
+      .select('id, estado')
+      .in('id', grupo);
+    if (error) {
+      throw new Error(
+        `No se pudo obtener los colaboradores con actividad en el periodo: ${error.message}`,
+      );
+    }
+    data.forEach((colaborador) => estados.set(colaborador.id, colaborador.estado));
   }
 
-  const paginasDeColaboradores = await Promise.all(
-    trocear(idsConActividad, TAMANO_PAGINA_AGREGADO).map(async (grupo) => {
-      const { data, error } = await supabase
-        .from('colaboradores')
-        .select('id, codigo, nombre, estado')
-        .in('id', grupo);
-
-      if (error) {
-        throw new Error(
-          `No se pudo obtener los colaboradores con actividad en el periodo: ${error.message}`,
-        );
-      }
-      return data;
-    }),
-  );
-
-  // Secuencial, no Promise.all: ver el comentario de calcularResumenColaborador.
-  const colaboradores = [];
-  for (const colaborador of paginasDeColaboradores.flat()) {
-    const resumen = await calcularResumenColaborador(colaborador.id, inicio, fin);
-    colaboradores.push({
-      colaboradorId: colaborador.id,
-      codigo: colaborador.codigo,
-      nombre: colaborador.nombre,
-      estado: colaborador.estado,
-      comision: resumen.comision,
-      descuentos: resumen.descuentosPorTipo,
-      neto: resumen.neto,
-      saldoPendiente: resumen.saldoPendiente,
-    });
-  }
-  colaboradores.sort((a, b) => a.colaboradorId - b.colaboradorId);
+  const colaboradores = resumen
+    .map((fila) => ({
+      colaboradorId: fila.colaborador_id,
+      codigo: fila.codigo,
+      nombre: fila.nombre,
+      estado: estados.get(fila.colaborador_id),
+      servicios: fila.servicios,
+      producido: Number(fila.producido),
+      comision: fila.comision,
+      descuentos: {
+        [TIPOS_DESCUENTO.PRESTAMO]: fila.prestamos,
+        [TIPOS_DESCUENTO.JABON]: fila.jabon,
+        [TIPOS_DESCUENTO.MULTA]: fila.multas,
+        [TIPOS_DESCUENTO.CXC]: fila.cxc,
+      },
+      descuentosTotal: fila.descuentos,
+      neto: fila.neto,
+      saldoPendiente: fila.saldo_pendiente,
+    }))
+    .sort((a, b) => a.colaboradorId - b.colaboradorId);
 
   return {
     inicio,
     fin,
     liquidada: Boolean(liquidacion),
     liquidacionId: liquidacion?.id ?? null,
+    puedeLiquidar: !liquidacion && fechaDeHoyEnBogota() >= fin,
+    totales: {
+      servicios: sumar(colaboradores, 'servicios'),
+      producido: sumar(colaboradores, 'producido'),
+      comision: sumar(colaboradores, 'comision'),
+      descuentos: sumar(colaboradores, 'descuentosTotal'),
+      neto: sumar(colaboradores, 'neto'),
+      saldoPendiente: sumar(colaboradores, 'saldoPendiente'),
+    },
     colaboradores,
+    descuentosDelPeriodo: aCamelCase(descuentosDelPeriodo),
   };
 };
 

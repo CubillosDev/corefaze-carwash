@@ -5,10 +5,20 @@ const {
   listarPagos,
   obtenerPagoPorId,
   registrarPago,
+  listarOrdenesDeCliente,
+  actualizarCondiciones,
+  registrarVale,
+  verificarVale,
+  marcarVale,
 } = require('../controllers/credito.controller');
 const {
   validarRegistrarPago,
   validarFiltroListarPagos,
+  validarOrdenesDeCliente,
+  validarCondiciones,
+  validarRegistrarVale,
+  validarVerificarVale,
+  validarMarcarVale,
 } = require('../middlewares/credito.validator');
 const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
 const { autenticarJWT } = require('../middlewares/auth.middleware');
@@ -231,5 +241,172 @@ router.get(
  *         description: Alguna orden no es del cliente, no es a crédito, no está entregada, o ya tiene un pago registrado
  */
 router.post('/pagos', autenticarJWT, PUEDEN_PAGAR, validarRegistrarPago, validar, registrarPago);
+
+// ---------------------------------------------------------------------
+// ADR 0007: pestañas del diseño, condiciones de la empresa y vales.
+// Recibir y verificar vales es operación diaria (también soporte); fijar
+// cupo y corte, como pagar, queda para superadmin y administrador.
+// ---------------------------------------------------------------------
+
+/**
+ * @swagger
+ * /api/credito/clientes/{id}/ordenes:
+ *   get:
+ *     tags: [Crédito]
+ *     summary: Órdenes a crédito de una empresa, pendientes o pagadas
+ *     description: >
+ *       pendientes = sin pago y no canceladas (cualquier estado), con su vale;
+ *       pagadas = con su pago (fecha y medio).
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *       - { in: query, name: tipo, required: false, schema: { type: string, enum: [pendientes, pagadas] } }
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
+ *     responses:
+ *       200: { description: Órdenes de la empresa }
+ *       400: { description: Parámetros inválidos }
+ *       401: { description: Usuario no autenticado }
+ *       403: { description: Rol sin permiso }
+ *       404: { description: Cliente no encontrado }
+ */
+router.get(
+  '/clientes/:id/ordenes',
+  autenticarJWT,
+  PUEDEN_CONSULTAR,
+  validarIdDeUrl,
+  validarOrdenesDeCliente,
+  validar,
+  listarOrdenesDeCliente,
+);
+
+/**
+ * @swagger
+ * /api/credito/clientes/{id}/condiciones:
+ *   patch:
+ *     tags: [Crédito]
+ *     summary: Cupo, día de corte y contacto de una empresa
+ *     description: El cupo es un tope de referencia; superarlo avisa, no bloquea.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               cupoCredito: { type: integer, nullable: true, example: 3000000 }
+ *               diaCorte: { type: integer, nullable: true, example: 30 }
+ *               contacto: { type: string, nullable: true }
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
+ *     responses:
+ *       200: { description: Condiciones actualizadas }
+ *       400: { description: Datos inválidos }
+ *       401: { description: Usuario no autenticado }
+ *       403: { description: Solo superadmin o administrador }
+ *       404: { description: Cliente no encontrado }
+ *       409: { description: El cliente no es una empresa }
+ */
+router.patch(
+  '/clientes/:id/condiciones',
+  autenticarJWT,
+  PUEDEN_PAGAR,
+  validarIdDeUrl,
+  validarCondiciones,
+  validar,
+  actualizarCondiciones,
+);
+
+/**
+ * @swagger
+ * /api/credito/vales:
+ *   post:
+ *     tags: [Crédito]
+ *     summary: Registrar el vale de una orden a crédito que no lo tiene
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [ordenId, numero]
+ *             properties:
+ *               ordenId: { type: integer }
+ *               numero: { type: string, example: TA-1234 }
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
+ *     responses:
+ *       201: { description: Vale registrado }
+ *       400: { description: Datos inválidos }
+ *       401: { description: Usuario no autenticado }
+ *       403: { description: Rol sin permiso }
+ *       404: { description: Orden no encontrada }
+ *       409: { description: La orden no es a crédito, ya tiene vale o el número ya existe }
+ */
+router.post('/vales', autenticarJWT, PUEDEN_CONSULTAR, validarRegistrarVale, validar, registrarVale);
+
+/**
+ * @swagger
+ * /api/credito/vales/verificacion:
+ *   post:
+ *     tags: [Crédito]
+ *     summary: Verificar un vale por su número
+ *     description: >
+ *       Si el vale es de la empresa y está pendiente, lo marca como recibido.
+ *       resultado: coincide, pagado, otra_empresa o no_existe.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [clienteId, numero]
+ *             properties:
+ *               clienteId: { type: integer }
+ *               numero: { type: string }
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
+ *     responses:
+ *       200: { description: Resultado de la verificación }
+ *       400: { description: Datos inválidos }
+ *       401: { description: Usuario no autenticado }
+ *       403: { description: Rol sin permiso }
+ */
+router.post('/vales/verificacion', autenticarJWT, PUEDEN_CONSULTAR, validarVerificarVale, validar, verificarVale);
+
+/**
+ * @swagger
+ * /api/credito/vales/{ordenId}:
+ *   patch:
+ *     tags: [Crédito]
+ *     summary: Marcar o desmarcar el vale de una orden como recibido
+ *     parameters:
+ *       - { in: path, name: ordenId, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [verificado]
+ *             properties:
+ *               verificado: { type: boolean }
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
+ *     responses:
+ *       200: { description: Vale actualizado }
+ *       400: { description: Datos inválidos }
+ *       401: { description: Usuario no autenticado }
+ *       403: { description: Rol sin permiso }
+ *       404: { description: La orden no tiene vale }
+ *       409: { description: La orden ya está pagada }
+ */
+router.patch('/vales/:ordenId', autenticarJWT, PUEDEN_CONSULTAR, validarMarcarVale, validar, marcarVale);
 
 module.exports = router;

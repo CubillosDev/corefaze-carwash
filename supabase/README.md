@@ -50,6 +50,11 @@ npx supabase db reset && npx supabase test db && npx supabase db lint
 | 16 | `agregar_politicas_rls_por_rol` | `rol_actual()` y políticas RLS por tabla | — | Bloque 11 (SCRUM-147) |
 | 17 | `agregar_pagos_credito` | `pagos_credito`, `registrar_pago_credito()` | 3 | Crédito empresarial (SCRUM-158) |
 | 18 | `agregar_nomina_quincenal` | `descuentos_colaborador`, `liquidaciones_nomina`, `liquidacion_colaboradores`, `registrar_descuento()`, `liquidar_quincena()` | 3 | Nómina quincenal (SCRUM-159) |
+| 19 | `agregar_condiciones_credito` | cupo, corte y contacto en `clientes`; `vales_credito`, `detalles_pago_credito`, `registrar_pago_credito_con_medio()` | 3–4 | Módulos del panel (ADR 0007) |
+| 20 | `agregar_caja` | `ordenes_lavado.entregada_en`, `cajas`, `egresos_caja`, `cobros_caja`, `abrir_caja()`, `registrar_cobro()`, `registrar_egreso_caja()`, `cerrar_caja()`, `reabrir_caja()` | 2–3 | Módulos del panel (ADR 0007) |
+| 21 | `agregar_inventario` | `insumos`, `movimientos_inventario`, `registrar_movimiento_inventario()` | 0–1 | Módulos del panel (ADR 0007) |
+| 22 | `agregar_tokens_jornada` | `tokens_jornada` | 2 | Módulos del panel (ADR 0007) |
+| 23 | `agregar_reportes` | `reporte_*()`, `resumen_nomina_periodo()` (solo lectura) | — | Módulos del panel (ADR 0007) |
 
 Detalle de qué depende de qué, y por qué `usuarios` se adelantó a la Fase 1: ver la tabla de niveles en `docs/arquitectura/diagramas/modelo-datos.md`.
 
