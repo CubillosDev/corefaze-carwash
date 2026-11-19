@@ -51,7 +51,7 @@ export const rutas = [
           {
             Component: RutaConPermiso,
             children: [
-              { index: true, Component: paginaDiferida(cargarInicio, 'InicioPage') },
+              { index: true, handle: { ajustarAlAlto: 'escritorio' }, Component: paginaDiferida(cargarInicio, 'InicioPage') },
               {
                 path: RUTAS.ORDENES_LAVADO,
                 handle: { ajustarAlAlto: true },

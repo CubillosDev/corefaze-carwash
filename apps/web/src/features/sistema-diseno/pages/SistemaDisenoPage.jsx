@@ -343,7 +343,7 @@ export function SistemaDisenoPage() {
 
       <SeccionDelCatalogo
         titulo="Movimiento y punto de quiebre"
-        descripcion="Una sola curva para todo el sistema. Por debajo del punto escritorio (760 px), la barra lateral pasa a ser un cajón. Desde el punto amplio (1100 px), el panel de jornada del tablero pasa de 264 a 300 px. El interlineado leading-apoyo (1.45) es el de los textos de apoyo de varias líneas."
+        descripcion="Una sola curva para todo el sistema. Por debajo del punto escritorio (760 px), la barra lateral pasa a ser un cajón. Desde el punto amplio (1100 px), el panel de jornada del tablero pasa de 264 a 300 px. La variante ajustado (desde 1200 × 720 px) hace que el tablero de inicio quepa sin scroll, con la curva de ingresos elástica. El interlineado leading-apoyo (1.45) es el de los textos de apoyo de varias líneas."
       >
         <div className="flex flex-col gap-5">
           <dl className="grid gap-x-6 gap-y-3 text-meta escritorio:grid-cols-[auto_1fr]">

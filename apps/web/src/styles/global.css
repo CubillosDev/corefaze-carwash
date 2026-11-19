@@ -311,6 +311,10 @@
   --breakpoint-amplio: 68.75rem;
 }
 
+/* Desde 1200 × 720 px el tablero de inicio cabe sin scroll, como en el diseño:
+   ocupa el alto de la ventana y la curva de ingresos se estira o se encoge. */
+@custom-variant ajustado (@media (width >= 75rem) and (height >= 45rem));
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;

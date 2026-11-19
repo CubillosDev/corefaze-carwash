@@ -43,6 +43,7 @@ function renderizarLayout(rutaInicial = '/') {
         children: [
           { index: true, element: <p>Contenido de la página</p> },
           { path: 'tablero', handle: { ajustarAlAlto: true }, element: <p>Tablero ajustado</p> },
+          { path: 'inicio', handle: { ajustarAlAlto: 'escritorio' }, element: <p>Inicio ajustado</p> },
           { path: '*', element: <p>Otra página</p> },
         ],
       },
@@ -89,6 +90,13 @@ describe('LayoutPrincipal: estructura', () => {
     const contenedor = screen.getByText('Tablero ajustado').parentElement;
     expect(contenedor).toHaveClass('h-full', 'flex-col');
     expect(contenedor).not.toHaveClass('min-h-full');
+  });
+
+  it('con "escritorio" crece con el contenido y solo se fija al alto desde 1200 × 720', () => {
+    renderizarLayout('/inicio');
+    const contenedor = screen.getByText('Inicio ajustado').parentElement;
+    expect(contenedor).toHaveClass('min-h-full', 'flex-col', 'ajustado:h-full');
+    expect(contenedor).not.toHaveClass('h-full');
   });
 
   it('ofrece un enlace para saltar al contenido', () => {

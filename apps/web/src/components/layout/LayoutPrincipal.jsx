@@ -27,11 +27,17 @@ const ESTILOS_BARRA = [
  *
  * Una ruta con `handle: { ajustarAlAlto: true }` ocupa exactamente el alto del
  * área de contenido: sus paneles se desplazan por dentro (el tablero de
- * órdenes, la caja) en lugar de alargar la página.
+ * órdenes, la caja) en lugar de alargar la página. Con `'escritorio'` lo hace
+ * solo desde 1200 × 720 px (variante `ajustado`) y por debajo crece con su
+ * contenido; en ambos casos la página puede estirarse al alto disponible.
  */
 export function LayoutPrincipal() {
   const angosta = usePantallaAngosta();
-  const ajustada = useMatches().some((ruta) => ruta.handle?.ajustarAlAlto);
+  const ajuste = useMatches()
+    .map((ruta) => ruta.handle?.ajustarAlAlto)
+    .find(Boolean);
+  const claseDeAjuste =
+    ajuste === 'escritorio' ? 'flex min-h-full flex-col ajustado:h-full' : ajuste ? 'flex h-full flex-col' : 'min-h-full';
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [angostaAnterior, setAngostaAnterior] = useState(angosta);
   const barra = useRef(null);
@@ -113,7 +119,7 @@ export function LayoutPrincipal() {
         >
           <div
             key={pathname}
-            className={`${ajustada ? 'flex h-full flex-col' : 'min-h-full'} animate-entrar-vista px-3.5 pt-4.5 pb-6.5 escritorio:px-6.5 escritorio:pt-5.5 escritorio:pb-7.5`}
+            className={`${claseDeAjuste} animate-entrar-vista px-3.5 pt-4.5 pb-6.5 escritorio:px-6.5 escritorio:pt-5.5 escritorio:pb-7.5`}
           >
             <Suspense fallback={null}>
               <Outlet />

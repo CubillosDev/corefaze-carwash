@@ -4,8 +4,11 @@ import { Contador } from '@/components/ui/Contador';
 import { EstadoVacio } from '@/components/ui/EstadoVacio';
 import { IconoFlechaDerecha } from '@/components/ui/iconos/IconoFlechaDerecha';
 import { Tarjeta } from '@/components/ui/Tarjeta';
-import { ESTADOS_ORDEN } from '@/constants/dominio';
+import { etiquetaEstadoOrden } from '@/constants/etiquetas';
 import { RUTAS } from '@/constants/rutas';
+import { formatoMinutos, minutosDesde } from '@/utils/formatoMinutos';
+import { formatoMoneda } from '@/utils/formatoMoneda';
+import { formatoPlaca } from '@/utils/formatoPlaca';
 import { plural } from '@/utils/plural';
 
 const TONOS_MARCA = {
@@ -13,46 +16,71 @@ const TONOS_MARCA = {
   neutro: 'text-neutro-700',
 };
 
+/** Desde cuántos minutos en el patio un vehículo se considera demorado, como en el diseño. */
+const MINUTOS_DEMORA = 30;
+/** El diseño muestra a lo sumo tres situaciones; el contador dice cuántas hay. */
+const MAXIMO_VISIBLES = 3;
+
 /**
- * Situaciones que piden una acción, armadas solo con el estado que devolvió la
- * API (sin jornada abierta, vehículos listos para entregar, órdenes por
- * iniciar). El diseño también avisaba de inventario bajo y cobros pendientes:
- * esos módulos no existen en el dominio.
+ * Situaciones que piden una acción, en el orden del diseño: vehículos
+ * demorados en el patio, cobros pendientes en la caja e insumos bajo el
+ * mínimo. Todo sale de lo que devolvió la API.
  */
-function situaciones({ jornada, conteo }) {
-  if (!jornada) {
-    return [
-      {
-        clave: 'sin-jornada',
-        marca: '!',
-        tono: 'advertencia',
-        titulo: 'No hay jornada abierta',
-        apoyo: 'Ábrela para registrar órdenes',
-        hacia: RUTAS.JORNADAS,
-      },
-    ];
-  }
+function situaciones({ jornada, caja, insumos, ahora }) {
   const lista = [];
-  if (conteo[ESTADOS_ORDEN.TERMINADA] > 0) {
+  if (!jornada) {
     lista.push({
-      clave: 'por-entregar',
-      marca: '✓',
-      tono: 'neutro',
-      titulo: `${plural(conteo[ESTADOS_ORDEN.TERMINADA], 'vehículo listo', 'vehículos listos')} para entregar`,
-      apoyo: 'Terminados en el tablero',
-      hacia: RUTAS.ORDENES_LAVADO,
-    });
-  }
-  if (conteo[ESTADOS_ORDEN.REGISTRADA] > 0) {
-    lista.push({
-      clave: 'por-iniciar',
+      clave: 'sin-jornada',
       marca: '!',
       tono: 'advertencia',
-      titulo: `${plural(conteo[ESTADOS_ORDEN.REGISTRADA], 'orden', 'órdenes')} por iniciar`,
-      apoyo: 'Registradas sin pasar a proceso',
-      hacia: RUTAS.ORDENES_LAVADO,
+      titulo: 'No hay jornada abierta',
+      apoyo: 'Ábrela para registrar órdenes',
+      hacia: RUTAS.JORNADAS,
     });
   }
+
+  (caja?.enPatio ?? [])
+    .map((orden) => ({ orden, minutos: minutosDesde(orden.creadoEn, ahora) }))
+    .filter(({ minutos }) => minutos >= MINUTOS_DEMORA)
+    .sort((a, b) => b.minutos - a.minutos)
+    .slice(0, 2)
+    .forEach(({ orden, minutos }) =>
+      lista.push({
+        clave: `demora-${orden.id}`,
+        marca: '!',
+        tono: 'advertencia',
+        titulo: `${formatoPlaca(orden.vehiculo?.placa ?? '')} demorado`,
+        apoyo: `${formatoMinutos(minutos)} en patio · ${etiquetaEstadoOrden(orden.estado)}`,
+        hacia: `${RUTAS.ORDENES_LAVADO}/${orden.id}`,
+      }),
+    );
+
+  const porCobrar = caja?.totales?.vehiculosPorCobrar ?? 0;
+  if (porCobrar > 0) {
+    lista.push({
+      clave: 'por-cobrar',
+      marca: '$',
+      tono: 'neutro',
+      titulo: `${plural(porCobrar, 'vehículo espera', 'vehículos esperan')} cobro`,
+      apoyo: `Terminados · ${formatoMoneda(caja.totales.porCobrar)}`,
+      hacia: RUTAS.CAJA,
+    });
+  }
+
+  (insumos ?? [])
+    .filter((insumo) => insumo.estado === 'activo' && insumo.stockBajo)
+    .slice(0, 2)
+    .forEach((insumo) =>
+      lista.push({
+        clave: `insumo-${insumo.id}`,
+        marca: '↓',
+        tono: 'neutro',
+        titulo: `${insumo.nombre} bajo`,
+        apoyo: `${insumo.stock} ${insumo.unidad} · mínimo ${insumo.stockMinimo}`,
+        hacia: RUTAS.INVENTARIO,
+      }),
+    );
+
   return lista;
 }
 
@@ -61,10 +89,12 @@ function situaciones({ jornada, conteo }) {
  *
  * @param {object} props
  * @param {object|null} props.jornada
- * @param {Record<string, number>} props.conteo Órdenes por estado.
+ * @param {object|null} props.caja Estado de la caja (GET /api/caja); null si no se pudo cargar.
+ * @param {object[]|null} props.insumos Null si no se pudo cargar el inventario.
+ * @param {number} props.ahora Instante de la carga, en milisegundos.
  */
-export function RequiereAtencion({ jornada, conteo }) {
-  const lista = situaciones({ jornada, conteo });
+export function RequiereAtencion({ jornada, caja, insumos, ahora }) {
+  const lista = situaciones({ jornada, caja, insumos, ahora });
 
   return (
     <Tarjeta como="section" aria-labelledby="titulo-requiere-atencion" className="flex-[1_1_240px]">
@@ -76,7 +106,7 @@ export function RequiereAtencion({ jornada, conteo }) {
       </div>
 
       <ul className="mt-2.5 flex flex-col gap-1.5">
-        {lista.map((situacion) => (
+        {lista.slice(0, MAXIMO_VISIBLES).map((situacion) => (
           <li key={situacion.clave}>
             <Link
               to={situacion.hacia}
@@ -89,8 +119,8 @@ export function RequiereAtencion({ jornada, conteo }) {
                 {situacion.marca}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-control font-semibold">{situacion.titulo}</span>
-                <span className="mt-px block text-meta text-neutro-550">{situacion.apoyo}</span>
+                <span className="block truncate text-control font-semibold">{situacion.titulo}</span>
+                <span className="mt-px block truncate text-meta text-neutro-550">{situacion.apoyo}</span>
               </span>
               <IconoFlechaDerecha className="size-3.5 shrink-0 text-neutro-450" />
             </Link>

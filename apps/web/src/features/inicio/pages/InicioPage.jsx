@@ -20,10 +20,17 @@ import { useTablero } from '@/features/inicio/hooks/useTablero';
 import { PanelJornada, useAccionesJornada } from '@/features/jornadas';
 import { FormularioOrden } from '@/features/ordenes-lavado';
 import { useAviso } from '@/hooks/useAviso';
+import { variacionALaHora } from '@/utils/curvaAcumulada';
 import { contarPorEstado } from '@/utils/estadosOrden';
 import { formatoFecha, formatoFechaLarga } from '@/utils/formatoFecha';
+import { formatoMinutos, minutosDesde } from '@/utils/formatoMinutos';
 import { formatoMoneda } from '@/utils/formatoMoneda';
+import { mayusculaInicial } from '@/utils/mayusculaInicial';
 import { plural } from '@/utils/plural';
+
+/** Permanencia media a partir de la cual el patio va lento, como en el diseño. */
+const MINUTOS_PATIO_LENTO = 30;
+
 
 /**
  * Tablero de inicio: indicadores de la jornada abierta (los totales los
@@ -42,8 +49,15 @@ export function InicioPage() {
   const jornada = tablero.datos?.jornada ?? null;
   const totales = tablero.datos?.totales ?? null;
   const conteo = contarPorEstado(tablero.datos?.ordenes ?? []);
-  const enPatio = conteo[ESTADOS_ORDEN.REGISTRADA] + conteo[ESTADOS_ORDEN.EN_PROCESO];
-  const porEntregar = conteo[ESTADOS_ORDEN.TERMINADA];
+  const caja = tablero.datos?.caja ?? null;
+  const curva = tablero.datos?.curva ?? null;
+  const cargadoEn = tablero.datos?.cargadoEn ?? 0;
+  const enPatio = caja ? caja.enPatio.length : conteo[ESTADOS_ORDEN.REGISTRADA] + conteo[ESTADOS_ORDEN.EN_PROCESO];
+  const permanencia = caja?.enPatio.length
+    ? Math.round(caja.enPatio.reduce((suma, orden) => suma + minutosDesde(orden.creadoEn, cargadoEn), 0) / caja.enPatio.length)
+    : null;
+  const listos = caja ? caja.totales.vehiculosPorCobrar : conteo[ESTADOS_ORDEN.TERMINADA];
+  const variacion = variacionALaHora(curva);
 
   function alCrear(orden) {
     setFormularioAbierto(false);
@@ -52,7 +66,7 @@ export function InicioPage() {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-1 flex-col ajustado:min-h-0">
       <EncabezadoPagina
         titulo={primerNombre ? `Buen día, ${primerNombre}` : 'Buen día'}
         descripcion={`${formatoFechaLarga(new Date())} · ${
@@ -60,8 +74,8 @@ export function InicioPage() {
         }`}
         acciones={
           <>
-            <Boton variante="secundario" onClick={() => navegar(RUTAS.ORDENES_LAVADO)}>
-              Ver órdenes
+            <Boton variante="secundario" onClick={() => navegar(RUTAS.CAJA)}>
+              Ir a caja
             </Boton>
             {rolPuedeGestionar(usuario?.rol, RUTAS.ORDENES_LAVADO) ? (
               <Boton className="pl-2.75" onClick={() => setFormularioAbierto(true)}>
@@ -79,14 +93,25 @@ export function InicioPage() {
       ) : null}
 
       {tablero.situacion === 'listo' ? (
-        <div className="mt-4 flex flex-wrap items-stretch gap-3 escritorio:flex-nowrap">
-          <div className="flex min-w-0 flex-[1_1_0] flex-col">
+        <div className="mt-4 flex flex-1 flex-wrap items-stretch gap-3 escritorio:flex-nowrap ajustado:min-h-0">
+          <div className="flex min-w-0 flex-[1_1_0] flex-col ajustado:min-h-0">
             <div className="grid grid-cols-[repeat(auto-fit,minmax(min(130px,100%),1fr))] gap-3">
               <Indicador
                 etiqueta="Ingresos de la jornada"
                 valor={formatoMoneda(totales?.totalGeneral ?? 0)}
-                apoyo="Calculado por el sistema"
-                hacia={RUTAS.ORDENES_LAVADO}
+                nota={variacion === null ? null : `${variacion > 0 ? '+' : ''}${variacion} %`}
+                atencion={variacion !== null && variacion < 0}
+                apoyo={
+                  curva?.etiquetaAnterior ? (
+                    <>
+                      {`${mayusculaInicial(curva.etiquetaAnterior)} a esta hora: `}
+                      <span className="whitespace-nowrap">{formatoMoneda(curva.anteriorALaHora)}</span>
+                    </>
+                  ) : (
+                    'Calculado por el sistema'
+                  )
+                }
+                hacia={RUTAS.REPORTES}
               />
               <Indicador
                 etiqueta="Servicios de la jornada"
@@ -97,25 +122,31 @@ export function InicioPage() {
               <Indicador
                 etiqueta="En patio ahora"
                 valor={String(enPatio)}
-                apoyo="Registradas y en proceso"
+                nota={permanencia === null ? null : permanencia > MINUTOS_PATIO_LENTO ? 'Lento' : 'Fluido'}
+                atencion={permanencia !== null && permanencia > MINUTOS_PATIO_LENTO}
+                apoyo={permanencia === null ? 'Registradas y en proceso' : `Permanencia media ${formatoMinutos(permanencia)}`}
                 hacia={RUTAS.ORDENES_LAVADO}
               />
               <Indicador
-                etiqueta="Por entregar"
-                valor={String(porEntregar)}
-                nota={porEntregar > 0 ? plural(porEntregar, 'listo', 'listos') : 'Al día'}
-                atencion={porEntregar > 0}
-                apoyo="Terminadas en el tablero"
-                hacia={RUTAS.ORDENES_LAVADO}
+                etiqueta="Por cobrar"
+                valor={caja ? formatoMoneda(caja.totales.porCobrar) : String(listos)}
+                nota={listos > 0 ? plural(listos, 'listo', 'listos') : 'Al día'}
+                atencion={listos > 0}
+                apoyo={plural(listos, 'vehículo terminado', 'vehículos terminados')}
+                hacia={RUTAS.CAJA}
               />
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              <IngresosAcumulados total={totales?.totalGeneral ?? null} />
+            <div className="mt-3 flex min-h-55 flex-1 flex-wrap gap-3 ajustado:min-h-25">
+              <IngresosAcumulados
+                curva={curva}
+                etiquetaAnterior={curva?.etiquetaAnterior ?? ''}
+                aviso={jornada ? 'No pudimos cargar los ingresos por hora.' : 'Abre la jornada para ver la curva del día.'}
+              />
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-3">
-              <RequiereAtencion jornada={jornada} conteo={conteo} />
+            <div className="mt-3 flex shrink-0 flex-wrap gap-3">
+              <RequiereAtencion jornada={jornada} caja={caja} insumos={tablero.datos?.insumos ?? null} ahora={cargadoEn} />
               <PatioEnVivo conteo={conteo} />
             </div>
           </div>
