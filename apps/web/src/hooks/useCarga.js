@@ -19,6 +19,7 @@ const MENSAJE_POR_DEFECTO = 'No pudimos cargar la información. Inténtalo de nu
  *   datos: T|null,
  *   error: string,
  *   recargar: () => void,
+ *   refrescar: () => void,
  *   actualizar: (cambio: (datos: T) => T) => void,
  * }}
  */
@@ -52,6 +53,10 @@ export function useCarga(cargar) {
     setIntento((valor) => valor + 1);
   }, []);
 
+  // Vuelve a pedir los datos sin pasar por "cargando": lo que hay sigue en
+  // pantalla hasta que llegan los nuevos (después de cobrar, por ejemplo).
+  const refrescar = useCallback(() => setIntento((valor) => valor + 1), []);
+
   const actualizar = useCallback((cambio) => {
     setEstado((anterior) =>
       anterior.datos === null ? anterior : { ...anterior, datos: cambio(anterior.datos) },
@@ -65,6 +70,7 @@ export function useCarga(cargar) {
     datos: estado.datos,
     error: vigente ? estado.error : '',
     recargar,
+    refrescar,
     actualizar,
   };
 }

@@ -29,6 +29,17 @@ describe('useCarga', () => {
     await waitFor(() => expect(result.current.datos).toEqual(['b']));
   });
 
+  it('refresca sin pasar por "cargando": los datos siguen visibles hasta que llegan los nuevos', async () => {
+    const cargar = vi.fn().mockResolvedValueOnce(['viejo']).mockResolvedValueOnce(['nuevo']);
+    const { result } = renderHook(() => useCarga(cargar));
+    await waitFor(() => expect(result.current.situacion).toBe('listo'));
+
+    act(() => result.current.refrescar());
+    expect(result.current.situacion).toBe('listo');
+    expect(result.current.datos).toEqual(['viejo']);
+    await waitFor(() => expect(result.current.datos).toEqual(['nuevo']));
+  });
+
   it('permite actualizar los datos sin volver a pedirlos', async () => {
     const cargar = vi.fn().mockResolvedValue([1]);
     const { result } = renderHook(() => useCarga(cargar));

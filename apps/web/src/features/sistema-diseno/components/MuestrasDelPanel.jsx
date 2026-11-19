@@ -15,6 +15,7 @@ import { EstadoError } from '@/components/ui/EstadoError';
 import { EstadoVacio } from '@/components/ui/EstadoVacio';
 import { GrupoFiltros } from '@/components/ui/GrupoFiltros';
 import { IconoBuscar } from '@/components/ui/iconos/IconoBuscar';
+import { IconoCaja } from '@/components/ui/iconos/IconoCaja';
 import { IconoCatalogo } from '@/components/ui/iconos/IconoCatalogo';
 import { IconoCelular } from '@/components/ui/iconos/IconoCelular';
 import { IconoClientes } from '@/components/ui/iconos/IconoClientes';
@@ -23,8 +24,10 @@ import { IconoCredito } from '@/components/ui/iconos/IconoCredito';
 import { IconoFlechaAbajo } from '@/components/ui/iconos/IconoFlechaAbajo';
 import { IconoFlechaDerecha } from '@/components/ui/iconos/IconoFlechaDerecha';
 import { IconoFlechaIzquierda } from '@/components/ui/iconos/IconoFlechaIzquierda';
+import { IconoInventario } from '@/components/ui/iconos/IconoInventario';
 import { IconoJornadas } from '@/components/ui/iconos/IconoJornadas';
 import { IconoMas } from '@/components/ui/iconos/IconoMas';
+import { IconoNomina } from '@/components/ui/iconos/IconoNomina';
 import { IconoOjo } from '@/components/ui/iconos/IconoOjo';
 import { IconoOjoTachado } from '@/components/ui/iconos/IconoOjoTachado';
 import { IconoOrdenes } from '@/components/ui/iconos/IconoOrdenes';
@@ -47,6 +50,9 @@ import { useAviso } from '@/hooks/useAviso';
 
 const ICONOS = [
   ['IconoOrdenes', IconoOrdenes],
+  ['IconoCaja', IconoCaja],
+  ['IconoNomina', IconoNomina],
+  ['IconoInventario', IconoInventario],
   ['IconoClientes', IconoClientes],
   ['IconoCredito', IconoCredito],
   ['IconoColaboradores', IconoColaboradores],

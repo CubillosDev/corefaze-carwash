@@ -73,6 +73,32 @@ export const ETIQUETAS_ESTADO_ACTIVIDAD = Object.freeze({
   [ESTADOS_ACTIVIDAD.INACTIVO]: 'Inactivo',
 });
 
+/**
+ * Categorías de un egreso de caja (egresos_caja_categoria_check, ADR 0007).
+ * No están en dominio.json: las fija la base de datos.
+ */
+export const ETIQUETAS_CATEGORIA_EGRESO = Object.freeze({
+  insumos: 'Insumos',
+  almuerzos: 'Almuerzos',
+  servicios_publicos: 'Servicios públicos',
+  otros: 'Otros',
+});
+
+/** Tipos de descuento de nómina que se registran a mano (ADR 0006). */
+export const ETIQUETAS_TIPO_DESCUENTO = Object.freeze({
+  prestamo: 'Préstamo',
+  jabon: 'Jabón',
+  multa: 'Multa',
+  cxc: 'Saldo anterior (cxc)',
+});
+
+/** Medios con que una empresa paga su crédito (ADR 0007). */
+export const ETIQUETAS_MEDIO_PAGO_CREDITO = Object.freeze({
+  transferencia: 'Transferencia',
+  cheque: 'Cheque',
+  efectivo: 'Efectivo',
+});
+
 /** Si el contrato agrega un valor nuevo, se muestra tal cual. */
 const etiquetaDe = (etiquetas) => (valor) => etiquetas[valor] ?? String(valor ?? '');
 
@@ -83,6 +109,9 @@ export const etiquetaEstadoJornada = etiquetaDe(ETIQUETAS_ESTADO_JORNADA);
 export const etiquetaTipoCliente = etiquetaDe(ETIQUETAS_TIPO_CLIENTE);
 export const etiquetaTipoVinculacion = etiquetaDe(ETIQUETAS_TIPO_VINCULACION);
 export const etiquetaEstadoActividad = etiquetaDe(ETIQUETAS_ESTADO_ACTIVIDAD);
+export const etiquetaCategoriaEgreso = etiquetaDe(ETIQUETAS_CATEGORIA_EGRESO);
+export const etiquetaTipoDescuento = etiquetaDe(ETIQUETAS_TIPO_DESCUENTO);
+export const etiquetaMedioPagoCredito = etiquetaDe(ETIQUETAS_MEDIO_PAGO_CREDITO);
 
 /** Tono de un estado de orden; neutro si el contrato agrega uno nuevo. */
 export const tonoEstadoOrden = (valor) => TONOS_ESTADO_ORDEN[valor] ?? 'neutro';

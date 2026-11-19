@@ -113,6 +113,8 @@
 
   /* Escala por rol. El interlineado es el normal de la fuente, como en el
      diseño, salvo donde el rol fija peso o espaciado. */
+  /* Letra menuda del comprobante (leyendas al pie). */
+  --text-letra-menuda: 9.5px;
   --text-avatar: 9.5px;
   --text-avatar--font-weight: 700;
   --text-etiqueta-menu: 10.5px;
@@ -157,6 +159,11 @@
   --text-kpi--letter-spacing: -0.02em;
   /* Titular de la pantalla de ingreso (no está en el diseño: se diseñó con
      su misma escala, más grande, para la portada). */
+  /* Total a cobrar y cambio a entregar en la caja. */
+  --text-cifra: 28px;
+  --text-cifra--font-weight: 600;
+  --text-cifra--letter-spacing: -0.03em;
+  --text-cifra--line-height: 1.1;
   --text-portada: 40px;
   --text-portada--font-weight: 600;
   --text-portada--letter-spacing: -0.03em;
@@ -167,6 +174,7 @@
   --text-portada-movil--line-height: 1.12;
 
   /* --- Radios --------------------------------------------------------------- */
+  --radius-comprobante: 4px; /* Papel del comprobante de pago */
   --radius-placa: 6px;
   --radius-opcion: 8px; /* Opciones de menú y botón de cerrar */
   --radius-control: 9px; /* Botones, campos y píldora del menú */
@@ -190,6 +198,7 @@
   --shadow-cajon: 0 20px 50px rgba(10, 16, 32, 0.3);
   --shadow-panel-lateral: -24px 0 60px rgba(10, 16, 32, 0.18);
   --shadow-modal: 0 24px 60px rgba(10, 16, 32, 0.28);
+  --shadow-comprobante: 0 1px 2px rgba(10, 16, 32, 0.06), 0 10px 24px rgba(10, 16, 32, 0.08);
   --shadow-punto-activo: 0 0 0 4px rgba(22, 163, 74, 0.14); /* Jornada abierta */
 
   /* --- Medidas del marco ------------------------------------------------------ */
@@ -348,6 +357,25 @@
   td,
   th {
     overflow-wrap: break-word;
+  }
+}
+
+/* Al imprimir un comprobante solo sale ese papel: el resto de la página se oculta. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  [data-impresion],
+  [data-impresion] * {
+    visibility: visible;
+  }
+
+  [data-impresion] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    box-shadow: none;
   }
 }
 

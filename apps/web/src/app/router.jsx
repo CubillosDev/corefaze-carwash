@@ -57,6 +57,11 @@ export const rutas = [
                 children: [{ path: ':idOrden', Component: paginaDiferida(cargarOrdenes, 'DetalleOrdenPage') }],
               },
               {
+                path: RUTAS.CAJA,
+                handle: { ajustarAlAlto: true },
+                Component: paginaDiferida(() => import('@/features/caja'), 'CajaPage'),
+              },
+              {
                 path: RUTAS.JORNADAS,
                 Component: paginaDiferida(() => import('@/features/jornadas'), 'JornadasPage'),
               },

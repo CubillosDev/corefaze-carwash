@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { Alerta } from '@/components/ui/Alerta';
 import { Boton } from '@/components/ui/Boton';
+import { CampoMonto } from '@/components/ui/CampoMonto';
 import { CampoSeleccion } from '@/components/ui/CampoSeleccion';
 import { CampoTexto } from '@/components/ui/CampoTexto';
 import { IconoMenu } from '@/components/ui/iconos/IconoMenu';
@@ -103,6 +104,7 @@ const GRUPOS_DE_COLOR = [
 
 const ESCALA_TIPOGRAFICA = [
   { clase: 'text-portada', uso: 'Titular de la pantalla de ingreso' },
+  { clase: 'text-cifra', uso: 'Total a cobrar y cambio en la caja' },
   { clase: 'text-portada-movil', uso: 'Titular de la pantalla de ingreso en móvil' },
   { clase: 'text-kpi', uso: 'Valor de los indicadores del tablero' },
   { clase: 'text-indicador', uso: 'Cifras de tarjetas' },
@@ -123,9 +125,11 @@ const ESCALA_TIPOGRAFICA = [
   { clase: 'text-etiqueta uppercase', uso: 'Etiqueta de sección, siempre en mayúsculas' },
   { clase: 'text-etiqueta-menu uppercase', uso: 'Título dentro de menús desplegables' },
   { clase: 'text-avatar', uso: 'Iniciales del avatar pequeño' },
+  { clase: 'text-letra-menuda', uso: 'Leyendas al pie del comprobante' },
 ];
 
 const RADIOS = [
+  { clase: 'rounded-comprobante', uso: 'Papel del comprobante de pago' },
   { clase: 'rounded-placa', uso: 'Placa' },
   { clase: 'rounded-opcion', uso: 'Opciones de menú y botón de cerrar' },
   { clase: 'rounded-control', uso: 'Botones, campos y píldora del menú' },
@@ -150,6 +154,7 @@ const SOMBRAS = [
   { clase: 'shadow-cajon', uso: 'Cajón de navegación abierto' },
   { clase: 'shadow-panel-lateral', uso: 'Panel de detalle a la derecha' },
   { clase: 'shadow-modal', uso: 'Ventana modal' },
+  { clase: 'shadow-comprobante', uso: 'Papel del comprobante de pago' },
   { clase: 'shadow-punto-activo', uso: 'Punto verde de jornada abierta' },
 ];
 
@@ -228,6 +233,7 @@ const EJEMPLOS_DE_FORMATO = [
  */
 export function SistemaDisenoPage() {
   const [modalAbierto, setModalAbierto] = useState(false);
+  const [monto, setMonto] = useState(28000);
   const [alertaVisible, setAlertaVisible] = useState(true);
   const [placa, setPlaca] = useState('');
   const [repeticiones, setRepeticiones] = useState(0);
@@ -440,6 +446,12 @@ export function SistemaDisenoPage() {
             tamano="grande"
             placeholder="nombre@empresa.com"
             ayuda="Tamaño grande, 44 px: formularios de una sola columna, como el ingreso."
+          />
+          <CampoMonto
+            etiqueta="Monto (campo de dinero)"
+            valor={monto}
+            alCambiar={setMonto}
+            ayuda="Muestra $ 28.000 mientras se escribe y entrega un entero."
           />
           <CampoTexto
             etiqueta="Contraseña (con acción)"

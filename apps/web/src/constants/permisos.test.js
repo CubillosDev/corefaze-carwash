@@ -6,7 +6,10 @@ import {
   rolPuedeAcceder,
   rolPuedeAnularOrden,
   rolPuedeGestionar,
+  rolPuedeMoverInventario,
+  rolPuedeReabrirCaja,
   rolPuedeReabrirJornada,
+  rolPuedeVerificarVales,
 } from '@/constants/permisos';
 import { RUTAS } from '@/constants/rutas';
 import { ROLES } from '@/constants/dominio';
@@ -77,10 +80,28 @@ describe('permisos', () => {
     expect(rolPuedeGestionar('soporte', RUTAS.SERVICIOS)).toBe(false);
   });
 
-  it('solo superadmin entra a usuarios, porque solo él cambia roles', () => {
+  it('administrador consulta usuarios, pero solo superadmin los gestiona (GET /api/usuarios)', () => {
     expect(rolPuedeAcceder('superadmin', RUTAS.USUARIOS)).toBe(true);
-    expect(rolPuedeAcceder('administrador', RUTAS.USUARIOS)).toBe(false);
+    expect(rolPuedeAcceder('administrador', RUTAS.USUARIOS)).toBe(true);
     expect(rolPuedeAcceder('soporte', RUTAS.USUARIOS)).toBe(false);
+    expect(rolPuedeGestionar('superadmin', RUTAS.USUARIOS)).toBe(true);
+    expect(rolPuedeGestionar('administrador', RUTAS.USUARIOS)).toBe(false);
+  });
+
+  it('soporte opera la caja; reabrirla es solo de superadmin', () => {
+    expect(rolPuedeAcceder('soporte', RUTAS.CAJA)).toBe(true);
+    expect(rolPuedeGestionar('soporte', RUTAS.CAJA)).toBe(true);
+    expect(rolPuedeReabrirCaja('superadmin')).toBe(true);
+    expect(rolPuedeReabrirCaja('administrador')).toBe(false);
+  });
+
+  it('soporte verifica vales y mueve inventario, pero no paga ni administra insumos', () => {
+    expect(rolPuedeVerificarVales('soporte')).toBe(true);
+    expect(rolPuedeGestionar('soporte', RUTAS.CREDITO)).toBe(false);
+    expect(rolPuedeMoverInventario('soporte')).toBe(true);
+    expect(rolPuedeGestionar('soporte', RUTAS.INVENTARIO)).toBe(false);
+    expect(rolPuedeAcceder('soporte', RUTAS.NOMINA)).toBe(false);
+    expect(rolPuedeVerificarVales('pendiente')).toBe(false);
   });
 });
 
