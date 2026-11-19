@@ -322,8 +322,9 @@ router.patch(
  *     summary: Cambiar el estado de una orden de lavado
  *     description: >
  *       Sigue la máquina de estados del dominio: una orden entregada o
- *       cancelada no puede volver a cambiar de estado, y no se pueden
- *       saltar ni retroceder estados. Cancelar (anular) exige un
+ *       cancelada no puede volver a cambiar de estado y no se pueden
+ *       saltar estados. Por ahora, una orden abierta puede volver una
+ *       sola fase (ADR 0010). Cancelar (anular) exige un
  *       "motivo" y está reservado a superadmin/administrador; el resto
  *       de transiciones también están disponibles para soporte.
  *     parameters:
