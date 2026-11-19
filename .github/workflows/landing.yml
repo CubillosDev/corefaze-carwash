@@ -1,0 +1,61 @@
+# Integración continua de la landing (apps/landing).
+# Corre lint, pruebas, build y auditoría cuando cambian la landing o las
+# dependencias de la raíz (workspaces de npm).
+name: CI landing
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - "apps/landing/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".nvmrc"
+      - ".github/workflows/landing.yml"
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - "apps/landing/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".nvmrc"
+      - ".github/workflows/landing.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: Lint, pruebas, build y auditoría
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint --workspace apps/landing
+
+      - name: Pruebas
+        run: npm run test --workspace apps/landing
+
+      - name: Build
+        run: npm run build --workspace apps/landing
+
+      - name: Auditoría de dependencias
+        run: npm audit --workspace apps/landing --audit-level=high

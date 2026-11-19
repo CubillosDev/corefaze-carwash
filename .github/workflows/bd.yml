@@ -1,26 +1,39 @@
+# Integración continua de la base de datos (supabase/).
+# Levanta Supabase local, aplica migraciones y seed, y corre pgTAP y db lint.
 name: Base de datos
 
 on:
   pull_request:
     paths:
       - "supabase/**"
+      - ".github/workflows/bd.yml"
   push:
     paths:
       - "supabase/**"
+      - ".github/workflows/bd.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   pruebas:
+    name: Migraciones, pgTAP y db lint
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Clonar el repositorio
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Instalar Supabase CLI
         uses: supabase/setup-cli@v1
         with:
           version: 2.122.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Levantar la base local
         run: supabase start
