@@ -359,14 +359,7 @@ router.patch(
  *       404: { description: Orden no encontrada }
  *       409: { description: La orden no es a crédito, ya tiene vale o el número ya existe }
  */
-router.post(
-  '/vales',
-  autenticarJWT,
-  PUEDEN_CONSULTAR,
-  validarRegistrarVale,
-  validar,
-  registrarVale,
-);
+router.post('/vales', autenticarJWT, PUEDEN_CONSULTAR, validarRegistrarVale, validar, registrarVale);
 
 /**
  * @swagger
@@ -396,14 +389,7 @@ router.post(
  *       401: { description: Usuario no autenticado }
  *       403: { description: Rol sin permiso }
  */
-router.post(
-  '/vales/verificacion',
-  autenticarJWT,
-  PUEDEN_CONSULTAR,
-  validarVerificarVale,
-  validar,
-  verificarVale,
-);
+router.post('/vales/verificacion', autenticarJWT, PUEDEN_CONSULTAR, validarVerificarVale, validar, verificarVale);
 
 /**
  * @swagger
@@ -433,13 +419,6 @@ router.post(
  *       404: { description: La orden no tiene vale }
  *       409: { description: La orden ya está pagada }
  */
-router.patch(
-  '/vales/:ordenId',
-  autenticarJWT,
-  PUEDEN_CONSULTAR,
-  validarMarcarVale,
-  validar,
-  marcarVale,
-);
+router.patch('/vales/:ordenId', autenticarJWT, PUEDEN_CONSULTAR, validarMarcarVale, validar, marcarVale);
 
 module.exports = router;

@@ -74,10 +74,7 @@ const numeroVale = (campo) =>
 
 /** GET /api/credito/clientes/:id/ordenes */
 const validarOrdenesDeCliente = [
-  query('tipo')
-    .optional()
-    .isIn(['pendientes', 'pagadas'])
-    .withMessage('tipo debe ser pendientes o pagadas'),
+  query('tipo').optional().isIn(['pendientes', 'pagadas']).withMessage('tipo debe ser pendientes o pagadas'),
 ];
 
 /** PATCH /api/credito/clientes/:id/condiciones: cada campo puede quedar vacío (null). */
