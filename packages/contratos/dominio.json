@@ -40,5 +40,6 @@
   "tiposCliente": ["particular", "empresa"],
   "tiposVinculacion": ["fijo", "ocasional"],
   "diasGraciaCodigoColaborador": 15,
-  "estadosJornada": ["abierta", "cerrada"]
+  "estadosJornada": ["abierta", "cerrada"],
+  "tiposDescuento": ["prestamo", "jabon", "multa", "cxc"]
 }
