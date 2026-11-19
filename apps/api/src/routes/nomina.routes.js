@@ -75,11 +75,12 @@ const PUEDEN_NOMINA = autorizarRoles(ROLES_ENUM.SUPERADMIN, ROLES_ENUM.ADMINISTR
  *     tags: [Nómina]
  *     summary: Resumen proyectado de una quincena (comisión, descuentos por tipo, neto, saldo pendiente)
  *     description: >
- *       Por cada colaborador activo con alguna actividad en el periodo
- *       (orden o descuento): comisión, descuentos por tipo, neto y saldo
- *       pendiente PROYECTADOS — lo que liquidar_quincena calcularía si se
- *       liquidara ahora. inicio/fin deben ser exactamente los límites de
- *       una quincena real (1–15 o 16–fin de mes).
+ *       Por cada colaborador con alguna orden o descuento en el periodo
+ *       (sin importar si sigue activo): comisión, descuentos por tipo,
+ *       neto y saldo pendiente PROYECTADOS — lo que liquidar_quincena
+ *       calcularía si se liquidara ahora. inicio/fin deben ser
+ *       exactamente los límites de una quincena real (1–15 o 16–fin de
+ *       mes).
  *     parameters:
  *       - in: query
  *         name: inicio

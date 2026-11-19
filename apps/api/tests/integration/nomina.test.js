@@ -261,11 +261,46 @@ describe('GET /api/nomina/quincenas/resumen', () => {
     expect(fila).toMatchObject({
       codigo: colaborador.codigo,
       nombre: colaborador.nombre,
+      estado: 'activo',
       comision: 2250,
       descuentos: { prestamo: 0, jabon: 1000, multa: 0, cxc: 0 },
       neto: 1250,
       saldoPendiente: 0,
     });
+  });
+
+  it('incluye a un colaborador inactivo que tuvo órdenes en el periodo (misma unión que liquidar_quincena, sin filtrar por estado)', async () => {
+    const { inicio, fin } = siguienteQuincena();
+    await abrirJornadaEn(inicio);
+    const colaborador = await registrarColaboradorActivo();
+    await crearOrdenEfectivo(colaborador.id);
+    await conToken('patch', `/api/colaboradores/${colaborador.id}/estado`).send({
+      estado: 'inactivo',
+    });
+
+    const respuesta = await conToken(
+      'get',
+      `/api/nomina/quincenas/resumen?inicio=${inicio}&fin=${fin}`,
+    );
+
+    expect(respuesta.status).toBe(200);
+    const fila = respuesta.body.colaboradores.find((c) => c.colaboradorId === colaborador.id);
+    expect(fila).toMatchObject({ estado: 'inactivo', comision: 2250 });
+  });
+
+  it('un colaborador activo sin ninguna orden ni descuento en el periodo no aparece', async () => {
+    const { inicio, fin } = siguienteQuincena();
+    const colaborador = await registrarColaboradorActivo();
+
+    const respuesta = await conToken(
+      'get',
+      `/api/nomina/quincenas/resumen?inicio=${inicio}&fin=${fin}`,
+    );
+
+    expect(respuesta.status).toBe(200);
+    expect(
+      respuesta.body.colaboradores.find((c) => c.colaboradorId === colaborador.id),
+    ).toBeUndefined();
   });
 
   it('periodo que no es una quincena real: 400', async () => {

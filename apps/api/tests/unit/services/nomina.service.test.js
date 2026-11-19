@@ -271,11 +271,39 @@ describe('nomina.service', () => {
       expect(fila).toMatchObject({
         codigo: colaborador.codigo,
         nombre: colaborador.nombre,
+        estado: 'activo',
         comision: 2250,
         descuentos: { prestamo: 0, jabon: 1000, multa: 0, cxc: 0 },
         neto: 1250,
         saldoPendiente: 0,
       });
+    });
+
+    it('incluye a un colaborador inactivo que tuvo órdenes en el periodo (misma unión que liquidar_quincena, sin filtrar por estado)', async () => {
+      const { inicio, fin } = siguienteQuincena();
+      await abrirJornadaEn(inicio);
+      const colaborador = await crearColaboradorDePrueba();
+      await crearOrdenDePrueba(colaborador.id);
+
+      await colaboradoresService.cambiarEstadoColaborador(
+        colaborador.id,
+        'inactivo',
+        USUARIO_ID_PRUEBA,
+      );
+
+      const resumen = await obtenerResumenQuincena({ inicio, fin });
+      const fila = resumen.colaboradores.find((c) => c.colaboradorId === colaborador.id);
+
+      expect(fila).toMatchObject({ estado: 'inactivo', comision: 2250 });
+    });
+
+    it('un colaborador activo sin ninguna orden ni descuento en el periodo no aparece', async () => {
+      const { inicio, fin } = siguienteQuincena();
+      const colaborador = await crearColaboradorDePrueba();
+
+      const resumen = await obtenerResumenQuincena({ inicio, fin });
+
+      expect(resumen.colaboradores.find((c) => c.colaboradorId === colaborador.id)).toBeUndefined();
     });
 
     it('liquidada pasa a true y liquidacionId queda poblado después de liquidar', async () => {
