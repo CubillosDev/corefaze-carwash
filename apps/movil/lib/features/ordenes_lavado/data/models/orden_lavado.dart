@@ -13,6 +13,7 @@ class OrdenLavado {
     required this.estado,
     required this.creadaEn,
     required this.fecha,
+    this.observaciones,
   });
 
   factory OrdenLavado.desdeJson(Map<String, dynamic> json) => OrdenLavado(
@@ -27,6 +28,7 @@ class OrdenLavado {
     estado: leerTexto(json['estado']),
     creadaEn: leerTextoOpcional(json['creadaEn']),
     fecha: leerTexto(json['fecha']),
+    observaciones: leerTextoOpcional(json['observaciones']),
   );
 
   final int id;
@@ -42,4 +44,5 @@ class OrdenLavado {
   final String estado;
   final String? creadaEn;
   final String fecha;
+  final String? observaciones;
 }

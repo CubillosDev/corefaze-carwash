@@ -9,7 +9,21 @@ abstract final class EstadosOrden {
   static const cancelada = 'cancelada';
 
   static const todos = [registrada, enProceso, terminada, entregada, cancelada];
+
+  /// Fases del patio, en orden: las que se ven y se mueven desde la app.
+  static const fasesDelPatio = [registrada, enProceso, terminada];
 }
+
+/// A qué estados puede pasar una orden (`transicionesOrden` del contrato). Por
+/// ahora una orden abierta puede volver una sola fase (ADR 0010); entregada y
+/// cancelada no cambian (R10).
+const transicionesOrden = {
+  EstadosOrden.registrada: [EstadosOrden.enProceso, EstadosOrden.cancelada],
+  EstadosOrden.enProceso: [EstadosOrden.terminada, EstadosOrden.registrada, EstadosOrden.cancelada],
+  EstadosOrden.terminada: [EstadosOrden.entregada, EstadosOrden.enProceso],
+  EstadosOrden.entregada: <String>[],
+  EstadosOrden.cancelada: <String>[],
+};
 
 abstract final class MediosPago {
   static const efectivo = 'efectivo';
@@ -49,6 +63,10 @@ abstract final class Roles {
   /// Registrar clientes y vehículos es de superadmin y administrador; soporte
   /// solo los consulta (la API le responde 403).
   static bool gestionaClientes(String rol) => rol == superadmin || rol == administrador;
+
+  /// Anular (cancelar) una orden es de superadmin y administrador; soporte
+  /// solo cambia la fase (la API le responde 403).
+  static bool puedeCancelarOrdenes(String rol) => rol == superadmin || rol == administrador;
 }
 
 /// Servicios de lavado de motor: exigen la autorización del cliente (R7).

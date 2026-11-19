@@ -45,6 +45,16 @@ class OrdenesLavadoRepository {
   Future<List<OrdenLavado>> listarTodas() async =>
       leerLista(await _api.obtener('ordenes-lavado'), 'ordenes').map(OrdenLavado.desdeJson).toList();
 
+  /// PATCH /api/ordenes-lavado/:id/estado. La API valida la transición (R9) y
+  /// exige [motivo] para cancelar.
+  Future<OrdenLavado> cambiarEstado(int id, String estado, {String? motivo}) async {
+    final cuerpo = await _api.actualizar('ordenes-lavado/$id/estado', {
+      'estado': estado,
+      if (motivo != null && motivo.isNotEmpty) 'motivo': motivo,
+    });
+    return OrdenLavado.desdeJson(leerObjeto(cuerpo, 'orden'));
+  }
+
   /// POST /api/ordenes-lavado con el siguiente turno libre de la jornada. El
   /// turno es único por fecha (R5): si otro equipo lo tomó al mismo tiempo,
   /// la API responde 409 y se intenta con el siguiente.

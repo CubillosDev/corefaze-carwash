@@ -12,4 +12,14 @@ void main() {
     expect(orden['servicioId'], 1);
     expect(orden['colaboradorId'], 7);
   });
+
+  testWidgets('al volver al inicio, la recepción ya muestra el vehículo registrado', (tester) async {
+    await recorrerRegistroDeOrden(tester);
+
+    await tester.tap(find.text('Volver al inicio'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recepción'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp(r'^ABC 123, Lavado simple, Registrada,')), findsOneWidget);
+  });
 }

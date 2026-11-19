@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+/// Avisa a las pantallas cuando vuelven a quedar al frente (ver RouteAware).
+final observadorDeRutas = RouteObserver<ModalRoute<void>>();
+
 /// Transición del diseño entre pantallas: entra deslizándose y aparece.
 Route<T> ruta<T>(Widget pantalla) {
   return PageRouteBuilder<T>(
