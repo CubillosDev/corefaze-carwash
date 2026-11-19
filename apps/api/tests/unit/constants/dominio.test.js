@@ -9,10 +9,12 @@ const {
   SERVICIOS_CON_LAVADO_MOTOR,
   PATRONES_PLACA,
   ROLES,
+  ROLES_ENUM,
   TIPOS_CLIENTE,
   LIMITES,
   TIPOS_VINCULACION,
   DIAS_GRACIA_CODIGO_COLABORADOR,
+  TIPOS_DESCUENTO,
 } = require('../../../src/constants/dominio');
 
 const todosLosEstados = Object.values(ESTADOS_ORDEN);
@@ -104,6 +106,18 @@ describe('constantes de dominio', () => {
       // nace en "pendiente" hasta que un superadmin decide su rol real.
       expect(ROLES).toContain('pendiente');
     });
+
+    it('ROLES_ENUM expone los mismos roles que ROLES, en forma de objeto (hallazgo de revisión del PR #7)', () => {
+      expect(ROLES_ENUM.SUPERADMIN).toBe('superadmin');
+      expect(ROLES_ENUM.ADMINISTRADOR).toBe('administrador');
+      expect(ROLES_ENUM.SOPORTE).toBe('soporte');
+      expect(ROLES_ENUM.PENDIENTE).toBe('pendiente');
+      expect(Object.values(ROLES_ENUM).sort()).toEqual([...ROLES].sort());
+    });
+
+    it('ROLES_ENUM está congelado', () => {
+      expect(Object.isFrozen(ROLES_ENUM)).toBe(true);
+    });
   });
 
   describe('tipos de cliente', () => {
@@ -121,6 +135,19 @@ describe('constantes de dominio', () => {
     it('no tiene valores repetidos', () => {
       const valores = Object.values(TIPOS_CLIENTE);
       expect(new Set(valores).size).toBe(valores.length);
+    });
+  });
+
+  describe('tipos de descuento de nómina', () => {
+    it('define prestamo, jabon, multa y cxc (descuentos_colaborador_tipo_check)', () => {
+      expect(TIPOS_DESCUENTO.PRESTAMO).toBe('prestamo');
+      expect(TIPOS_DESCUENTO.JABON).toBe('jabon');
+      expect(TIPOS_DESCUENTO.MULTA).toBe('multa');
+      expect(TIPOS_DESCUENTO.CXC).toBe('cxc');
+    });
+
+    it('está congelado', () => {
+      expect(Object.isFrozen(TIPOS_DESCUENTO)).toBe(true);
     });
   });
 

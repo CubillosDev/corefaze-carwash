@@ -8,8 +8,20 @@ const {
 } = require('../controllers/vehiculos.controller');
 const { validarCrear, validarActualizar } = require('../middlewares/vehiculos.validator');
 const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
+const { autenticarJWT } = require('../middlewares/auth.middleware');
+const { autorizarRoles } = require('../middlewares/roles.middleware');
+const { ROLES_ENUM } = require('../constants/dominio');
 
 const router = Router();
+
+// RBAC (SCRUM-139): mismo criterio que Clientes — soporte consulta, pero
+// no gestiona (crear/editar/eliminar).
+const PUEDEN_CONSULTAR = autorizarRoles(
+  ROLES_ENUM.SUPERADMIN,
+  ROLES_ENUM.ADMINISTRADOR,
+  ROLES_ENUM.SOPORTE,
+);
+const PUEDEN_GESTIONAR = autorizarRoles(ROLES_ENUM.SUPERADMIN, ROLES_ENUM.ADMINISTRADOR);
 
 /**
  * @swagger
@@ -58,11 +70,18 @@ const router = Router();
  *   get:
  *     tags: [Vehículos]
  *     summary: Listar vehículos
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Lista de vehículos
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Rol sin permiso para consultar vehículos
  */
-router.get('/', listar);
+router.get('/', autenticarJWT, PUEDEN_CONSULTAR, listar);
 
 /**
  * @swagger
@@ -76,15 +95,22 @@ router.get('/', listar);
  *         required: true
  *         schema:
  *           type: integer
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Vehículo encontrado
  *       400:
  *         description: Id inválido
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Rol sin permiso para consultar vehículos
  *       404:
  *         description: Vehículo no encontrado
  */
-router.get('/:id', validarIdDeUrl, validar, obtenerPorId);
+router.get('/:id', autenticarJWT, PUEDEN_CONSULTAR, validarIdDeUrl, validar, obtenerPorId);
 
 /**
  * @swagger
@@ -98,17 +124,24 @@ router.get('/:id', validarIdDeUrl, validar, obtenerPorId);
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/VehiculoCrear'
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       201:
  *         description: Vehículo registrado correctamente
  *       400:
  *         description: Datos inválidos o la placa no corresponde al tipo de vehículo
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Operación permitida únicamente a superadmin o administrador
  *       404:
  *         description: El cliente indicado no existe
  *       409:
  *         description: Placa ya registrada
  */
-router.post('/', validarCrear, validar, crear);
+router.post('/', autenticarJWT, PUEDEN_GESTIONAR, validarCrear, validar, crear);
 
 /**
  * @swagger
@@ -128,17 +161,32 @@ router.post('/', validarCrear, validar, crear);
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/VehiculoActualizar'
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Vehículo actualizado correctamente
  *       400:
  *         description: Datos o id inválidos
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Operación permitida únicamente a superadmin o administrador
  *       404:
  *         description: Vehículo o cliente no encontrado
  *       409:
  *         description: Placa ya registrada por otro vehículo
  */
-router.put('/:id', validarIdDeUrl, validarActualizar, validar, actualizar);
+router.put(
+  '/:id',
+  autenticarJWT,
+  PUEDEN_GESTIONAR,
+  validarIdDeUrl,
+  validarActualizar,
+  validar,
+  actualizar,
+);
 
 /**
  * @swagger
@@ -153,16 +201,23 @@ router.put('/:id', validarIdDeUrl, validarActualizar, validar, actualizar);
  *         required: true
  *         schema:
  *           type: integer
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Vehículo eliminado correctamente
  *       400:
  *         description: Id inválido
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Operación permitida únicamente a superadmin o administrador
  *       404:
  *         description: Vehículo no encontrado
  *       409:
  *         description: El vehículo tiene lavados asociados
  */
-router.delete('/:id', validarIdDeUrl, validar, eliminar);
+router.delete('/:id', autenticarJWT, PUEDEN_GESTIONAR, validarIdDeUrl, validar, eliminar);
 
 module.exports = router;

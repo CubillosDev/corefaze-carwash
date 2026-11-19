@@ -1,73 +1,251 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
-const jornadas = require('../../src/data/jornadas');
-const clientes = require('../../src/data/clientes');
-const vehiculos = require('../../src/data/vehiculos');
-const colaboradores = require('../../src/data/colaboradores');
-const servicios = require('../../src/data/servicios');
-const ordenesLavado = require('../../src/data/ordenesLavado');
+const { supabase } = require('../../src/db/supabaseCliente');
+const { generarToken } = require('../../src/utils/jwt.util');
+const { generarSello, crearGeneradorDeValorUnico } = require('../utils/valorUnico');
 
 const LLAVE = 'k'.repeat(40);
 
 const app = crearApp({
-  apiKeys: { postman: LLAVE, admin: 'a'.repeat(40), movil: 'm'.repeat(40) },
+  apiKeys: { postman: LLAVE, admin: 'a'.repeat(40), movil: 'm'.repeat(40), web: 'w'.repeat(40) },
   origenPermitido: 'http://localhost:5173',
 });
 
-beforeEach(() => {
-  jornadas.length = 0;
-  clientes.length = 0;
-  vehiculos.length = 0;
-  colaboradores.length = 0;
-  servicios.length = 0;
-  ordenesLavado.length = 0;
+// RBAC (SCRUM-139): todo el recurso exige API Key + JWT con rol autorizado.
+// autenticarJWT ya no toma el rol del payload del token: vuelve a
+// consultar al usuario actual en Supabase (hallazgo de revisión del PR
+// #7, SCRUM-152), así que estos ids deben ser los mismos (y en el mismo
+// orden) que los 4 usuarios de supabase/seed.sql — uno por rol.
+const ROLES_DE_PRUEBA = ['superadmin', 'administrador', 'soporte', 'pendiente'];
+const idDeRolDePrueba = (rol) => ROLES_DE_PRUEBA.indexOf(rol) + 1;
+const tokenDe = (rol) =>
+  generarToken({ id: idDeRolDePrueba(rol), email: `${rol}@lavadero.com`, rol });
+const TOKEN_SUPERADMIN = tokenDe('superadmin');
+const TOKEN_ADMINISTRADOR = tokenDe('administrador');
+const TOKEN_SOPORTE = tokenDe('soporte');
+const TOKEN_PENDIENTE = tokenDe('pendiente');
+
+// jornadas.service.js ya escribe en el Supabase local (SCRUM-152): a
+// diferencia del array en memoria de antes, jornadas_fecha_key es única
+// POR SIEMPRE para la fecha de "hoy" (abrirJornada() siempre usa la fecha
+// real del servidor, nunca una fecha de prueba). Sin limpiarla, solo la
+// PRIMERA prueba de toda la sesión podría abrir la jornada de hoy; todas
+// las demás (de este archivo y de cualquier otro) chocarían con
+// jornadas_fecha_key. Por eso cada prueba empieza borrando la jornada de
+// hoy (y sus reaperturas, que bloquean el borrado por FK) si ya existía.
+const fechaDeHoyDePrueba = () =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+
+const limpiarJornadaDeHoy = async () => {
+  const { data: jornadaDeHoy } = await supabase
+    .from('jornadas')
+    .select('id')
+    .eq('fecha', fechaDeHoyDePrueba())
+    .maybeSingle();
+
+  if (jornadaDeHoy) {
+    await supabase.from('reaperturas_jornada').delete().eq('jornada_id', jornadaDeHoy.id);
+    await supabase.from('jornadas').delete().eq('id', jornadaDeHoy.id);
+  }
+};
+
+// idx_jornadas_una_abierta es GLOBAL (una sola jornada abierta en todo el
+// sistema, sin importar su fecha): una jornada que quedó abierta en OTRO
+// archivo de pruebas (con una fecha aleatoria cualquiera) bloquearía
+// abrir la de hoy aquí.
+const cerrarCualquierJornadaAbierta = async () => {
+  const { data: abierta } = await supabase
+    .from('jornadas')
+    .select('id')
+    .eq('estado', 'abierta')
+    .maybeSingle();
+
+  if (abierta) {
+    await supabase
+      .from('jornadas')
+      .update({ estado: 'cerrada', cerrada_en: new Date().toISOString() })
+      .eq('id', abierta.id);
+  }
+};
+
+// reabrirJornada() escribe una fila en reaperturas_jornada, de solo
+// inserción incluso para service_role (ni el backend puede borrarla): si
+// una prueba reabriera la jornada de HOY, la dejaría con esa reapertura
+// para siempre, bloqueando jornadas_fecha_key para cualquier otra prueba
+// (de este archivo o de cualquier otro) que necesite abrir la de hoy
+// después. Por eso la única prueba que de verdad reabre una jornada usa
+// una fecha arbitraria, insertada directo contra la BD (no hay endpoint
+// público para abrir una jornada que no sea la de hoy).
+const crearJornadaCerradaDeOtraFecha = async () => {
+  const fecha = `${1000 + Math.floor(Math.random() * 9000)}-02-01`;
+  const { data, error } = await supabase
+    .from('jornadas')
+    .insert({ fecha, estado: 'cerrada', cerrada_en: new Date().toISOString() })
+    .select('id')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+};
+
+beforeEach(async () => {
+  await cerrarCualquierJornadaAbierta();
+  await limpiarJornadaDeHoy();
 });
 
 const conApiKey = (metodo, ruta) => request(app)[metodo](ruta).set('X-API-Key', LLAVE);
 
-const abrirJornada = () => conApiKey('post', '/api/jornadas');
-const cerrarJornada = (id) =>
-  conApiKey('patch', `/api/jornadas/${id}/estado`).send({ estado: 'cerrada' });
-const reabrirJornada = (id) =>
-  conApiKey('patch', `/api/jornadas/${id}/estado`).send({ estado: 'abierta' });
+const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
+  conApiKey(metodo, ruta).set('Authorization', `Bearer ${token}`);
+
+const abrirJornada = (token = TOKEN_ADMINISTRADOR) => conToken('post', '/api/jornadas', token);
+const cerrarJornada = (id, token = TOKEN_ADMINISTRADOR) =>
+  conToken('patch', `/api/jornadas/${id}/estado`, token).send({ estado: 'cerrada' });
+const reabrirJornada = (id, token = TOKEN_SUPERADMIN) =>
+  conToken('patch', `/api/jornadas/${id}/estado`, token).send({ estado: 'abierta' });
+
+// abrirJornada() (vía POST /api/jornadas) siempre abre la de "hoy": la
+// única prueba que de verdad crea órdenes de lavado reales (SCRUM-38) no
+// puede usarla, porque esas órdenes quedarían amarradas a "hoy" para
+// siempre (ordenes_lavado_jornada_fkey on delete restrict +
+// impedir_eliminacion: nunca se borran) — el mismo problema que
+// crearJornadaCerradaDeOtraFecha evita arriba para las reaperturas. Se
+// inserta directo, con una fecha única, igual que esa.
+const anioBaseJornadaDePrueba = 1000 + Math.floor(Math.random() * 9000);
+// Arranca en un día aleatorio del año (no siempre en el 1): si otro
+// archivo sorteara por pura casualidad el mismo año, es mucho menos
+// probable que además arranque exactamente en el mismo día.
+let contadorDiaJornadaDePrueba = Math.floor(Math.random() * 300);
+
+const abrirJornadaDePruebaConOrdenes = async () => {
+  contadorDiaJornadaDePrueba += 1;
+  const fecha = new Date(anioBaseJornadaDePrueba, 0, contadorDiaJornadaDePrueba)
+    .toISOString()
+    .slice(0, 10);
+
+  const { data, error } = await supabase
+    .from('jornadas')
+    .insert({ fecha, abierta_por: idDeRolDePrueba('administrador') })
+    .select('id')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data.id;
+};
 
 // --- Helpers mínimos para probar los agregados de SCRUM-38 ---
 
-let contadorDocumentoCliente = 0;
+// clientes.service.js ya escribe en el Supabase local (SCRUM-152, Etapa
+// A), no en un array que el beforeEach pudiera vaciar: el documento es
+// único (salto aleatorio + contador) para no chocar ni dentro de esta
+// corrida ni con filas de corridas anteriores sin un `db reset` de por medio.
+const documentoUnicoCliente = crearGeneradorDeValorUnico(
+  generarSello(),
+  (sello, contador) => `${sello}${String(contador).padStart(3, '0')}`,
+);
+
+// vehiculos.service.js ya escribe en el Supabase local (SCRUM-152), no en
+// un array que el beforeEach pudiera vaciar: la placa es única (letras
+// fijas por archivo + contador) para no chocar ni dentro de esta corrida
+// ni con otro archivo que Jest ejecute en paralelo.
+const LETRAS_PLACA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const letraAleatoriaPlaca = () => LETRAS_PLACA[Math.floor(Math.random() * LETRAS_PLACA.length)];
+const prefijoPlaca = `${letraAleatoriaPlaca()}${letraAleatoriaPlaca()}${letraAleatoriaPlaca()}`;
+let contadorPlaca = 0;
+const siguientePlaca = () => {
+  contadorPlaca += 1;
+  return `${prefijoPlaca}${String(contadorPlaca).padStart(3, '0')}`;
+};
 
 const registrarVehiculoDePrueba = async (overrides = {}) => {
-  contadorDocumentoCliente += 1;
-  const cliente = await conApiKey('post', '/api/clientes').send({
+  const { placa, ...resto } = overrides;
+  const cliente = await conToken('post', '/api/clientes').send({
     nombre: 'Ana María Torres',
-    documento: `101010${String(contadorDocumentoCliente).padStart(4, '0')}`,
+    documento: documentoUnicoCliente(),
     tipo: 'particular',
     telefono: '3001234567',
   });
-  const vehiculo = await conApiKey('post', '/api/vehiculos').send({
-    placa: 'ABC123',
+  const vehiculo = await conToken('post', '/api/vehiculos').send({
+    placa: placa ?? siguientePlaca(),
     tipoVehiculo: 'automovil',
     clienteId: cliente.body.cliente.id,
-    ...overrides,
+    ...resto,
   });
   return vehiculo.body.vehiculo;
 };
 
+// colaboradores.service.js ya escribe en el Supabase local (SCRUM-152), no
+// en un array que el beforeEach pudiera vaciar: el documento es único
+// (salto aleatorio + contador). El código solo tiene 900 valores posibles
+// (100-999, ver la migración de `colaboradores`) y un simple sorteo
+// aleatorio choca con los que ya quedaron "activos" de corridas
+// anteriores (nada los limpia sin un `db reset`), así que aquí se
+// consulta qué códigos ya existen antes de sortear uno libre. Un
+// `db reset` periódico sigue siendo necesario para que el rango no se
+// agote del todo con el tiempo.
+const documentoUnicoColaborador = crearGeneradorDeValorUnico(
+  generarSello(),
+  (sello, contador) => `${sello}${String(contador).padStart(3, '0')}`,
+);
+
+const codigosOcupadosColaborador = new Set();
+let siguienteIntentoCodigoColaborador = Math.floor(Math.random() * 900);
+
+beforeAll(async () => {
+  const { data, error } = await supabase.from('colaboradores').select('codigo');
+  if (error) {
+    throw error;
+  }
+  data.forEach((fila) => codigosOcupadosColaborador.add(fila.codigo));
+});
+
+const codigoUnicoColaborador = () => {
+  for (let intento = 0; intento < 900; intento += 1) {
+    const candidato = 100 + ((siguienteIntentoCodigoColaborador + intento) % 900);
+    if (!codigosOcupadosColaborador.has(candidato)) {
+      codigosOcupadosColaborador.add(candidato);
+      siguienteIntentoCodigoColaborador += intento + 1;
+      return candidato;
+    }
+  }
+  throw new Error(
+    'No quedan códigos de colaborador libres entre 100 y 999 (hace falta un db reset)',
+  );
+};
+
 const registrarColaboradorDePrueba = async (overrides = {}) => {
-  const respuesta = await conApiKey('post', '/api/colaboradores').send({
-    codigo: 401,
+  const { codigo, documento, ...resto } = overrides;
+  const respuesta = await conToken('post', '/api/colaboradores').send({
+    codigo: codigo ?? codigoUnicoColaborador(),
     nombre: 'Juan Pérez',
-    documento: '1020304050',
+    documento: documento ?? documentoUnicoColaborador(),
     telefono: '3001234567',
     porcentajeComision: 0.15,
     tipoVinculacion: 'fijo',
-    ...overrides,
+    ...resto,
   });
   return respuesta.body.colaborador;
 };
 
+// servicios.service.js ya escribe en el Supabase local (SCRUM-152), no en
+// un array que el beforeEach pudiera vaciar: el número es único (salto
+// aleatorio + contador) para no chocar ni dentro de esta corrida ni con
+// otro archivo que Jest ejecute en paralelo.
+const selloNumeroServicio = 1000 + Math.floor(Math.random() * 20000);
+const numeroUnicoServicio = crearGeneradorDeValorUnico(
+  selloNumeroServicio,
+  (sello, contador) => sello + contador,
+);
+
 const registrarServicioDePrueba = async (overrides = {}) => {
-  const respuesta = await conApiKey('post', '/api/servicios').send({
-    numero: 1,
+  const respuesta = await conToken('post', '/api/servicios').send({
+    numero: numeroUnicoServicio(),
     nombre: 'Lavado básico',
     descripcion: 'Lavado exterior con shampoo',
     categoria: 'basico',
@@ -78,11 +256,11 @@ const registrarServicioDePrueba = async (overrides = {}) => {
 };
 
 const crearOrdenDePrueba = async (overrides = {}) => {
-  const vehiculo = await registrarVehiculoDePrueba({ placa: overrides.placa ?? 'ABC123' });
+  const vehiculo = await registrarVehiculoDePrueba({ placa: overrides.placa });
   const colaborador = await registrarColaboradorDePrueba(overrides.colaborador);
   const servicio = await registrarServicioDePrueba(overrides.servicio);
 
-  const respuesta = await conApiKey('post', '/api/ordenes-lavado').send({
+  const respuesta = await conToken('post', '/api/ordenes-lavado').send({
     turno: overrides.turno ?? 1,
     vehiculoId: vehiculo.id,
     servicioId: servicio.id,
@@ -93,12 +271,12 @@ const crearOrdenDePrueba = async (overrides = {}) => {
 };
 
 describe('POST /api/jornadas', () => {
-  it('abre la primera jornada (201)', async () => {
+  it('abre la primera jornada (201) y registra el id del usuario autenticado en abiertaPor (SCRUM-152: antes era su email)', async () => {
     const respuesta = await abrirJornada();
 
     expect(respuesta.status).toBe(201);
     expect(respuesta.body.jornada.estado).toBe('abierta');
-    expect(respuesta.body.jornada.abiertaPor).toBeNull();
+    expect(respuesta.body.jornada.abiertaPor).toBe(idDeRolDePrueba('administrador'));
   });
 
   it('rechaza abrir una segunda jornada mientras la primera sigue abierta (409)', async () => {
@@ -117,46 +295,62 @@ describe('POST /api/jornadas', () => {
   });
 
   it('requiere API Key', async () => {
-    const respuesta = await request(app).post('/api/jornadas');
+    const respuesta = await request(app)
+      .post('/api/jornadas')
+      .set('Authorization', `Bearer ${TOKEN_ADMINISTRADOR}`);
     expect(respuesta.status).toBe(401);
+  });
+
+  it('requiere JWT (401 sin Authorization, aunque la API Key sea válida)', async () => {
+    const respuesta = await conApiKey('post', '/api/jornadas');
+    expect(respuesta.status).toBe(401);
+  });
+
+  it('soporte también puede abrir la jornada (201)', async () => {
+    const respuesta = await abrirJornada(TOKEN_SOPORTE);
+    expect(respuesta.status).toBe(201);
+  });
+
+  it('RBAC: un usuario "pendiente" no puede abrir la jornada (403)', async () => {
+    const respuesta = await abrirJornada(TOKEN_PENDIENTE);
+    expect(respuesta.status).toBe(403);
   });
 });
 
 describe('GET /api/jornadas', () => {
   it('lista las jornadas creadas', async () => {
-    await abrirJornada();
+    const creada = await abrirJornada();
 
-    const respuesta = await conApiKey('get', '/api/jornadas');
+    const respuesta = await conToken('get', '/api/jornadas');
 
     expect(respuesta.status).toBe(200);
-    expect(respuesta.body.jornadas).toHaveLength(1);
+    expect(respuesta.body.jornadas.map((jornada) => jornada.id)).toContain(creada.body.jornada.id);
   });
 
   it('rechaza un filtro desde con formato inválido (400)', async () => {
-    const respuesta = await conApiKey('get', '/api/jornadas?desde=no-es-fecha');
+    const respuesta = await conToken('get', '/api/jornadas?desde=no-es-fecha');
     expect(respuesta.status).toBe(400);
   });
 
-  it('SCRUM-38: incluye unidades, ventaTotal (agregados de sus propias órdenes) y diferenciaCaja en null', async () => {
-    const jornadaAbierta = await abrirJornada();
-    const jornadaId = jornadaAbierta.body.jornada.id;
+  it('RBAC: un usuario "pendiente" no puede listar (403)', async () => {
+    const respuesta = await conToken('get', '/api/jornadas', TOKEN_PENDIENTE);
+    expect(respuesta.status).toBe(403);
+  });
 
-    await crearOrdenDePrueba({
-      turno: 1,
-      placa: 'ABC123',
-      colaborador: { codigo: 401, documento: '1020304050' },
-      servicio: { numero: 1 },
-    });
-    await crearOrdenDePrueba({
-      turno: 2,
-      placa: 'XYZ789',
-      colaborador: { codigo: 402, documento: '1020304099' },
-      servicio: { numero: 2 },
-    });
+  it('requiere JWT (401 sin Authorization)', async () => {
+    const respuesta = await conApiKey('get', '/api/jornadas');
+    expect(respuesta.status).toBe(401);
+  });
+
+  it('SCRUM-38: incluye unidades, ventaTotal (agregados de sus propias órdenes) y diferenciaCaja en null', async () => {
+    const jornadaId = await abrirJornadaDePruebaConOrdenes();
+
+    await crearOrdenDePrueba({ turno: 1 });
+    await crearOrdenDePrueba({ turno: 2 });
 
     await cerrarJornada(jornadaId);
 
-    const respuesta = await conApiKey('get', '/api/jornadas');
+    const respuesta = await conToken('get', '/api/jornadas');
 
     expect(respuesta.status).toBe(200);
     const jornadaEnRespuesta = respuesta.body.jornadas.find((j) => j.id === jornadaId);
@@ -170,31 +364,32 @@ describe('GET /api/jornadas/:id', () => {
   it('devuelve la jornada encontrada (200)', async () => {
     const creada = await abrirJornada();
 
-    const respuesta = await conApiKey('get', `/api/jornadas/${creada.body.jornada.id}`);
+    const respuesta = await conToken('get', `/api/jornadas/${creada.body.jornada.id}`);
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.jornada.id).toBe(creada.body.jornada.id);
   });
 
   it('id inexistente: 404', async () => {
-    const respuesta = await conApiKey('get', '/api/jornadas/9999');
+    const respuesta = await conToken('get', '/api/jornadas/999999999');
     expect(respuesta.status).toBe(404);
   });
 
   it('id inválido: 400', async () => {
-    const respuesta = await conApiKey('get', '/api/jornadas/abc');
+    const respuesta = await conToken('get', '/api/jornadas/abc');
     expect(respuesta.status).toBe(400);
   });
 });
 
 describe('PATCH /api/jornadas/:id/estado', () => {
-  it('estado "cerrada": cierra la jornada abierta (200)', async () => {
+  it('estado "cerrada": cierra la jornada abierta (200) y registra el id en cerradaPor (SCRUM-152: antes era su email)', async () => {
     const creada = await abrirJornada();
 
     const respuesta = await cerrarJornada(creada.body.jornada.id);
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.jornada.estado).toBe('cerrada');
+    expect(respuesta.body.jornada.cerradaPor).toBe(idDeRolDePrueba('administrador'));
   });
 
   it('rechaza cerrar una jornada que ya está cerrada (409)', async () => {
@@ -206,19 +401,51 @@ describe('PATCH /api/jornadas/:id/estado', () => {
   });
 
   it('id inexistente al cerrar: 404', async () => {
-    const respuesta = await cerrarJornada(9999);
+    const respuesta = await cerrarJornada(999999999);
     expect(respuesta.status).toBe(404);
   });
 
-  it('estado "abierta": reabre la jornada cerrada (200) y registra la reapertura', async () => {
+  it('RBAC: un usuario "pendiente" no puede cerrar la jornada (403)', async () => {
     const creada = await abrirJornada();
-    await cerrarJornada(creada.body.jornada.id);
 
-    const respuesta = await reabrirJornada(creada.body.jornada.id);
+    const respuesta = await cerrarJornada(creada.body.jornada.id, TOKEN_PENDIENTE);
+    expect(respuesta.status).toBe(403);
+  });
+
+  it('requiere JWT (401 sin Authorization)', async () => {
+    const creada = await abrirJornada();
+
+    const respuesta = await conApiKey(
+      'patch',
+      `/api/jornadas/${creada.body.jornada.id}/estado`,
+    ).send({ estado: 'cerrada' });
+    expect(respuesta.status).toBe(401);
+  });
+
+  it('estado "abierta": superadmin reabre la jornada cerrada (200) y registra la reapertura', async () => {
+    const creada = await crearJornadaCerradaDeOtraFecha();
+
+    const respuesta = await reabrirJornada(creada.id);
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.jornada.estado).toBe('abierta');
     expect(respuesta.body.jornada.reaperturas).toHaveLength(1);
+  });
+
+  it('RBAC: administrador no puede reabrir una jornada (403), solo superadmin', async () => {
+    const creada = await abrirJornada();
+    await cerrarJornada(creada.body.jornada.id);
+
+    const respuesta = await reabrirJornada(creada.body.jornada.id, TOKEN_ADMINISTRADOR);
+    expect(respuesta.status).toBe(403);
+  });
+
+  it('RBAC: soporte no puede reabrir una jornada (403), solo superadmin', async () => {
+    const creada = await abrirJornada();
+    await cerrarJornada(creada.body.jornada.id);
+
+    const respuesta = await reabrirJornada(creada.body.jornada.id, TOKEN_SOPORTE);
+    expect(respuesta.status).toBe(403);
   });
 
   it('rechaza reabrir una jornada que no está cerrada (409)', async () => {
@@ -229,14 +456,14 @@ describe('PATCH /api/jornadas/:id/estado', () => {
   });
 
   it('id inexistente al reabrir: 404', async () => {
-    const respuesta = await reabrirJornada(9999);
+    const respuesta = await reabrirJornada(999999999);
     expect(respuesta.status).toBe(404);
   });
 
   it('rechaza un estado que no existe en el dominio (400)', async () => {
     const creada = await abrirJornada();
 
-    const respuesta = await conApiKey(
+    const respuesta = await conToken(
       'patch',
       `/api/jornadas/${creada.body.jornada.id}/estado`,
     ).send({ estado: 'pausada' });

@@ -8,8 +8,20 @@ const {
 } = require('../controllers/clientes.controller');
 const { validarCrear, validarActualizar } = require('../middlewares/clientes.validator');
 const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
+const { autenticarJWT } = require('../middlewares/auth.middleware');
+const { autorizarRoles } = require('../middlewares/roles.middleware');
+const { ROLES_ENUM } = require('../constants/dominio');
 
 const router = Router();
+
+// RBAC (SCRUM-139): soporte necesita consultar clientes para registrar
+// órdenes, pero no gestionarlos (crear/editar/eliminar).
+const PUEDEN_CONSULTAR = autorizarRoles(
+  ROLES_ENUM.SUPERADMIN,
+  ROLES_ENUM.ADMINISTRADOR,
+  ROLES_ENUM.SOPORTE,
+);
+const PUEDEN_GESTIONAR = autorizarRoles(ROLES_ENUM.SUPERADMIN, ROLES_ENUM.ADMINISTRADOR);
 
 /**
  * @swagger
@@ -68,11 +80,18 @@ const router = Router();
  *   get:
  *     tags: [Clientes]
  *     summary: Listar clientes
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Lista de clientes
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Rol sin permiso para consultar clientes
  */
-router.get('/', listar);
+router.get('/', autenticarJWT, PUEDEN_CONSULTAR, listar);
 
 /**
  * @swagger
@@ -86,15 +105,22 @@ router.get('/', listar);
  *         required: true
  *         schema:
  *           type: integer
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Cliente encontrado
  *       400:
  *         description: Id inválido
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Rol sin permiso para consultar clientes
  *       404:
  *         description: Cliente no encontrado
  */
-router.get('/:id', validarIdDeUrl, validar, obtenerPorId);
+router.get('/:id', autenticarJWT, PUEDEN_CONSULTAR, validarIdDeUrl, validar, obtenerPorId);
 
 /**
  * @swagger
@@ -108,15 +134,22 @@ router.get('/:id', validarIdDeUrl, validar, obtenerPorId);
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/ClienteCrear'
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       201:
  *         description: Cliente registrado correctamente
  *       400:
  *         description: Datos inválidos
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Operación permitida únicamente a superadmin o administrador
  *       409:
  *         description: Documento ya registrado
  */
-router.post('/', validarCrear, validar, crear);
+router.post('/', autenticarJWT, PUEDEN_GESTIONAR, validarCrear, validar, crear);
 
 /**
  * @swagger
@@ -136,17 +169,32 @@ router.post('/', validarCrear, validar, crear);
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/ClienteActualizar'
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Cliente actualizado correctamente
  *       400:
  *         description: Datos o id inválidos
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Operación permitida únicamente a superadmin o administrador
  *       404:
  *         description: Cliente no encontrado
  *       409:
  *         description: Documento ya registrado por otro cliente
  */
-router.put('/:id', validarIdDeUrl, validarActualizar, validar, actualizar);
+router.put(
+  '/:id',
+  autenticarJWT,
+  PUEDEN_GESTIONAR,
+  validarIdDeUrl,
+  validarActualizar,
+  validar,
+  actualizar,
+);
 
 /**
  * @swagger
@@ -161,16 +209,23 @@ router.put('/:id', validarIdDeUrl, validarActualizar, validar, actualizar);
  *         required: true
  *         schema:
  *           type: integer
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Cliente eliminado correctamente
  *       400:
  *         description: Id inválido
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Operación permitida únicamente a superadmin o administrador
  *       404:
  *         description: Cliente no encontrado
  *       409:
  *         description: El cliente tiene vehículos asociados
  */
-router.delete('/:id', validarIdDeUrl, validar, eliminar);
+router.delete('/:id', autenticarJWT, PUEDEN_GESTIONAR, validarIdDeUrl, validar, eliminar);
 
 module.exports = router;

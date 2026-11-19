@@ -1,23 +1,35 @@
-# Integración continua de la base de datos (supabase/).
-# Pendiente: se activa cuando exista código. Mientras tanto solo se ejecuta a
-# mano, para que GitHub no registre un fallo en cada push.
-name: CI base de datos
+name: Base de datos
 
 on:
-  workflow_dispatch:
-
-permissions:
-  contents: read
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  pull_request:
+    paths:
+      - "supabase/**"
+  push:
+    paths:
+      - "supabase/**"
 
 jobs:
-  pendiente:
-    name: Pendiente
+  pruebas:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - name: Aviso
-        run: echo "Pendiente; el flujo de supabase se activa cuando exista código."
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Levantar la base local
+        run: supabase start
+
+      - name: Resetear la base (migraciones + seed)
+        run: supabase db reset
+
+      - name: Correr las pruebas pgTAP
+        run: supabase test db --local
+
+      - name: Revisar el esquema (db lint)
+        run: supabase db lint --local --fail-on warning

@@ -1,4 +1,5 @@
 const { body } = require('express-validator');
+const { ROLES } = require('../constants/dominio');
 
 const LONGITUD_MINIMA_PASSWORD = 10;
 // bcrypt trunca silenciosamente cualquier entrada más allá de 72 bytes;
@@ -46,4 +47,15 @@ const validarLogin = [
     .withMessage('La contraseña es obligatoria'),
 ];
 
-module.exports = { validarRegistro, validarLogin };
+/**
+ * PATCH /api/auth/usuarios/:id/rol — solo superadmin (ver roles.middleware.js).
+ * El rol debe ser uno de los del dominio; cualquier otro valor es 400, no se
+ * guarda "tal cual viene" como hacía el registro público con el campo rol.
+ */
+const validarAsignacionRol = [
+  body('rol')
+    .isIn(ROLES)
+    .withMessage(`El rol debe ser uno de: ${ROLES.join(', ')}`),
+];
+
+module.exports = { validarRegistro, validarLogin, validarAsignacionRol };

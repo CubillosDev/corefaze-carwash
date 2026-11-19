@@ -1,11 +1,12 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
+const { documentoSwagger } = require('../../src/docs/swagger');
 
 const LLAVE = 'k'.repeat(40);
 const ORIGEN = 'http://localhost:5173';
 
 const app = crearApp({
-  apiKeys: { postman: LLAVE, admin: 'a'.repeat(40), movil: 'm'.repeat(40) },
+  apiKeys: { postman: LLAVE, admin: 'a'.repeat(40), movil: 'm'.repeat(40), web: 'w'.repeat(40) },
   origenPermitido: ORIGEN,
 });
 describe('aplicación', () => {
@@ -49,6 +50,18 @@ describe('aplicación', () => {
       expect(respuesta.body).toEqual({
         mensaje: 'Cliente autenticado',
         cliente: { id: 1, nombre: 'Postman / Laboratorio' },
+      });
+    });
+
+    it('SCRUM-140: la API Key del panel web (API_KEY_WEB) también identifica correctamente (200)', async () => {
+      const respuesta = await request(app)
+        .get('/api/seguridad/cliente')
+        .set('X-API-Key', 'w'.repeat(40));
+
+      expect(respuesta.status).toBe(200);
+      expect(respuesta.body).toEqual({
+        mensaje: 'Cliente autenticado',
+        cliente: { id: 4, nombre: 'Panel web' },
       });
     });
   });
@@ -112,6 +125,35 @@ describe('aplicación', () => {
       expect(pagina.text).not.toMatch(/<script>[\s\S]*?<\/script>/);
       expect(pagina.text).toContain('<script src="./swagger-ui-init.js">');
       expect(initJs.status).toBe(200);
+    });
+  });
+
+  describe('merge de develop (Usuarios PR #20 + Crédito PR #21) en esta rama', () => {
+    it('GET /api/usuarios responde (401 sin JWT, no 404 ni 500): la ruta está montada', async () => {
+      const respuesta = await request(app).get('/api/usuarios').set('X-API-Key', LLAVE);
+      expect(respuesta.status).toBe(401);
+      expect(respuesta.body).toEqual({ mensaje: 'Token de autenticación requerido' });
+    });
+
+    it('GET /api/credito/clientes responde (401 sin JWT, no 404 ni 500): la ruta está montada', async () => {
+      const respuesta = await request(app).get('/api/credito/clientes').set('X-API-Key', LLAVE);
+      expect(respuesta.status).toBe(401);
+      expect(respuesta.body).toEqual({ mensaje: 'Token de autenticación requerido' });
+    });
+
+    it('POST /api/nomina/descuentos responde (401 sin JWT, no 404 ni 500): la ruta está montada', async () => {
+      const respuesta = await request(app)
+        .post('/api/nomina/descuentos')
+        .set('X-API-Key', LLAVE)
+        .send({});
+      expect(respuesta.status).toBe(401);
+      expect(respuesta.body).toEqual({ mensaje: 'Token de autenticación requerido' });
+    });
+
+    it('Swagger lista los 3 tags fusionados, sin duplicados', () => {
+      const nombresTags = documentoSwagger.tags.map((tag) => tag.name);
+      expect(nombresTags).toEqual(expect.arrayContaining(['Usuarios', 'Crédito', 'Nómina']));
+      expect(new Set(nombresTags).size).toBe(nombresTags.length);
     });
   });
 
