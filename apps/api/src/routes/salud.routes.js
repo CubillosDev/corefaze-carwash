@@ -4,7 +4,9 @@ const router = Router();
 
 /**
  * GET /api/salud: comprueba que la API está viva. Es pública a propósito
- * (la usan monitores y el despliegue) y por eso no revela versión ni configuración.
+ * (la usan monitores y el despliegue) y por eso no revela versión ni
+ * configuración: solo el nombre del entorno (desarrollo, pruebas o
+ * produccion), que sirve para confirmar a qué API se apunta.
  */
 
 /**
@@ -17,9 +19,12 @@ const router = Router();
  *     responses:
  *       200:
  *         description: Servicio operativo
+ *         content:
+ *           application/json:
+ *             example: { estado: ok, entorno: pruebas }
  */
-router.get('/', (_req, res) => {
-  res.json({ estado: 'ok' });
+router.get('/', (req, res) => {
+  res.json({ estado: 'ok', entorno: req.app.locals.entornoDespliegue });
 });
 
 module.exports = router;

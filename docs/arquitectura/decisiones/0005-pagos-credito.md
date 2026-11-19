@@ -32,7 +32,7 @@ Se agregó el chequeo explícito pedido ("una orden con `pago_credito_id` no se 
 
 ### RLS de `pagos_credito`
 
-Mismo patrón del ADR 0004: consultar (`SELECT`) para `superadmin`/`administrador`/`soporte`; sin ningún `GRANT` de `INSERT`/`UPDATE`/`DELETE` a `authenticated` — la única vía de escritura es la función, y solo `service_role` puede ejecutarla.
+Mismo patrón del ADR 0009 (políticas RLS por rol): consultar (`SELECT`) para `superadmin`/`administrador`/`soporte`; sin ningún `GRANT` de `INSERT`/`UPDATE`/`DELETE` a `authenticated` — la única vía de escritura es la función, y solo `service_role` puede ejecutarla.
 
 ## Fuera de alcance
 

@@ -1,0 +1,101 @@
+# Render Blueprint de la API (apps/api). Ver docs/despliegue/README.md.
+#
+# Dos servicios, uno por entorno:
+#   - corefaze-api-pruebas: rama develop, se despliega cuando el CI de ese commit pasa.
+#   - corefaze-api:         rama main, se despliega a mano (producción). NO se crea todavía:
+#     sincronizar este Blueprint crea TODOS los servicios del archivo, así que mientras producción
+#     no exista, el servicio de pruebas se crea a mano con estos mismos valores (guía, paso B3).
+#
+# Ningún valor secreto vive aquí: las variables con `sync: false` se cargan en el panel de Render.
+# SUPABASE_SERVICE_ROLE_KEY solo existe en estos servicios, nunca en el web, la landing ni el móvil.
+
+services:
+  - type: web
+    name: corefaze-api-pruebas
+    runtime: node
+    plan: free
+    region: virginia
+    branch: develop
+    autoDeployTrigger: checksPass
+    buildCommand: npm ci --omit=dev --workspace apps/api
+    startCommand: npm run start --workspace apps/api
+    healthCheckPath: /api/salud
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/contratos/**
+        - package.json
+        - package-lock.json
+        - .nvmrc
+        - render.yaml
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: ENTORNO
+        value: pruebas
+      - key: ALLOWED_ORIGIN
+        sync: false
+      - key: API_KEY_POSTMAN
+        sync: false
+      - key: API_KEY_ADMIN
+        sync: false
+      - key: API_KEY_MOVIL
+        sync: false
+      - key: API_KEY_WEB
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+  - type: web
+    name: corefaze-api
+    runtime: node
+    # Plan pago: el gratuito se duerme tras 15 minutos sin tráfico (ver checklist-primer-cliente.md).
+    plan: starter
+    region: virginia
+    branch: main
+    # Producción se despliega a mano, después de aprobar el release (GitHub Environment "produccion").
+    autoDeployTrigger: "off"
+    buildCommand: npm ci --omit=dev --workspace apps/api
+    startCommand: npm run start --workspace apps/api
+    healthCheckPath: /api/salud
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/contratos/**
+        - package.json
+        - package-lock.json
+        - .nvmrc
+        - render.yaml
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: ENTORNO
+        value: produccion
+      - key: ALLOWED_ORIGIN
+        sync: false
+      - key: API_KEY_POSTMAN
+        sync: false
+      - key: API_KEY_ADMIN
+        sync: false
+      - key: API_KEY_MOVIL
+        sync: false
+      - key: API_KEY_WEB
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false

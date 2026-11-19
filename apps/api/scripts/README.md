@@ -1,7 +1,8 @@
 # Datos de demostración
 
 Scripts para cargar y quitar datos **ficticios** en un entorno local o de demostración. No cambian el
-código de la API. Nunca los corras contra producción.
+código de la API. Nunca los corras contra producción: `seed-demo.js` se niega a correr con
+`ENTORNO=produccion` o `NODE_ENV=production`, antes de leer credenciales o tocar la red.
 
 | Archivo | Para qué |
 |---|---|

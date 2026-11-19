@@ -1,4 +1,8 @@
-# 0004 — Políticas RLS por rol como defensa en profundidad (SCRUM-147)
+# 0009 — Políticas RLS por rol como defensa en profundidad (SCRUM-147)
+
+> Antes se numeraba 0004, igual que el ADR de la sesión del panel web. Se renumeró para que cada número sea único.
+> Las migraciones ya aplicadas (`agregar_pagos_credito` y `agregar_nomina_quincenal`) siguen diciendo "ADR 0004" en
+> sus comentarios: se refieren a este documento. No se editan porque las migraciones aplicadas no cambian.
 
 **Estado:** Aceptado.
 

@@ -15,7 +15,7 @@ describe('aplicación', () => {
       const respuesta = await request(app).get('/api/salud');
 
       expect(respuesta.status).toBe(200);
-      expect(respuesta.body).toEqual({ estado: 'ok' });
+      expect(respuesta.body).toEqual({ estado: 'ok', entorno: 'desarrollo' });
     });
   });
 
