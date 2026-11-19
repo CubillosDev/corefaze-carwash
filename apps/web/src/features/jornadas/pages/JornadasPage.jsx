@@ -18,10 +18,9 @@ import { TablaJornadas } from '@/features/jornadas/components/TablaJornadas';
 import { useAccionesJornada } from '@/features/jornadas/hooks/useAccionesJornada';
 import { useAviso } from '@/hooks/useAviso';
 import { useCarga } from '@/hooks/useCarga';
+import { useFilasPorPagina } from '@/hooks/useFilasPorPagina';
 import { formatoFecha } from '@/utils/formatoFecha';
 import { paginar } from '@/utils/paginar';
-
-const POR_PAGINA = 10;
 
 const cargarJornadas = (signal) => listarJornadas({}, { signal });
 
@@ -34,12 +33,13 @@ export function JornadasPage() {
   const jornadas = useCarga(cargarJornadas);
   const { aviso, mostrarAviso } = useAviso();
   const [pagina, setPagina] = useState(0);
+  const porPagina = useFilasPorPagina({ reservado: 300, altoFila: 50 });
   const acciones = useAccionesJornada({ alCambiar: jornadas.recargar, avisar: mostrarAviso });
 
   const puedeGestionar = rolPuedeGestionar(usuario?.rol, RUTAS.JORNADAS);
   const lista = [...(jornadas.datos ?? [])].sort((a, b) => b.fecha.localeCompare(a.fecha));
   const hayAbierta = lista.some((jornada) => jornada.estado === ESTADOS_JORNADA.ABIERTA);
-  const vistaPaginada = paginar(lista, pagina, POR_PAGINA);
+  const vistaPaginada = paginar(lista, pagina, porPagina);
 
   return (
     <div className="flex flex-col">
@@ -71,12 +71,12 @@ export function JornadasPage() {
               alCerrar={acciones.pedirCierre}
               alReabrir={acciones.reabrir}
             />
-            {lista.length > POR_PAGINA ? (
+            {lista.length > porPagina ? (
               <Paginacion
                 pagina={vistaPaginada.pagina}
                 totalPaginas={vistaPaginada.totalPaginas}
                 totalElementos={lista.length}
-                porPagina={POR_PAGINA}
+                porPagina={porPagina}
                 alCambiar={setPagina}
               />
             ) : null}

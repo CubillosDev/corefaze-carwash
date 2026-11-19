@@ -52,6 +52,7 @@ export const rutas = [
               { index: true, Component: paginaDiferida(cargarInicio, 'InicioPage') },
               {
                 path: RUTAS.ORDENES_LAVADO,
+                handle: { ajustarAlAlto: true },
                 Component: paginaDiferida(cargarOrdenes, 'OrdenesLavadoPage'),
                 children: [{ path: ':idOrden', Component: paginaDiferida(cargarOrdenes, 'DetalleOrdenPage') }],
               },

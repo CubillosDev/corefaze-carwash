@@ -6,7 +6,9 @@ import { CampoSeleccion } from '@/components/ui/CampoSeleccion';
 import { CampoTexto } from '@/components/ui/CampoTexto';
 import { IconoMenu } from '@/components/ui/iconos/IconoMenu';
 import { Modal } from '@/components/ui/Modal';
+import { Paginacion } from '@/components/ui/Paginacion';
 import { Tabla } from '@/components/ui/Tabla';
+import { Tarjeta } from '@/components/ui/Tarjeta';
 import { MenuPerfil } from '@/features/autenticacion';
 import { MuestraDeColor } from '@/features/sistema-diseno/components/MuestraDeColor';
 import { MuestraDeForma } from '@/features/sistema-diseno/components/MuestraDeForma';
@@ -491,7 +493,7 @@ export function SistemaDisenoPage() {
 
       <SeccionDelCatalogo
         titulo="Tabla"
-        descripcion="Recibe columnas y filas. En pantallas angostas se desplaza de lado dentro de su contenedor, y tiene estado vacío."
+        descripcion="Recibe columnas y filas. En pantallas angostas se desplaza de lado dentro de su contenedor, y tiene estado vacío. La variante enTarjeta no lleva marco propio: va dentro de una Tarjeta, con la paginación al pie."
       >
         <div className="flex flex-col gap-6">
           <Tabla
@@ -499,6 +501,15 @@ export function SistemaDisenoPage() {
             filas={SERVICIOS_DE_EJEMPLO}
             descripcion="Servicios de ejemplo con duración y precio"
           />
+          <Tarjeta relleno="ninguno" className="overflow-hidden">
+            <Tabla
+              enTarjeta
+              columnas={COLUMNAS_DE_SERVICIOS}
+              filas={SERVICIOS_DE_EJEMPLO}
+              descripcion="Servicios de ejemplo dentro de una tarjeta con paginación"
+            />
+            <Paginacion pagina={0} totalPaginas={3} totalElementos={SERVICIOS_DE_EJEMPLO.length * 3} porPagina={SERVICIOS_DE_EJEMPLO.length} alCambiar={() => {}} />
+          </Tarjeta>
           <Tabla
             columnas={COLUMNAS_DE_SERVICIOS}
             filas={[]}

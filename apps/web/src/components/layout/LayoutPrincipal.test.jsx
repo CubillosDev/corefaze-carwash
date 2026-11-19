@@ -1,6 +1,6 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { LayoutPrincipal } from '@/components/layout/LayoutPrincipal';
@@ -34,17 +34,24 @@ const SESION_ADMIN = {
   token: 'token-de-prueba',
 };
 
-function renderizarLayout() {
+function renderizarLayout(rutaInicial = '/') {
+  const router = createMemoryRouter(
+    [
+      {
+        path: '/',
+        element: <LayoutPrincipal />,
+        children: [
+          { index: true, element: <p>Contenido de la página</p> },
+          { path: 'tablero', handle: { ajustarAlAlto: true }, element: <p>Tablero ajustado</p> },
+          { path: '*', element: <p>Otra página</p> },
+        ],
+      },
+    ],
+    { initialEntries: [rutaInicial] },
+  );
   return render(
     <ProveedorSesion sesionInicial={SESION_ADMIN}>
-      <MemoryRouter initialEntries={['/']}>
-        <Routes>
-          <Route path="/" element={<LayoutPrincipal />}>
-            <Route index element={<p>Contenido de la página</p>} />
-            <Route path="*" element={<p>Otra página</p>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
+      <RouterProvider router={router} />
     </ProveedorSesion>,
   );
 }
@@ -71,6 +78,17 @@ describe('LayoutPrincipal: estructura', () => {
     renderizarLayout();
 
     expect(within(screen.getByRole('main')).getByText('Contenido de la página')).toBeInTheDocument();
+  });
+
+  it('ajusta el contenido al alto disponible cuando la ruta lo pide', () => {
+    const { unmount } = renderizarLayout();
+    expect(screen.getByText('Contenido de la página').parentElement).toHaveClass('min-h-full');
+    unmount();
+
+    renderizarLayout('/tablero');
+    const contenedor = screen.getByText('Tablero ajustado').parentElement;
+    expect(contenedor).toHaveClass('h-full', 'flex-col');
+    expect(contenedor).not.toHaveClass('min-h-full');
   });
 
   it('ofrece un enlace para saltar al contenido', () => {

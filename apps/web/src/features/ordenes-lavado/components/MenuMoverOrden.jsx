@@ -6,6 +6,9 @@ import { etiquetaEstadoOrden, tonoEstadoOrden } from '@/constants/etiquetas';
 import { useTeclaEscape } from '@/hooks/useTeclaEscape';
 import { siguientesEstados } from '@/utils/estadosOrden';
 
+const ALTO_ENCABEZADO_MENU = 40;
+const ALTO_OPCION = 30;
+
 /**
  * Botón "⋯" de una tarjeta con el menú "Mover a": el estado actual y los
  * estados permitidos. Se cierra con Escape (el foco vuelve al botón) o al
@@ -21,10 +24,22 @@ import { siguientesEstados } from '@/utils/estadosOrden';
  */
 export function MenuMoverOrden({ estado, descripcion, puedeAnular, deshabilitado = false, alElegir, alAbrirOCerrar }) {
   const [abierto, setAbierto] = useState(false);
+  const [haciaArriba, setHaciaArriba] = useState(false);
   const contenedor = useRef(null);
   const boton = useRef(null);
   const idMenu = useId();
   const opciones = siguientesEstados(estado, puedeAnular);
+
+  // Dentro de una columna que se desplaza, el menú se abre hacia arriba si no
+  // cabe debajo del botón; así no queda cortado en las últimas tarjetas.
+  function alternar() {
+    if (!abierto) {
+      const caja = boton.current.getBoundingClientRect();
+      const borde = boton.current.closest('[data-desplazable]')?.getBoundingClientRect().bottom ?? window.innerHeight;
+      setHaciaArriba(borde - caja.bottom < ALTO_ENCABEZADO_MENU + (opciones.length + 1) * ALTO_OPCION);
+    }
+    cambiarAbierto(!abierto);
+  }
 
   const cambiarAbierto = useCallback(
     (valor) => {
@@ -70,7 +85,7 @@ export function MenuMoverOrden({ estado, descripcion, puedeAnular, deshabilitado
         aria-expanded={abierto}
         aria-controls={abierto ? idMenu : undefined}
         disabled={deshabilitado}
-        onClick={() => cambiarAbierto(!abierto)}
+        onClick={alternar}
         className="inline-flex size-6 items-center justify-center rounded-placa text-neutro-500 transition-colors duration-150 hover:bg-neutro-100 hover:text-neutro-900 disabled:opacity-40"
       >
         <IconoPuntos />
@@ -81,7 +96,9 @@ export function MenuMoverOrden({ estado, descripcion, puedeAnular, deshabilitado
           id={idMenu}
           role="menu"
           aria-label="Mover a"
-          className="absolute top-7.5 right-0 z-40 w-46 animate-aparecer rounded-menu border border-neutro-200 bg-white p-1.25 shadow-menu"
+          className={`absolute right-0 z-40 w-46 animate-aparecer rounded-menu border border-neutro-200 bg-white p-1.25 shadow-menu ${
+            haciaArriba ? 'bottom-7.5' : 'top-7.5'
+          }`}
         >
           <p aria-hidden="true" className="px-2 pt-1.5 pb-1 text-etiqueta-menu text-neutro-450 uppercase">
             Mover a

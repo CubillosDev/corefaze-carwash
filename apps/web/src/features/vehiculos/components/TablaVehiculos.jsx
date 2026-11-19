@@ -97,6 +97,7 @@ export function TablaVehiculos({
       filas={vehiculos}
       descripcion="Vehículos registrados, con su tipo, marca, color y cliente"
       mensajeVacio={mensajeVacio}
+      enTarjeta
     />
   );
 }

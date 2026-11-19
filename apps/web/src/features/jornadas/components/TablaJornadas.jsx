@@ -98,6 +98,7 @@ export function TablaJornadas({ jornadas, puedeCerrar, puedeReabrir, enviando, a
       filas={jornadas}
       descripcion="Jornadas registradas, de la más reciente a la más antigua"
       mensajeVacio="Aún no hay jornadas registradas."
+      enTarjeta
     />
   );
 }

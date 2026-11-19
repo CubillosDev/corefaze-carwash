@@ -6,6 +6,8 @@ import { CampoBusqueda } from '@/components/ui/CampoBusqueda';
 import { EncabezadoPagina } from '@/components/ui/EncabezadoPagina';
 import { IconoMas } from '@/components/ui/iconos/IconoMas';
 import { IconoCargando } from '@/components/ui/iconos/IconoCargando';
+import { Paginacion } from '@/components/ui/Paginacion';
+import { Tarjeta } from '@/components/ui/Tarjeta';
 import { rolPuedeGestionar } from '@/constants/permisos';
 import { RUTAS } from '@/constants/rutas';
 import { useSesion } from '@/features/autenticacion';
@@ -20,7 +22,9 @@ import { HistorialVehiculo } from '@/features/vehiculos/components/HistorialVehi
 import { TablaVehiculos } from '@/features/vehiculos/components/TablaVehiculos';
 import { useVehiculos } from '@/features/vehiculos/hooks/useVehiculos';
 import { normalizarPlaca } from '@/features/vehiculos/validators/vehiculo.schema';
+import { useFilasPorPagina } from '@/hooks/useFilasPorPagina';
 import { formatoPlaca } from '@/utils/formatoPlaca';
+import { paginar } from '@/utils/paginar';
 
 /**
  * Vehículos: listado, búsqueda por placa, registro, edición, eliminación y
@@ -38,9 +42,17 @@ export function VehiculosPage() {
   // Una sola ventana a la vez: { tipo: 'formulario'|'eliminar'|'historial', vehiculo }
   const [ventana, setVentana] = useState(null);
   const [aviso, setAviso] = useState('');
+  const [pagina, setPagina] = useState(0);
+  const porPagina = useFilasPorPagina({ reservado: 300, altoFila: 50 });
 
   const cerrarVentana = () => setVentana(null);
   const hayBusqueda = normalizarPlaca(datos.busqueda) !== '';
+  const vista = paginar(datos.coincidencias, pagina, porPagina);
+
+  const buscar = (texto) => {
+    datos.buscar(texto);
+    setPagina(0);
+  };
 
   async function guardar(valores) {
     const editando = ventana.vehiculo;
@@ -78,7 +90,7 @@ export function VehiculosPage() {
               etiqueta="Buscar por placa"
               marcador="Buscar por placa, ej. ABC123"
               valor={datos.busqueda}
-              alCambiar={datos.buscar}
+              alCambiar={buscar}
               className="w-75 max-w-full"
             />
             {puedeGestionar ? (
@@ -125,18 +137,29 @@ export function VehiculosPage() {
               ? `${datos.coincidencias.length} de ${datos.vehiculos.length} vehículos`
               : `${datos.vehiculos.length} ${datos.vehiculos.length === 1 ? 'vehículo' : 'vehículos'}`}
           </p>
-          <TablaVehiculos
-            vehiculos={datos.coincidencias}
-            nombreDeCliente={datos.nombreDeCliente}
-            alVerHistorial={(vehiculo) => setVentana({ tipo: 'historial', vehiculo })}
-            alEditar={
-              puedeGestionar ? (vehiculo) => setVentana({ tipo: 'formulario', vehiculo }) : undefined
-            }
-            alEliminar={
-              puedeGestionar ? (vehiculo) => setVentana({ tipo: 'eliminar', vehiculo }) : undefined
-            }
-            mensajeVacio={mensajeVacio({ hayBusqueda, puedeGestionar })}
-          />
+          <Tarjeta relleno="ninguno" className="overflow-hidden">
+            <TablaVehiculos
+              vehiculos={vista.elementos}
+              nombreDeCliente={datos.nombreDeCliente}
+              alVerHistorial={(vehiculo) => setVentana({ tipo: 'historial', vehiculo })}
+              alEditar={
+                puedeGestionar ? (vehiculo) => setVentana({ tipo: 'formulario', vehiculo }) : undefined
+              }
+              alEliminar={
+                puedeGestionar ? (vehiculo) => setVentana({ tipo: 'eliminar', vehiculo }) : undefined
+              }
+              mensajeVacio={mensajeVacio({ hayBusqueda, puedeGestionar })}
+            />
+            {datos.coincidencias.length > porPagina ? (
+              <Paginacion
+                pagina={vista.pagina}
+                totalPaginas={vista.totalPaginas}
+                totalElementos={datos.coincidencias.length}
+                porPagina={porPagina}
+                alCambiar={setPagina}
+              />
+            ) : null}
+          </Tarjeta>
         </>
       ) : null}
 
