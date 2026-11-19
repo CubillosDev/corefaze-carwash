@@ -48,7 +48,7 @@ describe('IngresoPage', () => {
   it('muestra el formulario de ingreso con correo, contraseña y botón "Ingresar"', () => {
     renderizar();
 
-    expect(screen.getByRole('heading', { name: /ingresar a carwash/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /hola de nuevo/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/correo electrónico/i)).toHaveAttribute('type', 'email');
     expect(screen.getByLabelText(/^contraseña/i)).toHaveAttribute('type', 'password');
     expect(screen.getByRole('button', { name: 'Ingresar' })).toBeEnabled();
