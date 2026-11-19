@@ -122,6 +122,34 @@ const ultimaJornada = async () => {
   return jornadas[0] ? jornadasService.obtenerJornadaPorId(jornadas[0].id) : null;
 };
 
+/**
+ * Una caja que quedó abierta en OTRA jornada (por ejemplo, si se cerró la
+ * jornada sin cerrar su caja). Como solo puede haber una caja abierta, hay
+ * que cerrarla con su arqueo antes de abrir la de la jornada actual; el
+ * panel la muestra para poder hacerlo.
+ */
+const cajaAbiertaDeOtraJornada = async (jornadaId) => {
+  const [caja] = await consultar(
+    supabase
+      .from('cajas')
+      .select(`${COLUMNAS_CAJA}, jornada:jornadas(fecha)`)
+      .eq('estado', 'abierta')
+      .neq('jornada_id', jornadaId ?? -1)
+      .limit(1),
+    'la caja abierta de otra jornada',
+  );
+  if (!caja) {
+    return null;
+  }
+  const [cobros, egresos] = await Promise.all([cobrosDeCaja(caja.id), egresosDeCaja(caja.id)]);
+  const { jornada, ...datos } = caja;
+  return {
+    ...datos,
+    fecha: unaRelacion(jornada)?.fecha ?? null,
+    totales: calcularTotales(datos, cobros, egresos, []),
+  };
+};
+
 const sumarValores = (lista) => lista.reduce((total, elemento) => total + elemento.valor, 0);
 
 /**
@@ -152,7 +180,8 @@ const calcularTotales = (caja, cobros, egresos, porCobrar) => {
 /**
  * Estado de la caja de una jornada (por defecto, la abierta o, si no hay,
  * la última): la caja, sus totales, sus cobros y egresos, las órdenes
- * terminadas por cobrar y las que siguen en el patio.
+ * terminadas por cobrar y las que siguen en el patio. Si quedó abierta una
+ * caja de otra jornada, la devuelve en `cajaAnterior` (si no, null).
  *
  * @param {{ jornadaId?: number }} [filtros]
  */
@@ -162,16 +191,18 @@ const obtenerEstado = async ({ jornadaId } = {}) => {
     : ((await jornadasService.obtenerJornadaAbierta()) ?? (await ultimaJornada()));
 
   const caja = jornada ? await cajaDeJornada(jornada.id) : null;
-  const [porCobrar, enPatio, cobros, egresos] = await Promise.all([
+  const [porCobrar, enPatio, cobros, egresos, cajaAnterior] = await Promise.all([
     ordenesEnEstado([ESTADOS_ORDEN.TERMINADA]),
     ordenesEnEstado([ESTADOS_ORDEN.REGISTRADA, ESTADOS_ORDEN.EN_PROCESO]),
     caja ? cobrosDeCaja(caja.id) : [],
     caja ? egresosDeCaja(caja.id) : [],
+    cajaAbiertaDeOtraJornada(jornada?.id),
   ]);
 
   return {
     jornada,
     caja,
+    cajaAnterior,
     totales: calcularTotales(caja, cobros, egresos, porCobrar),
     porCobrar: porCobrar.map(normalizarOrden),
     enPatio: enPatio.map(normalizarOrden),

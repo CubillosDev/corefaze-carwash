@@ -232,9 +232,9 @@ router.post('/', autenticarJWT, PUEDEN_GESTIONAR, abrir);
  *         description: Jornada no encontrada
  *       409:
  *         description: >
- *           Solo se puede cerrar una jornada abierta; solo se puede
- *           reabrir una jornada cerrada; o ya hay otra jornada abierta
- *           (al reabrir)
+ *           Solo se puede cerrar una jornada abierta; no se cierra con su
+ *           caja abierta; solo se puede reabrir una jornada cerrada; o ya
+ *           hay otra jornada abierta (al reabrir)
  */
 router.patch(
   '/:id/estado',
