@@ -62,6 +62,10 @@ const definicion = {
       name: 'Crédito',
       description: 'Crédito empresarial: saldo pendiente, órdenes pagables y registro de pagos',
     },
+    {
+      name: 'Nómina',
+      description: 'Descuentos y liquidación quincenal de comisiones de los colaboradores',
+    },
   ],
   components: {
     securitySchemes: {
