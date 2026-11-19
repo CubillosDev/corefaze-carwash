@@ -52,6 +52,20 @@ describe('/api/jornadas/qr', () => {
     expect(otraVez.status).toBe(409);
   });
 
+  it('si la jornada no se puede abrir, no gasta el código', async () => {
+    const abierta = await conToken('post', '/api/jornadas');
+    expect(abierta.status).toBe(201);
+    const { contenido } = (await conToken('post', '/api/jornadas/qr')).body.qr;
+
+    const rechazado = await conRol('soporte', 'post', '/api/jornadas/qr/canje').send({ contenido });
+    expect(rechazado.status).toBe(409);
+    expect(rechazado.body.mensaje).not.toMatch(/venció o ya se usó/);
+
+    await liberarHoy();
+    const canje = await conRol('soporte', 'post', '/api/jornadas/qr/canje').send({ contenido });
+    expect(canje.status).toBe(201);
+  });
+
   it('rechaza un QR vencido', async () => {
     const generado = await conToken('post', '/api/jornadas/qr');
     const { contenido } = generado.body.qr;

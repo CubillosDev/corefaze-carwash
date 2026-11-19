@@ -62,7 +62,19 @@ const canjearToken = async (contenido, usuarioId) => {
     throw new Conflicto('El código QR venció o ya se usó: genera uno nuevo en el panel');
   }
 
-  const jornada = await jornadasService.abrirJornada(usuarioId);
+  let jornada;
+  try {
+    jornada = await jornadasService.abrirJornada(usuarioId);
+  } catch (errorAlAbrir) {
+    // Si la jornada no se pudo abrir (ya hay una abierta, o hoy ya tuvo
+    // jornada), el código no se gasta: se libera para reintentar mientras
+    // siga vigente.
+    await crearClienteConUsuario(usuarioId)
+      .from('tokens_jornada')
+      .update({ usado_en: null, usado_por: null })
+      .eq('id', data[0].id);
+    throw errorAlAbrir;
+  }
 
   await supabase.from('tokens_jornada').update({ jornada_id: jornada.id }).eq('id', data[0].id);
 
