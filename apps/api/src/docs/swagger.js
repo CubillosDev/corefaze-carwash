@@ -54,6 +54,10 @@ const definicion = {
       name: 'Parámetros de negocio',
       description: 'Comisión vigente, costos fijos/variables y demás parámetros del lavadero',
     },
+    {
+      name: 'Crédito',
+      description: 'Crédito empresarial: saldo pendiente, órdenes pagables y registro de pagos',
+    },
   ],
   components: {
     securitySchemes: {
