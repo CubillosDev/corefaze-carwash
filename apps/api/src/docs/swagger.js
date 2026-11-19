@@ -58,6 +58,10 @@ const definicion = {
       name: 'Usuarios',
       description: 'Administración de cuentas: listado, consulta y activación/desactivación',
     },
+    {
+      name: 'Crédito',
+      description: 'Crédito empresarial: saldo pendiente, órdenes pagables y registro de pagos',
+    },
   ],
   components: {
     securitySchemes: {
