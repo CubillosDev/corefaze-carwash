@@ -1,6 +1,7 @@
 # Integración continua de la API (apps/api).
-# Corre lint, pruebas y auditoría de dependencias cuando cambian la API, los
-# contratos compartidos o las dependencias de la raíz (workspaces de npm).
+# Las pruebas de integración necesitan Supabase local (migraciones + seed):
+# se levanta con la CLI antes de correrlas. Las llaves de esa base local son
+# las fijas y públicas de la CLI; aquí no se usa ningún secreto.
 name: CI api
 
 on:
@@ -8,17 +9,21 @@ on:
     branches: [develop, main]
     paths:
       - "apps/api/**"
+      - "supabase/**"
       - "packages/contratos/**"
       - "package.json"
       - "package-lock.json"
+      - ".nvmrc"
       - ".github/workflows/api.yml"
   pull_request:
     branches: [develop, main]
     paths:
       - "apps/api/**"
+      - "supabase/**"
       - "packages/contratos/**"
       - "package.json"
       - "package-lock.json"
+      - ".nvmrc"
       - ".github/workflows/api.yml"
 
 permissions:
@@ -32,7 +37,7 @@ jobs:
   verificar:
     name: Lint, pruebas y auditoría
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Descargar el código
         uses: actions/checkout@v4
@@ -42,7 +47,7 @@ jobs:
       - name: Preparar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Instalar dependencias
@@ -51,8 +56,16 @@ jobs:
       - name: Lint
         run: npm run lint:api
 
+      - name: Instalar Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+
+      - name: Levantar Supabase local (migraciones + seed)
+        run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,realtime,storage-api
+
       - name: Pruebas
         run: npm run test:api
 
       - name: Auditoría de dependencias
-        run: npm audit --audit-level=high
+        run: npm audit --workspace apps/api --audit-level=high

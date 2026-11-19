@@ -1,6 +1,6 @@
 # Integración continua del panel web (apps/web).
-# Corre lint, pruebas y build cuando cambian el web, los contratos compartidos o
-# las dependencias de la raíz (workspaces de npm).
+# Corre lint, pruebas, build y auditoría cuando cambian el web, los contratos
+# compartidos o las dependencias de la raíz (workspaces de npm).
 name: CI web
 
 on:
@@ -11,6 +11,7 @@ on:
       - "packages/contratos/**"
       - "package.json"
       - "package-lock.json"
+      - ".nvmrc"
       - ".github/workflows/web.yml"
   pull_request:
     branches: [develop, main]
@@ -19,6 +20,7 @@ on:
       - "packages/contratos/**"
       - "package.json"
       - "package-lock.json"
+      - ".nvmrc"
       - ".github/workflows/web.yml"
 
 permissions:
@@ -30,9 +32,9 @@ concurrency:
 
 jobs:
   verificar:
-    name: Lint, pruebas y build
+    name: Lint, pruebas, build y auditoría
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Descargar el código
         uses: actions/checkout@v4
@@ -42,8 +44,7 @@ jobs:
       - name: Preparar Node.js
         uses: actions/setup-node@v4
         with:
-          # Vitest y jsdom exigen Node 22.12 o superior.
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Instalar dependencias
@@ -57,3 +58,6 @@ jobs:
 
       - name: Build
         run: npm run build:web
+
+      - name: Auditoría de dependencias
+        run: npm audit --workspace apps/web --audit-level=high

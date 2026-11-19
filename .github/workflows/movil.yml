@@ -1,23 +1,58 @@
 # Integración continua de la app móvil (apps/movil).
-# Pendiente: se activa cuando exista código. Mientras tanto solo se ejecuta a
-# mano, para que GitHub no registre un fallo en cada push.
+# Formato, análisis estático y pruebas con la versión de Flutter del proyecto.
 name: CI móvil
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [develop, main]
+    paths:
+      - "apps/movil/**"
+      - "packages/contratos/**"
+      - ".github/workflows/movil.yml"
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - "apps/movil/**"
+      - "packages/contratos/**"
+      - ".github/workflows/movil.yml"
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    working-directory: apps/movil
+
 jobs:
-  pendiente:
-    name: Pendiente
+  verificar:
+    name: Formato, análisis y pruebas
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
-      - name: Aviso
-        run: echo "Pendiente; el flujo de apps/movil se activa cuando exista código."
+      - name: Descargar el código
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Preparar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.1
+          channel: stable
+          cache: true
+
+      - name: Instalar dependencias
+        run: flutter pub get
+
+      - name: Formato
+        run: dart format --set-exit-if-changed .
+
+      - name: Análisis estático
+        run: flutter analyze
+
+      - name: Pruebas
+        run: flutter test
