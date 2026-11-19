@@ -1,16 +1,13 @@
+import logoCorefazeOscuro from '@/assets/images/logo-corefaze-oscuro.webp';
 import logoCorefaze from '@/assets/images/logo-corefaze.webp';
-import { MarcaCorefaze } from '@/components/ui/MarcaCorefaze';
-import { Punto } from '@/components/ui/Punto';
-import { etiquetaEstadoOrden, tonoEstadoOrden } from '@/constants/etiquetas';
 import { EscenaIngreso } from '@/features/autenticacion/components/EscenaIngreso';
-import { FASES_DEL_TABLERO } from '@/utils/estadosOrden';
 
 /**
  * Marco de las pantallas de acceso (ingreso, solicitud de acceso y cuenta en
  * aprobación). Repite el del panel: la cabecera sobre el fondo oscuro y el
- * panel claro redondeado, que aquí lleva el contenido. A la izquierda, sobre
- * el marco, la escena isométrica de la marca y los estados por los que pasa
- * una orden. En móvil el panel sube como hoja inferior.
+ * panel claro redondeado, que aquí lleva el logo y el contenido. A la
+ * izquierda, sobre el marco, la escena isométrica de la marca y su mensaje.
+ * En móvil el panel sube como hoja inferior.
  *
  * @param {object} props
  * @param {string} props.titulo
@@ -36,31 +33,25 @@ export function MarcoAcceso({ titulo, descripcion, children }) {
           <div className="flex max-w-md flex-col">
             <p className="text-etiqueta text-primario-200 uppercase">Panel del lavadero</p>
             <p className="mt-2.5 text-portada-movil text-balance text-white escritorio:text-portada">
-              Cada vehículo, de la recepción a la entrega.
+              Cada vehículo, de la recepción{' '}
+              <span className="bg-linear-to-r from-primario-200 to-primario-400 bg-clip-text text-transparent">
+                a la entrega.
+              </span>
             </p>
             <p className="mt-3 text-cuerpo leading-apoyo text-white/65">
               Órdenes, caja, crédito y nómina del lavadero en un solo panel.
             </p>
-            <ul aria-label="Estados de una orden" className="mt-5 flex flex-wrap gap-2">
-              {FASES_DEL_TABLERO.map((estado) => (
-                <li
-                  key={estado}
-                  className="inline-flex h-7 items-center gap-2 rounded-full border border-white/12 bg-white/6 px-3 text-detalle text-white/85"
-                >
-                  <Punto tono={tonoEstadoOrden(estado)} />
-                  {etiquetaEstadoOrden(estado)}
-                </li>
-              ))}
-            </ul>
           </div>
         </section>
 
         <section className="flex flex-1 flex-col rounded-t-panel bg-neutro-50 px-5 pt-8 pb-5 escritorio:rounded-panel escritorio:px-10 escritorio:pt-10">
           <div className="m-auto flex w-full max-w-sm animate-entrar-modal flex-col gap-6">
-            <div className="flex flex-col gap-4">
-              <span className="inline-flex size-11 items-center justify-center rounded-bloque bg-linear-to-br from-primario-500 to-primario-800 shadow-boton-primario">
-                <MarcaCorefaze className="size-5.5 text-white" />
-              </span>
+            <div className="flex flex-col gap-7">
+              <div className="hidden items-center gap-3 escritorio:flex">
+                <img src={logoCorefazeOscuro} alt="Corefaze" className="h-7 w-auto" />
+                <span aria-hidden="true" className="h-5 w-px bg-neutro-275" />
+                <span className="text-marca text-neutro-600">CarWash</span>
+              </div>
               <header className="flex flex-col gap-1.5">
                 <h1 className="text-portada-movil text-neutro-900">{titulo}</h1>
                 <p className="text-cuerpo text-neutro-600">{descripcion}</p>
