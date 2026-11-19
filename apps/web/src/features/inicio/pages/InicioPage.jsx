@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { Aviso } from '@/components/ui/Aviso';
@@ -44,6 +44,11 @@ export function InicioPage() {
   const { aviso, mostrarAviso } = useAviso();
   const [formularioAbierto, setFormularioAbierto] = useState(false);
   const acciones = useAccionesJornada({ alCambiar: tablero.recargar, avisar: mostrarAviso });
+  const { refrescar } = tablero;
+  const alAbrirseDesdeElCelular = useCallback(() => {
+    refrescar();
+    mostrarAviso('La jornada se abrió desde el celular');
+  }, [refrescar, mostrarAviso]);
 
   const primerNombre = String(usuario?.nombre ?? '').trim().split(/\s+/)[0];
   const jornada = tablero.datos?.jornada ?? null;
@@ -158,6 +163,7 @@ export function InicioPage() {
             enviando={acciones.enviando}
             alAbrir={acciones.abrir}
             alCerrar={() => acciones.pedirCierre(jornada)}
+            alAbrirseDesdeElCelular={alAbrirseDesdeElCelular}
           />
         </div>
       ) : null}

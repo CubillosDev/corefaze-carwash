@@ -7,7 +7,7 @@ import { ProveedorSesion } from '@/features/autenticacion';
 import { obtenerEstadoCaja } from '@/features/caja/api/caja.api';
 import { InicioPage } from '@/features/inicio/pages/InicioPage';
 import { listarInsumos } from '@/features/inventario/api/inventario.api';
-import { abrirJornada, cambiarEstadoJornada, listarJornadas } from '@/features/jornadas/api/jornadas.api';
+import { abrirJornada, cambiarEstadoJornada, generarQrJornada, listarJornadas } from '@/features/jornadas/api/jornadas.api';
 import { listarOrdenes } from '@/features/ordenes-lavado/api/ordenesLavado.api';
 import { obtenerIngresosPorHora } from '@/features/reportes/api/reportes.api';
 
@@ -15,6 +15,7 @@ vi.mock('@/features/jornadas/api/jornadas.api', () => ({
   listarJornadas: vi.fn(),
   abrirJornada: vi.fn(),
   cambiarEstadoJornada: vi.fn(),
+  generarQrJornada: vi.fn(),
 }));
 vi.mock('@/features/ordenes-lavado/api/ordenesLavado.api', () => ({
   listarOrdenes: vi.fn(),
@@ -66,6 +67,7 @@ beforeEach(() => {
   obtenerEstadoCaja.mockResolvedValue(CAJA);
   obtenerIngresosPorHora.mockResolvedValue(CURVA);
   listarInsumos.mockResolvedValue(INSUMOS);
+  generarQrJornada.mockResolvedValue({ contenido: 'corefaze-jornada:prueba', expiraEn: new Date(Date.now() + 30000).toISOString(), vigenciaSegundos: 30 });
 });
 
 describe('InicioPage', () => {
@@ -125,7 +127,8 @@ describe('InicioPage', () => {
     expect(screen.getByText('Abre la jornada para ver la curva del día.')).toBeInTheDocument();
     expect(listarOrdenes).not.toHaveBeenCalled();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Abrir jornada' }));
+    expect(await screen.findByRole('img', { name: /Código QR/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Abrir desde aquí' }));
 
     expect(abrirJornada).toHaveBeenCalledOnce();
     expect(listarJornadas).toHaveBeenCalledTimes(2);
