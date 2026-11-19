@@ -72,71 +72,53 @@ describe('GET /api/reportes/ingresos-por-hora', () => {
   });
 });
 
-describe('/api/nomina', () => {
+// La nómina oficial es la de SCRUM-161 (nomina.test.js). Aquí se prueba lo
+// que el resumen agrega para el panel: servicios, producido, totales,
+// descuentos del periodo y si ya se puede liquidar.
+const quincenaDe = async (fecha) => {
+  const { data } = await supabase.rpc('limites_quincena', { p_fecha: fecha });
+  return data;
+};
+
+describe('GET /api/nomina/quincenas/resumen (lo que usa el panel)', () => {
   it('es solo de administración', async () => {
-    expect((await conRol('soporte', 'get', '/api/nomina/quincena')).status).toBe(403);
+    const { inicio, fin } = await quincenaDe('2026-11-19');
+    const ruta = `/api/nomina/quincenas/resumen?inicio=${inicio}&fin=${fin}`;
+    expect((await conRol('soporte', 'get', ruta)).status).toBe(403);
   });
 
-  it('muestra la quincena con el mismo cálculo de la liquidación y registra descuentos', async () => {
+  it('agrega servicios, producido, totales y los descuentos del periodo', async () => {
     const fecha = await abrirJornada();
     await crearOrden({ estado: 'entregada' });
     const colaborador = await obtenerColaborador();
-
-    const inicial = await conToken('get', `/api/nomina/quincena?fecha=${fecha}`);
-    expect(inicial.status).toBe(200);
-    const { quincena } = inicial.body;
-    expect(quincena.periodo.inicio <= fecha && fecha <= quincena.periodo.fin).toBe(true);
-    const fila = quincena.colaboradores.find((c) => c.colaboradorId === colaborador.id);
-    expect(fila.servicios).toBeGreaterThanOrEqual(1);
-    expect(fila.comision).toBe(fila.producido * 0.4);
-    expect(fila.neto).toBe(Math.max(fila.comision - fila.descuentos, 0));
-
-    // registrar_descuento usa la fecha de hoy: se prueba con la quincena de hoy.
     const descuento = await conToken('post', '/api/nomina/descuentos').send({
       colaboradorId: colaborador.id,
       tipo: 'jabon',
       valor: 3000,
+      fecha,
       observacion: 'Jabón de prueba',
     });
     expect(descuento.status).toBe(201);
-    expect(descuento.body.descuento).toMatchObject({ tipo: 'jabon', valor: 3000 });
 
-    const hoy = await conToken('get', '/api/nomina/quincena');
-    const conJabon = hoy.body.quincena.colaboradores.find(
-      (c) => c.colaboradorId === colaborador.id,
+    const { inicio, fin } = await quincenaDe(fecha);
+    const respuesta = await conToken(
+      'get',
+      `/api/nomina/quincenas/resumen?inicio=${inicio}&fin=${fin}`,
     );
-    expect(conJabon.jabon).toBeGreaterThanOrEqual(3000);
-    expect(hoy.body.quincena.descuentos.some((d) => d.id === descuento.body.descuento.id)).toBe(
-      true,
-    );
-  });
-
-  it('valida el tipo de descuento (cxc lo crea la liquidación)', async () => {
-    const colaborador = await obtenerColaborador();
-    const respuesta = await conToken('post', '/api/nomina/descuentos').send({
-      colaboradorId: colaborador.id,
-      tipo: 'cxc',
-      valor: 1000,
-    });
-    expect(respuesta.status).toBe(400);
-  });
-
-  it('no liquida una quincena que no ha terminado', async () => {
-    const respuesta = await conToken('post', '/api/nomina/liquidaciones').send({
-      inicio: '2999-01-01',
-      fin: '2999-01-15',
-    });
-    expect(respuesta.status).toBe(409);
-    const { data } = await supabase
-      .from('liquidaciones_nomina')
-      .select('id')
-      .eq('periodo_inicio', '2999-01-01');
-    expect(data).toEqual([]);
-  });
-
-  it('lista las liquidaciones', async () => {
-    const respuesta = await conToken('get', '/api/nomina/liquidaciones');
     expect(respuesta.status).toBe(200);
-    expect(Array.isArray(respuesta.body.liquidaciones)).toBe(true);
+    const resumen = respuesta.body;
+    const fila = resumen.colaboradores.find((c) => c.colaboradorId === colaborador.id);
+    expect(fila.servicios).toBeGreaterThanOrEqual(1);
+    expect(fila.comision).toBe(fila.producido * 0.4);
+    expect(fila.descuentos.jabon).toBeGreaterThanOrEqual(3000);
+    expect(fila.neto).toBe(Math.max(fila.comision - fila.descuentosTotal, 0));
+    expect(resumen.totales.producido).toBe(
+      resumen.colaboradores.reduce((total, c) => total + c.producido, 0),
+    );
+    expect(resumen.puedeLiquidar).toBe(false);
+    const delPeriodo = resumen.descuentosDelPeriodo.find(
+      (d) => d.id === descuento.body.descuento.id,
+    );
+    expect(delPeriodo.colaborador).toMatchObject({ codigo: colaborador.codigo });
   });
 });

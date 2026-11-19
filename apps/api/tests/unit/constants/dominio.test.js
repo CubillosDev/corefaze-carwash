@@ -14,6 +14,7 @@ const {
   LIMITES,
   TIPOS_VINCULACION,
   DIAS_GRACIA_CODIGO_COLABORADOR,
+  TIPOS_DESCUENTO,
 } = require('../../../src/constants/dominio');
 
 const todosLosEstados = Object.values(ESTADOS_ORDEN);
@@ -134,6 +135,19 @@ describe('constantes de dominio', () => {
     it('no tiene valores repetidos', () => {
       const valores = Object.values(TIPOS_CLIENTE);
       expect(new Set(valores).size).toBe(valores.length);
+    });
+  });
+
+  describe('tipos de descuento de nómina', () => {
+    it('define prestamo, jabon, multa y cxc (descuentos_colaborador_tipo_check)', () => {
+      expect(TIPOS_DESCUENTO.PRESTAMO).toBe('prestamo');
+      expect(TIPOS_DESCUENTO.JABON).toBe('jabon');
+      expect(TIPOS_DESCUENTO.MULTA).toBe('multa');
+      expect(TIPOS_DESCUENTO.CXC).toBe('cxc');
+    });
+
+    it('está congelado', () => {
+      expect(Object.isFrozen(TIPOS_DESCUENTO)).toBe(true);
     });
   });
 

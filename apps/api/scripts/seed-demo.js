@@ -692,19 +692,43 @@ async function cargarInventario(api, azar) {
   return creados;
 }
 
-/** Descuentos de la quincena en curso por la API, una sola vez. */
-async function cargarNomina(api, colaboradores) {
-  const { quincena } = await api.pedir('GET', '/nomina/quincena');
-  if (quincena.descuentos.some((d) => d.observacion?.startsWith(MARCA))) {
+/**
+ * Descuentos de la quincena en curso por la API, una sola vez. Van a los
+ * colaboradores con más neto disponible, y un préstamo nunca supera ese
+ * neto: registrar_descuento() rechaza el que pase de la comisión acumulada.
+ */
+async function cargarNomina(api, supabase, hoy) {
+  const { data: quincena, error } = await supabase.rpc('limites_quincena', { p_fecha: hoy });
+  if (error) {
+    throw new Error(`quincena: ${error.message}`);
+  }
+  const resumen = await api.pedir(
+    'GET',
+    `/nomina/quincenas/resumen?inicio=${quincena.inicio}&fin=${quincena.fin}`,
+  );
+  if (resumen.descuentosDelPeriodo.some((d) => d.observacion?.startsWith(MARCA))) {
+    return 0;
+  }
+  const disponibles = [...resumen.colaboradores]
+    .filter((c) => c.estado === 'activo')
+    .sort((a, b) => b.neto - a.neto);
+  if (disponibles.length === 0) {
     return 0;
   }
   let creados = 0;
   for (const [indice, [tipo, valor, detalle]] of DESCUENTOS.entries()) {
-    const colaborador = colaboradores[indice % colaboradores.length];
+    const colaborador = disponibles[indice % disponibles.length];
+    const monto =
+      tipo === 'prestamo' ? Math.min(valor, Math.floor(colaborador.neto / 2 / 1000) * 1000) : valor;
+    if (monto < 1000) {
+      continue;
+    }
+    colaborador.neto -= monto;
     await api.pedir('POST', '/nomina/descuentos', {
-      colaboradorId: colaborador.id,
+      colaboradorId: colaborador.colaboradorId,
       tipo,
-      valor,
+      valor: monto,
+      fecha: hoy,
       observacion: `${MARCA} ${detalle}`,
     });
     creados += 1;
@@ -756,7 +780,7 @@ async function main() {
     ? { cobros: 0, egresos: 0 }
     : await cargarCaja(api, supabase, azar, contexto, hoy, valesUsados);
   const insumos = await cargarInventario(api, azar);
-  const descuentos = await cargarNomina(api, colaboradores);
+  const descuentos = await cargarNomina(api, supabase, hoy);
 
   const conteos = {};
   for (const tabla of [

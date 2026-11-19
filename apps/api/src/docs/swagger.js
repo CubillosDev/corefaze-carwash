@@ -55,6 +55,10 @@ const definicion = {
       description: 'Comisión vigente, costos fijos/variables y demás parámetros del lavadero',
     },
     {
+      name: 'Usuarios',
+      description: 'Administración de cuentas: listado, consulta y activación/desactivación',
+    },
+    {
       name: 'Crédito',
       description: 'Crédito empresarial: saldo pendiente, órdenes pagables y registro de pagos',
     },
@@ -68,7 +72,8 @@ const definicion = {
     },
     {
       name: 'Nómina',
-      description: 'Quincena en curso, descuentos de colaboradores y liquidación',
+      description:
+        'Resumen de la quincena, descuentos y liquidación quincenal de comisiones de los colaboradores',
     },
     {
       name: 'Inventario',

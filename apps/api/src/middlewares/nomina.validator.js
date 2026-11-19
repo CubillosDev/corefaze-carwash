@@ -1,49 +1,88 @@
-const { body, query } = require('express-validator');
+const { body, param, query } = require('express-validator');
+const { TIPOS_DESCUENTO, LIMITES } = require('../constants/dominio');
 
-// cxc no se registra a mano: lo crea liquidar_quincena() con el saldo
-// pendiente de la quincena anterior (ADR 0006).
-const TIPOS_DESCUENTO_MANUAL = ['prestamo', 'jabon', 'multa'];
-const TOPE_DESCUENTO = 10000000;
-const PATRON_FECHA = /^\d{4}-\d{2}-\d{2}$/;
+// Mismos límites que usuarios.validator.js/credito.validator.js, para
+// que GET /api/nomina/liquidaciones pagine con el mismo contrato.
+const PAGINA_MINIMA = 1;
+const POR_PAGINA_MINIMO = 1;
+const POR_PAGINA_MAXIMO = 100;
 
-const fecha = (ubicacion, campo) =>
-  ubicacion(campo)
-    .isISO8601({ strict: true })
-    .withMessage(`${campo} debe ser una fecha YYYY-MM-DD`)
-    .bail()
-    .matches(PATRON_FECHA)
-    .withMessage(`${campo} debe ser una fecha YYYY-MM-DD`);
+/** :colaboradorId en la URL (distinto de validarIdDeUrl, que solo cubre :id). */
+const validarColaboradorIdDeUrl = [
+  param('colaboradorId')
+    .isInt({ min: 1 })
+    .withMessage('El colaboradorId debe ser un entero positivo')
+    .toInt(),
+];
 
-const validarQuincena = [fecha(query, 'fecha').optional()];
+/**
+ * GET /api/nomina/quincenas/resumen: inicio y fin son obligatorios (sin
+ * ellos no hay periodo que resumir). Formato ISO nada más — que sea
+ * EXACTAMENTE una quincena real (1–15 o 16–fin de mes) lo valida
+ * limites_quincena() en nomina.service.js, nunca reimplementado aquí.
+ */
+const validarResumenQuincena = [
+  query('inicio').isISO8601().withMessage('inicio debe ser una fecha ISO (YYYY-MM-DD)'),
+  query('fin').isISO8601().withMessage('fin debe ser una fecha ISO (YYYY-MM-DD)'),
+];
 
-const validarDescuento = [
+/** GET /api/nomina/colaboradores/:colaboradorId/descuentos: inicio/fin obligatorios, cualquier rango. */
+const validarDescuentosDeColaborador = [
+  ...validarColaboradorIdDeUrl,
+  query('inicio').isISO8601().withMessage('inicio debe ser una fecha ISO (YYYY-MM-DD)'),
+  query('fin').isISO8601().withMessage('fin debe ser una fecha ISO (YYYY-MM-DD)'),
+];
+
+/**
+ * POST /api/nomina/descuentos: la validación de formato aquí es una
+ * verificación temprana (400 más claro y rápido); la autoridad real
+ * sigue siendo registrar_descuento() (ver nomina.service.js).
+ */
+const validarRegistrarDescuento = [
   body('colaboradorId')
     .isInt({ min: 1 })
     .withMessage('colaboradorId debe ser un entero positivo')
     .toInt(),
   body('tipo')
-    .isIn(TIPOS_DESCUENTO_MANUAL)
-    .withMessage(`tipo debe ser uno de: ${TIPOS_DESCUENTO_MANUAL.join(', ')}`),
-  body('valor')
-    .isInt({ min: 1, max: TOPE_DESCUENTO })
-    .withMessage(`valor debe ser un entero entre 1 y ${TOPE_DESCUENTO}`)
-    .toInt(),
+    .isIn(Object.values(TIPOS_DESCUENTO))
+    .withMessage(`tipo debe ser uno de: ${Object.values(TIPOS_DESCUENTO).join(', ')}`),
+  body('valor').isInt({ min: 1 }).withMessage('valor debe ser un entero positivo').toInt(),
+  body('fecha').isISO8601().withMessage('fecha debe ser una fecha ISO (YYYY-MM-DD)'),
   body('observacion')
-    .optional({ values: 'null' })
+    .optional()
     .isString()
     .withMessage('observacion debe ser texto')
     .bail()
     .trim()
-    .isLength({ max: 255 })
-    .withMessage('observacion admite hasta 255 caracteres'),
+    .isLength({ max: LIMITES.observaciones.max })
+    .withMessage(`observacion debe tener máximo ${LIMITES.observaciones.max} caracteres`),
 ];
 
-const validarLiquidacion = [
-  fecha(body, 'inicio'),
-  fecha(body, 'fin')
-    .bail()
-    .custom((fin, { req }) => fin >= req.body.inicio)
-    .withMessage('fin no puede ser anterior a inicio'),
+/** POST /api/nomina/quincenas/liquidar: solo inicio/fin — p_hoy nunca lo manda el cliente. */
+const validarLiquidarQuincena = [
+  body('inicio').isISO8601().withMessage('inicio debe ser una fecha ISO (YYYY-MM-DD)'),
+  body('fin').isISO8601().withMessage('fin debe ser una fecha ISO (YYYY-MM-DD)'),
 ];
 
-module.exports = { TIPOS_DESCUENTO_MANUAL, validarQuincena, validarDescuento, validarLiquidacion };
+/** GET /api/nomina/liquidaciones: paginación opcional. */
+const validarFiltroListarLiquidaciones = [
+  query('pagina')
+    .optional()
+    .isInt({ min: PAGINA_MINIMA })
+    .withMessage('pagina debe ser un entero mayor o igual a 1')
+    .toInt(),
+  query('porPagina')
+    .optional()
+    .isInt({ min: POR_PAGINA_MINIMO, max: POR_PAGINA_MAXIMO })
+    .withMessage(`porPagina debe ser un entero entre ${POR_PAGINA_MINIMO} y ${POR_PAGINA_MAXIMO}`)
+    .toInt(),
+];
+
+module.exports = {
+  validarColaboradorIdDeUrl,
+  validarResumenQuincena,
+  validarDescuentosDeColaborador,
+  validarRegistrarDescuento,
+  validarLiquidarQuincena,
+  validarFiltroListarLiquidaciones,
+};

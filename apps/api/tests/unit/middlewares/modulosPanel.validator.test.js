@@ -6,10 +6,6 @@ const {
 } = require('../../../src/middlewares/caja.validator');
 const { validarResumen } = require('../../../src/middlewares/reportes.validator');
 const {
-  validarDescuento,
-  validarLiquidacion,
-} = require('../../../src/middlewares/nomina.validator');
-const {
   validarMovimiento,
   validarCrear,
 } = require('../../../src/middlewares/inventario.validator');
@@ -89,31 +85,6 @@ describe('reportes.validator', () => {
         await ejecutar(validarResumen, { query: { desde: '2024-01-01', hasta: '2026-01-01' } }),
       ),
     ).toContain('hasta');
-  });
-});
-
-describe('nomina.validator', () => {
-  it('solo registra a mano préstamo, jabón o multa', async () => {
-    expect(
-      (
-        await ejecutar(validarDescuento, {
-          body: { colaboradorId: 1, tipo: 'prestamo', valor: 1000 },
-        })
-      ).isEmpty(),
-    ).toBe(true);
-    expect(
-      camposConError(
-        await ejecutar(validarDescuento, { body: { colaboradorId: 1, tipo: 'cxc', valor: 1000 } }),
-      ),
-    ).toContain('tipo');
-  });
-
-  it('exige un periodo con fin después del inicio', async () => {
-    expect(
-      camposConError(
-        await ejecutar(validarLiquidacion, { body: { inicio: '2026-11-16', fin: '2026-11-01' } }),
-      ),
-    ).toContain('fin');
   });
 });
 

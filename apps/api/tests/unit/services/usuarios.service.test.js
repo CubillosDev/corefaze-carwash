@@ -2,9 +2,11 @@ const { supabase } = require('../../../src/db/supabaseCliente');
 const {
   obtenerUsuarioPorEmail,
   obtenerUsuarioPorId,
+  listarUsuarios,
   crearUsuario,
   verificarCredenciales,
   asignarRol,
+  cambiarEstadoUsuario,
 } = require('../../../src/services/usuarios.service');
 const { Conflicto, NoEncontrado } = require('../../../src/utils/errores');
 const { generarSello, crearGeneradorDeValorUnico } = require('../../utils/valorUnico');
@@ -228,12 +230,54 @@ describe('usuarios.service', () => {
       expect(actualizado.passwordHash).toBeUndefined();
     });
 
-    describe('no puede quedar el sistema sin ningún superadmin activo (hallazgo de revisión del PR #7)', () => {
-      it('rechaza degradar al único superadmin activo (409 Conflicto)', async () => {
+    describe('un superadmin no puede quitarse a sí mismo el rol de superadmin (SCRUM-141, decisión definitiva)', () => {
+      it('rechaza la autodegradación aunque exista otro superadmin activo (409 Conflicto)', async () => {
+        const dueno = await obtenerUsuarioPorEmail(EMAIL_DUENO);
+        const otroSuperadmin = await crearUsuarioDePrueba();
+        await asignarRol(otroSuperadmin.id, 'superadmin', dueno.id);
+
+        await expect(asignarRol(dueno.id, 'administrador', dueno.id)).rejects.toThrow(Conflicto);
+        await expect(obtenerUsuarioPorId(dueno.id)).resolves.toMatchObject({ rol: 'superadmin' });
+      });
+
+      it('rechaza la autodegradación siendo el último superadmin activo (409 Conflicto)', async () => {
         const dueno = await obtenerUsuarioPorEmail(EMAIL_DUENO);
 
         await sinOtrosSuperadminActivos(dueno.id, async () => {
           await expect(asignarRol(dueno.id, 'administrador', dueno.id)).rejects.toThrow(Conflicto);
+          await expect(obtenerUsuarioPorId(dueno.id)).resolves.toMatchObject({
+            rol: 'superadmin',
+          });
+        });
+      });
+
+      it('no aplica si el rol nuevo también es superadmin (no es una degradación real)', async () => {
+        const dueno = await obtenerUsuarioPorEmail(EMAIL_DUENO);
+
+        await expect(asignarRol(dueno.id, 'superadmin', dueno.id)).resolves.toMatchObject({
+          rol: 'superadmin',
+        });
+      });
+
+      it('no aplica si el usuario objetivo no es superadmin', async () => {
+        const creado = await crearUsuarioDePrueba();
+        await asignarRol(creado.id, 'soporte', creado.id);
+
+        await expect(asignarRol(creado.id, 'administrador', creado.id)).resolves.toMatchObject({
+          rol: 'administrador',
+        });
+      });
+    });
+
+    describe('no puede quedar el sistema sin ningún superadmin activo (hallazgo de revisión del PR #7)', () => {
+      it('rechaza que OTRO actor degrade al único superadmin activo (409 Conflicto)', async () => {
+        const dueno = await obtenerUsuarioPorEmail(EMAIL_DUENO);
+        const otroActor = await crearUsuarioDePrueba();
+
+        await sinOtrosSuperadminActivos(dueno.id, async () => {
+          await expect(asignarRol(dueno.id, 'administrador', otroActor.id)).rejects.toThrow(
+            Conflicto,
+          );
           await expect(obtenerUsuarioPorId(dueno.id)).resolves.toMatchObject({
             rol: 'superadmin',
           });
@@ -245,13 +289,16 @@ describe('usuarios.service', () => {
         const otro = await crearUsuarioDePrueba();
         await asignarRol(otro.id, 'superadmin', dueno.id);
         await supabase.from('usuarios').update({ activo: false }).eq('id', otro.id);
+        const otroActor = await crearUsuarioDePrueba();
 
         await sinOtrosSuperadminActivos(dueno.id, async () => {
-          await expect(asignarRol(dueno.id, 'administrador', dueno.id)).rejects.toThrow(Conflicto);
+          await expect(asignarRol(dueno.id, 'administrador', otroActor.id)).rejects.toThrow(
+            Conflicto,
+          );
         });
       });
 
-      it('permite degradar a un superadmin si queda otro superadmin activo', async () => {
+      it('permite que un superadmin degrade a OTRO superadmin si queda uno activo (200)', async () => {
         const dueno = await obtenerUsuarioPorEmail(EMAIL_DUENO);
         const usuario1 = await crearUsuarioDePrueba();
         const usuario2 = await crearUsuarioDePrueba();
@@ -270,12 +317,167 @@ describe('usuarios.service', () => {
           rol: 'administrador',
         });
       });
+    });
+  });
 
-      it('la regla no aplica si el rol nuevo también es superadmin', async () => {
+  describe('listarUsuarios (SCRUM-141)', () => {
+    it('devuelve una página con la forma esperada', async () => {
+      const resultado = await listarUsuarios({ pagina: 1, porPagina: 5 });
+
+      expect(resultado).toMatchObject({ pagina: 1, porPagina: 5 });
+      expect(Array.isArray(resultado.usuarios)).toBe(true);
+      expect(typeof resultado.total).toBe('number');
+      expect(typeof resultado.totalPaginas).toBe('number');
+    });
+
+    it('filtra por rol', async () => {
+      const creado = await crearUsuarioDePrueba();
+      await asignarRol(creado.id, 'soporte', creado.id);
+
+      const resultado = await listarUsuarios({ rol: 'soporte', busqueda: creado.email });
+
+      expect(resultado.usuarios.every((usuario) => usuario.rol === 'soporte')).toBe(true);
+      expect(resultado.usuarios.map((usuario) => usuario.id)).toContain(creado.id);
+    });
+
+    it('filtra por activo', async () => {
+      const creado = await crearUsuarioDePrueba();
+      await supabase.from('usuarios').update({ activo: false }).eq('id', creado.id);
+
+      const resultado = await listarUsuarios({ activo: false, busqueda: creado.email });
+
+      expect(resultado.usuarios.every((usuario) => usuario.activo === false)).toBe(true);
+      expect(resultado.usuarios.map((usuario) => usuario.id)).toContain(creado.id);
+    });
+
+    it('busca coincidencias parciales en el nombre', async () => {
+      const marca = `Prueba Busqueda Nombre ${Date.now()}`;
+      const creado = await crearUsuarioDePrueba({ nombre: marca });
+
+      const resultado = await listarUsuarios({ busqueda: marca });
+
+      expect(resultado.usuarios.map((usuario) => usuario.id)).toContain(creado.id);
+    });
+
+    it('busca coincidencias parciales en el email', async () => {
+      const creado = await crearUsuarioDePrueba();
+
+      const resultado = await listarUsuarios({ busqueda: creado.email });
+
+      expect(resultado.usuarios.map((usuario) => usuario.id)).toContain(creado.id);
+    });
+
+    it('una búsqueda con coma, paréntesis o backslash no lanza error (caracteres especiales escapados)', async () => {
+      await expect(listarUsuarios({ busqueda: 'algo,(con)\\caracteres' })).resolves.toMatchObject({
+        usuarios: [],
+      });
+    });
+
+    it('nunca devuelve passwordHash', async () => {
+      const creado = await crearUsuarioDePrueba();
+      const resultado = await listarUsuarios({ busqueda: creado.email });
+
+      expect(resultado.usuarios.every((usuario) => usuario.passwordHash === undefined)).toBe(true);
+    });
+
+    it('respeta porPagina y lo limita a 100 como máximo', async () => {
+      const resultado = await listarUsuarios({ porPagina: 500 });
+      expect(resultado.porPagina).toBe(100);
+    });
+
+    it('pagina 2 no repite los resultados de la página 1', async () => {
+      const marca = `Prueba Paginacion ${Date.now()}`;
+      const primero = await crearUsuarioDePrueba({ nombre: marca });
+      const segundo = await crearUsuarioDePrueba({ nombre: marca });
+
+      const primeraPagina = await listarUsuarios({ busqueda: marca, pagina: 1, porPagina: 1 });
+      const segundaPagina = await listarUsuarios({ busqueda: marca, pagina: 2, porPagina: 1 });
+
+      expect(primeraPagina.usuarios).toHaveLength(1);
+      expect(segundaPagina.usuarios).toHaveLength(1);
+      expect(primeraPagina.usuarios[0].id).not.toBe(segundaPagina.usuarios[0].id);
+      expect([primero.id, segundo.id]).toContain(primeraPagina.usuarios[0].id);
+      expect([primero.id, segundo.id]).toContain(segundaPagina.usuarios[0].id);
+    });
+  });
+
+  describe('cambiarEstadoUsuario (SCRUM-141)', () => {
+    it('desactiva un usuario existente', async () => {
+      const creado = await crearUsuarioDePrueba();
+      const actualizado = await cambiarEstadoUsuario(creado.id, false, 1);
+      expect(actualizado.activo).toBe(false);
+    });
+
+    it('reactiva un usuario existente', async () => {
+      const creado = await crearUsuarioDePrueba();
+      await cambiarEstadoUsuario(creado.id, false, 1);
+
+      const actualizado = await cambiarEstadoUsuario(creado.id, true, 1);
+      expect(actualizado.activo).toBe(true);
+    });
+
+    it('el cambio queda reflejado al volver a consultar al usuario', async () => {
+      const creado = await crearUsuarioDePrueba();
+      await cambiarEstadoUsuario(creado.id, false, 1);
+
+      await expect(obtenerUsuarioPorId(creado.id)).resolves.toMatchObject({ activo: false });
+    });
+
+    it('lanza NoEncontrado si el id no existe', async () => {
+      await expect(cambiarEstadoUsuario(999999999, false, 1)).rejects.toThrow(NoEncontrado);
+    });
+
+    it('nunca devuelve passwordHash', async () => {
+      const creado = await crearUsuarioDePrueba();
+      const actualizado = await cambiarEstadoUsuario(creado.id, false, 1);
+      expect(actualizado.passwordHash).toBeUndefined();
+    });
+
+    it('no puede desactivarse a sí mismo (409 Conflicto)', async () => {
+      const creado = await crearUsuarioDePrueba();
+
+      await expect(cambiarEstadoUsuario(creado.id, false, creado.id)).rejects.toThrow(Conflicto);
+      await expect(obtenerUsuarioPorId(creado.id)).resolves.toMatchObject({ activo: true });
+    });
+
+    it('activarse a sí mismo (activo: true) sí está permitido', async () => {
+      const creado = await crearUsuarioDePrueba();
+      await supabase.from('usuarios').update({ activo: false }).eq('id', creado.id);
+
+      await expect(cambiarEstadoUsuario(creado.id, true, creado.id)).resolves.toMatchObject({
+        activo: true,
+      });
+    });
+
+    describe('no puede quedar el sistema sin ningún superadmin activo', () => {
+      it('rechaza desactivar al único superadmin activo (409 Conflicto)', async () => {
         const dueno = await obtenerUsuarioPorEmail(EMAIL_DUENO);
+        const otroActor = await crearUsuarioDePrueba();
 
-        await expect(asignarRol(dueno.id, 'superadmin', dueno.id)).resolves.toMatchObject({
-          rol: 'superadmin',
+        await sinOtrosSuperadminActivos(dueno.id, async () => {
+          await expect(cambiarEstadoUsuario(dueno.id, false, otroActor.id)).rejects.toThrow(
+            Conflicto,
+          );
+          await expect(obtenerUsuarioPorId(dueno.id)).resolves.toMatchObject({ activo: true });
+        });
+      });
+
+      it('permite desactivar a un superadmin si queda otro superadmin activo', async () => {
+        const dueno = await obtenerUsuarioPorEmail(EMAIL_DUENO);
+        const usuario1 = await crearUsuarioDePrueba();
+        await asignarRol(usuario1.id, 'superadmin', dueno.id);
+
+        const desactivado = await cambiarEstadoUsuario(usuario1.id, false, dueno.id);
+        expect(desactivado.activo).toBe(false);
+      });
+
+      it('la regla no aplica a un usuario que no es superadmin, aunque sea el único activo de su tipo', async () => {
+        const creado = await crearUsuarioDePrueba();
+        await asignarRol(creado.id, 'soporte', creado.id);
+        const otroActor = await crearUsuarioDePrueba();
+
+        await expect(cambiarEstadoUsuario(creado.id, false, otroActor.id)).resolves.toMatchObject({
+          activo: false,
         });
       });
     });

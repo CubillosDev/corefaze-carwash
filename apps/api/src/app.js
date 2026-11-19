@@ -21,6 +21,7 @@ const rutasJornadas = require('./routes/jornadas.routes');
 const rutasParametros = require('./routes/parametros.routes');
 const rutasCredito = require('./routes/credito.routes');
 const rutasCaja = require('./routes/caja.routes');
+const rutasUsuarios = require('./routes/usuarios.routes');
 const rutasReportes = require('./routes/reportes.routes');
 const rutasNomina = require('./routes/nomina.routes');
 const rutasInventario = require('./routes/inventario.routes');
@@ -77,6 +78,7 @@ const crearApp = ({ apiKeys, origenPermitido } = env) => {
   app.use('/api/parametros', rutasParametros);
   app.use('/api/credito', rutasCredito);
   app.use('/api/caja', rutasCaja);
+  app.use('/api/usuarios', rutasUsuarios);
   app.use('/api/reportes', rutasReportes);
   app.use('/api/nomina', rutasNomina);
   app.use('/api/inventario', rutasInventario);
