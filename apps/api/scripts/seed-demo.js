@@ -20,10 +20,11 @@
  * - Las órdenes de hoy llevan la hora en que corre el script (creado_en no se
  *   modifica): conviene correrlo al empezar el día de la demostración.
  * - Es idempotente: no duplica clientes (correo), vehículos (placa), jornadas
- *   (fecha), órdenes de hoy, cobros de hoy, vales, pagos, insumos (nombre) ni
- *   descuentos. Todo queda marcado: correos @corefaze.demo y observaciones que
+ *   (fecha), órdenes de hoy, cobros de hoy, vales, pagos, insumos (nombre),
+ *   descuentos ni cuentas de prueba (correo). Todo queda marcado: correos @corefaze.demo y observaciones que
  *   empiezan por [DEMO]. Para borrarlo: scripts/borrar-demo.sql.
  */
+const { randomBytes } = require('node:crypto');
 const { createClient } = require('@supabase/supabase-js');
 
 const MARCA = '[DEMO]';
@@ -31,11 +32,15 @@ const ZONA = 'America/Bogota';
 // Menos de 1.000 órdenes en total: hoy la API no pagina sus consultas y
 // PostgREST corta en 1.000 filas (max_rows), lo que dañaría los totales.
 const DIAS_HISTORIA = 30;
-const CLIENTES = 150;
-const EMPRESAS = 10;
-const VEHICULOS = 220;
-const MOTOS = 40;
-const ORDENES_HOY = 32;
+const CLIENTES = 190;
+const EMPRESAS = 14;
+const VEHICULOS = 270;
+const MOTOS = 50;
+const ORDENES_HOY = 40;
+// La primera tanda (150 clientes, 10 empresas) conserva sus correos: las
+// empresas nuevas van al final para que el script siga siendo idempotente.
+const CLIENTES_PRIMERA_TANDA = 150;
+const EMPRESAS_PRIMERA_TANDA = 10;
 
 /**
  * Los datos de demostración nunca entran a producción: el script se niega a
@@ -159,6 +164,10 @@ const EMPRESAS_NOMBRES = [
   'Seguridad Integral del Norte S.A.S.',
   'Alimentos La Pradera S.A.S.',
   'Rentacar Ciudad Jardín S.A.S.',
+  'Taxis Unidos del Sur S.A.S.',
+  'Panificadora El Trigal S.A.S.',
+  'Ferretería La Escuadra S.A.S.',
+  'Viajes Horizonte Andino S.A.S.',
 ];
 const MARCAS_CARRO = [
   ['Chevrolet', ['automovil', 'camioneta']],
@@ -212,6 +221,11 @@ const INSUMOS = [
   ['Bolsas de basura', 'Aseo', 'paquetes', 4, 10],
   ['Abrillantador de tablero', 'Químicos', 'litros', 3, 2],
   ['Guantes de nitrilo', 'Aseo', 'cajas', 3, 1],
+  ['Toallas de algodón', 'Accesorios', 'unidades', 20, 26],
+  ['Cepillos para rines', 'Accesorios', 'unidades', 4, 6],
+  ['Aromatizante de cabina', 'Químicos', 'litros', 2, 5],
+  ['Neutralizador de olores', 'Químicos', 'litros', 2, 1],
+  ['Pulidor de faros', 'Químicos', 'frascos', 3, 2],
 ];
 const DESCUENTOS = [
   ['prestamo', 80000, 'Préstamo personal'],
@@ -219,6 +233,18 @@ const DESCUENTOS = [
   ['multa', 20000, 'Llegada tarde'],
   ['prestamo', 50000, 'Adelanto de quincena'],
   ['jabon', 12000, 'Jabón para lavar la dotación'],
+  ['multa', 15000, 'Daño en un accesorio del cliente'],
+  ['prestamo', 40000, 'Préstamo para transporte'],
+  ['jabon', 8000, 'Jabón de la semana'],
+];
+// Cuentas de prueba con una contraseña aleatoria que nadie conoce (no se
+// guarda ni se imprime): llenan la pantalla de Usuarios, no sirven para entrar.
+const USUARIOS_DEMO = [
+  ['Laura Méndez (prueba)', 'solicitud.laura@corefaze.demo', null],
+  ['Mateo Rincón (prueba)', 'solicitud.mateo@corefaze.demo', null],
+  ['Sara Quintero (prueba)', 'solicitud.sara@corefaze.demo', null],
+  ['Valeria Ortega (prueba)', 'operaciones.valeria@corefaze.demo', 'administrador'],
+  ['Tomás Arango (prueba)', 'recepcion.tomas@corefaze.demo', 'soporte'],
 ];
 const EGRESOS = [
   { categoria: 'almuerzos', concepto: 'Almuerzos del equipo', valor: 48000 },
@@ -263,11 +289,24 @@ function crearApi(base, llave) {
   };
 }
 
+const EMPRESAS_SEGUNDA_TANDA = EMPRESAS - EMPRESAS_PRIMERA_TANDA;
+
+/** Posición del cliente i en EMPRESAS_NOMBRES, o -1 si es particular. */
+const indiceDeEmpresa = (i) => {
+  if (i < EMPRESAS_PRIMERA_TANDA) {
+    return i;
+  }
+  const enSegunda = i - CLIENTES_PRIMERA_TANDA;
+  return enSegunda >= 0 && enSegunda < EMPRESAS_SEGUNDA_TANDA
+    ? EMPRESAS_PRIMERA_TANDA + enSegunda
+    : -1;
+};
+
 function generarClientes(azar) {
   return Array.from({ length: CLIENTES }, (_, i) => {
-    const esEmpresa = i < EMPRESAS;
+    const esEmpresa = indiceDeEmpresa(i) >= 0;
     const nombre = esEmpresa
-      ? EMPRESAS_NOMBRES[i]
+      ? EMPRESAS_NOMBRES[indiceDeEmpresa(i)]
       : `${azar.elegir(NOMBRES)} ${azar.elegir(APELLIDOS)} ${azar.elegir(APELLIDOS)}`;
     return {
       nombre,
@@ -312,16 +351,26 @@ async function asegurarVehiculos(api, azar, clientes) {
   const actuales = (await api.pedir('GET', '/vehiculos')).vehiculos;
   const idsDemo = new Set(clientes.map((c) => c.id));
   const delDemo = actuales.filter((v) => idsDemo.has(v.clienteId));
-  if (delDemo.length >= VEHICULOS) {
+  // Completa por separado los carros y las motos que falten.
+  const esMoto = (v) => v.tipoVehiculo.startsWith('moto');
+  const carrosActuales = delDemo.filter((v) => !esMoto(v)).length;
+  const faltanCarros = Math.max(0, VEHICULOS - MOTOS - carrosActuales);
+  const faltanMotos = Math.max(0, MOTOS - delDemo.filter(esMoto).length);
+  if (faltanCarros === 0 && faltanMotos === 0) {
     return delDemo;
   }
+  const empresas = clientes.filter((c) => c.tipo === 'empresa');
+  const particulares = clientes.filter((c) => c.tipo === 'particular');
   const ocupadas = new Set(actuales.map((v) => v.placa));
   const nuevos = [
-    ...generarPlacas(azar, VEHICULOS - MOTOS, false, ocupadas).map((placa, i) => {
+    ...generarPlacas(azar, faltanCarros, false, ocupadas).map((placa, i) => {
       const [marca, tipos] = azar.elegir(MARCAS_CARRO);
-      // Las empresas tienen flota: reciben más vehículos.
+      // Las empresas tienen flota: los primeros 30 carros y uno de cada seis después.
+      const n = carrosActuales + i;
       const cliente =
-        i < 30 ? clientes[i % EMPRESAS] : clientes[EMPRESAS + ((i - 30) % (CLIENTES - EMPRESAS))];
+        n < 30 || n % 6 === 0
+          ? empresas[n % empresas.length]
+          : particulares[n % particulares.length];
       return {
         placa,
         tipoVehiculo: azar.elegir(tipos),
@@ -330,7 +379,7 @@ async function asegurarVehiculos(api, azar, clientes) {
         clienteId: cliente.id,
       };
     }),
-    ...generarPlacas(azar, MOTOS, true, ocupadas).map((placa) => ({
+    ...generarPlacas(azar, faltanMotos, true, ocupadas).map((placa) => ({
       placa,
       tipoVehiculo: azar.ponderado([
         ['moto_hasta_150cc', 3],
@@ -338,11 +387,11 @@ async function asegurarVehiculos(api, azar, clientes) {
       ]),
       marca: azar.elegir(MARCAS_MOTO),
       color: azar.elegir(COLORES),
-      clienteId: clientes[azar.entero(EMPRESAS, CLIENTES - 1)].id,
+      clienteId: particulares[azar.entero(0, particulares.length - 1)].id,
     })),
   ];
   const resultado = [...delDemo];
-  for (const vehiculo of nuevos.slice(delDemo.length)) {
+  for (const vehiculo of nuevos) {
     resultado.push((await api.pedir('POST', '/vehiculos', vehiculo)).vehiculo);
   }
   return resultado;
@@ -431,7 +480,7 @@ async function cargarHistoria(supabase, azar, contexto, usuarioId, hoy) {
   return creadas;
 }
 
-async function cargarHoy(api, azar, contexto) {
+async function cargarHoy(api, supabase, azar, contexto) {
   const jornadas = (await api.pedir('GET', '/jornadas')).jornadas;
   const hoy = hoyEnBogota();
   for (const abierta of jornadas.filter((j) => j.estado === 'abierta' && j.fecha !== hoy)) {
@@ -445,9 +494,15 @@ async function cargarHoy(api, azar, contexto) {
     return 0;
   }
   const { ordenes } = await api.pedir('GET', `/ordenes-lavado?jornadaId=${jornada.id}`);
-  const ocupados = new Set(
-    ordenes.filter((o) => !['entregada', 'cancelada'].includes(o.estado)).map((o) => o.vehiculoId),
-  );
+  // R6 vale entre jornadas: una orden que quedó abierta otro día también ocupa el vehículo.
+  const { data: abiertas, error } = await supabase
+    .from('ordenes_lavado')
+    .select('vehiculo_id')
+    .not('estado', 'in', '(entregada,cancelada)');
+  if (error) {
+    throw new Error(`órdenes abiertas: ${error.message}`);
+  }
+  const ocupados = new Set(abiertas.map((o) => o.vehiculo_id));
   let turno = ordenes.reduce((max, o) => Math.max(max, o.turno), 0);
   const faltan = ORDENES_HOY - ordenes.filter((o) => o.observaciones?.startsWith(MARCA)).length;
   for (let i = 0; i < faltan; i += 1) {
@@ -708,7 +763,33 @@ async function cargarInventario(api, azar) {
 }
 
 /**
- * Descuentos de la quincena en curso por la API, una sola vez. Van a los
+ * Cuentas de prueba por la API: solicitudes de acceso pendientes y algunas
+ * cuentas activas con rol. Idempotente por correo.
+ */
+async function asegurarUsuarios(api) {
+  const { usuarios } = await api.pedir('GET', '/usuarios?busqueda=corefaze.demo&porPagina=100');
+  const existentes = new Set(usuarios.map((u) => u.email));
+  let creados = 0;
+  for (const [nombre, email, rol] of USUARIOS_DEMO) {
+    if (existentes.has(email)) {
+      continue;
+    }
+    const { usuario } = await api.pedir('POST', '/auth/registro', {
+      nombre,
+      email,
+      password: randomBytes(18).toString('base64url'),
+    });
+    if (rol) {
+      await api.pedir('PATCH', `/auth/usuarios/${usuario.id}/rol`, { rol });
+    }
+    creados += 1;
+  }
+  return creados;
+}
+
+/**
+ * Descuentos de la quincena en curso por la API (solo los que falten de la
+ * lista). Van a los
  * colaboradores con más neto disponible, y un préstamo nunca supera ese
  * neto: registrar_descuento() rechaza el que pase de la comisión acumulada.
  */
@@ -721,7 +802,11 @@ async function cargarNomina(api, supabase, hoy) {
     'GET',
     `/nomina/quincenas/resumen?inicio=${quincena.inicio}&fin=${quincena.fin}`,
   );
-  if (resumen.descuentosDelPeriodo.some((d) => d.observacion?.startsWith(MARCA))) {
+  // Idempotente por cantidad: solo agrega los descuentos de la lista que falten.
+  const yaCargados = resumen.descuentosDelPeriodo.filter((d) =>
+    d.observacion?.startsWith(MARCA),
+  ).length;
+  if (yaCargados >= DESCUENTOS.length) {
     return 0;
   }
   const disponibles = [...resumen.colaboradores]
@@ -732,6 +817,9 @@ async function cargarNomina(api, supabase, hoy) {
   }
   let creados = 0;
   for (const [indice, [tipo, valor, detalle]] of DESCUENTOS.entries()) {
+    if (indice < yaCargados) {
+      continue;
+    }
     const colaborador = disponibles[indice % disponibles.length];
     const monto =
       tipo === 'prestamo' ? Math.min(valor, Math.floor(colaborador.neto / 2 / 1000) * 1000) : valor;
@@ -781,7 +869,7 @@ async function main() {
   const hoy = hoyEnBogota();
   const jornadasPasadas = await cargarHistoria(supabase, azar, contexto, usuario.id, hoy);
   const cajaAnteriorCerrada = sinHoy ? false : await cerrarCajaAnterior(api, hoy);
-  const ordenesHoy = sinHoy ? 0 : await cargarHoy(api, azar, contexto);
+  const ordenesHoy = sinHoy ? 0 : await cargarHoy(api, supabase, azar, contexto);
   // Números de vale ya usados: crédito los recoge antes de que la caja cobre con vales nuevos.
   const valesUsados = new Set();
   const credito = await cargarCredito(
@@ -796,6 +884,7 @@ async function main() {
     : await cargarCaja(api, supabase, azar, contexto, hoy, valesUsados);
   const insumos = await cargarInventario(api, azar);
   const descuentos = await cargarNomina(api, supabase, hoy);
+  const usuariosDemo = await asegurarUsuarios(api);
 
   const conteos = {};
   for (const tabla of [
@@ -828,6 +917,7 @@ async function main() {
     caja,
     insumos,
     descuentos,
+    usuariosDemo,
     conteos,
   };
   process.stdout.write(`${JSON.stringify(resumen, null, 2)}\n`);
