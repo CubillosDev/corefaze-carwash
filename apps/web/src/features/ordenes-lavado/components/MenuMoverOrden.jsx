@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { Link } from 'react-router';
 
 import { IconoPuntos } from '@/components/ui/iconos/IconoPuntos';
 import { Punto } from '@/components/ui/Punto';
 import { etiquetaEstadoOrden, tonoEstadoOrden } from '@/constants/etiquetas';
 import { useTeclaEscape } from '@/hooks/useTeclaEscape';
+import { ESTADOS_ORDEN } from '@/constants/dominio';
 import { siguientesEstados } from '@/utils/estadosOrden';
 
 const ALTO_ENCABEZADO_MENU = 40;
@@ -21,8 +23,18 @@ const ALTO_OPCION = 30;
  * @param {boolean} [props.deshabilitado]
  * @param {(estado: string) => void} props.alElegir
  * @param {(abierto: boolean) => void} [props.alAbrirOCerrar]
+ * @param {string} [props.enlaceCobro] Si se da, "Entregada" se cambia por "Cobrar en caja":
+ *   la entrega se registra al cobrar (ADR 0007), como en el diseño.
  */
-export function MenuMoverOrden({ estado, descripcion, puedeAnular, deshabilitado = false, alElegir, alAbrirOCerrar }) {
+export function MenuMoverOrden({
+  estado,
+  descripcion,
+  puedeAnular,
+  deshabilitado = false,
+  alElegir,
+  alAbrirOCerrar,
+  enlaceCobro,
+}) {
   const [abierto, setAbierto] = useState(false);
   const [haciaArriba, setHaciaArriba] = useState(false);
   const contenedor = useRef(null);
@@ -113,7 +125,18 @@ export function MenuMoverOrden({ estado, descripcion, puedeAnular, deshabilitado
             <span className="flex-1">{etiquetaEstadoOrden(estado)}</span>
             <span className="text-micro font-normal text-neutro-450">Actual</span>
           </button>
-          {opciones.map((siguiente) => (
+          {opciones.map((siguiente) =>
+            siguiente === ESTADOS_ORDEN.ENTREGADA && enlaceCobro ? (
+              <Link
+                key={siguiente}
+                role="menuitem"
+                to={enlaceCobro}
+                className="flex h-7.5 w-full items-center gap-2 rounded-opcion px-2 text-left text-detalle text-neutro-900 transition-colors duration-150 hover:bg-neutro-75 hover:text-neutro-900 focus-visible:bg-neutro-75"
+              >
+                <Punto tono={tonoEstadoOrden(siguiente)} />
+                <span className="flex-1">Cobrar en caja</span>
+              </Link>
+            ) : (
             <button
               key={siguiente}
               type="button"
@@ -127,7 +150,8 @@ export function MenuMoverOrden({ estado, descripcion, puedeAnular, deshabilitado
               <Punto tono={tonoEstadoOrden(siguiente)} />
               <span className="flex-1">{etiquetaEstadoOrden(siguiente)}</span>
             </button>
-          ))}
+            ),
+          )}
         </div>
       ) : null}
     </div>

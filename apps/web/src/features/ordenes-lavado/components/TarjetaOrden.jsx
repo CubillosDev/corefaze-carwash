@@ -60,6 +60,7 @@ export function TarjetaOrden({ orden, vehiculo, servicio, colaborador, puedeAnul
           deshabilitado={ocupada}
           alElegir={alCambiarEstado}
           alAbrirOCerrar={setMenuAbierto}
+          enlaceCobro={`${RUTAS.CAJA}?orden=${orden.id}`}
         />
       </div>
 
