@@ -54,6 +54,31 @@ const definicion = {
       name: 'Parámetros de negocio',
       description: 'Comisión vigente, costos fijos/variables y demás parámetros del lavadero',
     },
+    {
+      name: 'Usuarios',
+      description: 'Administración de cuentas: listado, consulta y activación/desactivación',
+    },
+    {
+      name: 'Crédito',
+      description: 'Crédito empresarial: saldo pendiente, órdenes pagables y registro de pagos',
+    },
+    {
+      name: 'Caja',
+      description: 'Apertura, cobros, egresos y cierre con arqueo de la caja de cada jornada',
+    },
+    {
+      name: 'Reportes',
+      description: 'Ventas por día, mix de servicios, colaboradores e ingresos por hora',
+    },
+    {
+      name: 'Nómina',
+      description:
+        'Resumen de la quincena, descuentos y liquidación quincenal de comisiones de los colaboradores',
+    },
+    {
+      name: 'Inventario',
+      description: 'Insumos del lavadero, su stock y sus movimientos',
+    },
   ],
   components: {
     securitySchemes: {

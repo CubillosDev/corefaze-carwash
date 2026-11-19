@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatoMoneda } from '@/utils/formatoMoneda';
+import { formatoMoneda, formatoMonedaCorta } from '@/utils/formatoMoneda';
+
+describe('formatoMonedaCorta', () => {
+  it('abrevia miles y millones para los gráficos', () => {
+    expect(formatoMonedaCorta(620000)).toBe('$620k');
+    expect(formatoMonedaCorta(1250000)).toBe('$1,3 M');
+    expect(formatoMonedaCorta(2000000)).toBe('$2 M');
+    expect(formatoMonedaCorta(800)).toBe('$800');
+  });
+});
 
 describe('formatoMoneda', () => {
   it('formatea un entero de pesos con separador de miles y sin decimales', () => {

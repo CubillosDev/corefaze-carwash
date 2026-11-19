@@ -2,7 +2,7 @@
 
 Esquema de la base de datos del Car Wash, construido como migraciones versionadas de Supabase (`supabase/migrations/`). Este documento se actualiza al cerrar cada fase de SCRUM-145/SCRUM-146.
 
-**Estado actual: Fase 2 (SCRUM-146) completa — 11 tablas.** El esquema queda cerrado: `usuarios`, `colaboradores`, `servicios`, `tarifas_servicio`, `clientes`, `vehiculos`, `jornadas`, `reaperturas_jornada`, `ordenes_lavado` (Fase 1) + `parametros_negocio`, `auditoria` (Fase 2).
+**Estado actual: Fase 2 (SCRUM-146) completa + crédito empresarial (SCRUM-158) + nómina quincenal (SCRUM-159) — 15 tablas.** `usuarios`, `colaboradores`, `servicios`, `tarifas_servicio`, `clientes`, `vehiculos`, `jornadas`, `reaperturas_jornada`, `ordenes_lavado` (Fase 1) + `parametros_negocio`, `auditoria` (Fase 2) + `pagos_credito` (SCRUM-158) + `descuentos_colaborador`, `liquidaciones_nomina`, `liquidacion_colaboradores` (SCRUM-159).
 
 ## Diagrama entidad-relación
 
@@ -90,6 +90,45 @@ erDiagram
         boolean autoriza_motor
         text estado
         varchar motivo
+        bigint pago_credito_id FK
+        bigint liquidacion_id FK
+    }
+    DESCUENTOS_COLABORADOR {
+        bigint id PK
+        bigint colaborador_id FK
+        date fecha
+        text tipo
+        integer valor
+        varchar observacion
+        bigint registrado_por FK
+        bigint liquidacion_id FK
+    }
+    LIQUIDACIONES_NOMINA {
+        bigint id PK
+        date periodo_inicio
+        date periodo_fin
+        integer total_comision
+        integer total_descuentos
+        integer total_neto
+        bigint liquidado_por FK
+    }
+    LIQUIDACION_COLABORADORES {
+        bigint id PK
+        bigint liquidacion_id FK
+        bigint colaborador_id FK
+        integer servicios
+        integer producido
+        integer comision
+        integer descuentos
+        integer saldo_pendiente
+        integer neto
+    }
+    PAGOS_CREDITO {
+        bigint id PK
+        bigint cliente_id FK
+        integer valor_total
+        bigint registrado_por FK
+        timestamptz pagado_en
     }
     PARAMETROS_NEGOCIO {
         smallint id PK
@@ -121,6 +160,16 @@ erDiagram
     CLIENTES ||--o{ ORDENES_LAVADO : "paga a crédito (restrict)"
     USUARIOS ||--o{ PARAMETROS_NEGOCIO : "actualiza (restrict)"
     USUARIOS ||--o{ AUDITORIA : "autor de (restrict)"
+    CLIENTES ||--o{ PAGOS_CREDITO : "paga (restrict)"
+    USUARIOS ||--o{ PAGOS_CREDITO : "registra (restrict)"
+    PAGOS_CREDITO ||--o{ ORDENES_LAVADO : "salda (restrict)"
+    COLABORADORES ||--o{ DESCUENTOS_COLABORADOR : "tiene (restrict)"
+    USUARIOS ||--o{ DESCUENTOS_COLABORADOR : "registra (restrict)"
+    USUARIOS ||--o{ LIQUIDACIONES_NOMINA : "liquida (restrict)"
+    LIQUIDACIONES_NOMINA ||--o{ DESCUENTOS_COLABORADOR : "cierra (restrict)"
+    LIQUIDACIONES_NOMINA ||--o{ ORDENES_LAVADO : "cierra (restrict)"
+    LIQUIDACIONES_NOMINA ||--o{ LIQUIDACION_COLABORADORES : "detalla (restrict)"
+    COLABORADORES ||--o{ LIQUIDACION_COLABORADORES : "aparece en (restrict)"
 ```
 
 ## Grafo de dependencias por niveles
@@ -169,6 +218,10 @@ Principio de diseño: la BD solo protege invariantes de **dinero** y de **integr
 | R8 | `clienteId` solo se exige y procesa cuando el pago es a crédito, y el cliente debe tener crédito habilitado | Mixto | BD: `ordenes_lavado_credito_cliente_check` (coherencia medio_pago↔cliente_id) y `clientes_credito_solo_empresa_check` (crédito solo en empresas). API: que el cliente esté `activo` y realmente tenga `creditoHabilitado = true` en el momento de la orden sigue siendo de `resolverClienteCredito` |
 | R9 | Las transiciones de estado siguen la máquina de estados del dominio (no se saltan ni retroceden pasos) | API | `TRANSICIONES_ORDEN` en `ordenesLavado.service.js` — la BD no conoce la máquina de estados, solo que una orden cerrada es inmutable (R10) |
 | R10 | Una orden entregada o cancelada no puede volver a cambiar de estado | BD | Trigger `proteger_orden_lavado` (bloquea cualquier `UPDATE` si `old.estado in ('entregada','cancelada')`) y `impedir_eliminacion` (ninguna orden se borra) |
+| R11 | Una orden con un pago de crédito registrado no se cancela | BD | `proteger_orden_lavado` (SCRUM-158) — hoy inalcanzable en la práctica: `pago_credito_id` solo se asigna a órdenes `entregada`, y R10 ya bloquea cualquier cambio de estado desde ahí; queda como defensa en profundidad (ver ADR 0005) |
+| R12 | Una orden de un periodo de nómina ya liquidado no se cancela | BD | `proteger_orden_lavado` (SCRUM-159) — igual que R11, hoy inalcanzable: `liquidacion_id` solo se asigna a órdenes ya cerradas (R10 las protege primero); defensa en profundidad (ver ADR 0006) |
+| R12b | Una orden de un periodo de nómina ya liquidado no se reasigna a otro colaborador | BD | `proteger_orden_lavado` (SCRUM-159, hallazgo de revisión) — esta sí es alcanzable: una orden `terminada` (ni abierta ni cerrada para R10) podía reasignarse tras liquidar, sin que nada lo impidiera; es el primer chequeo de la función, sin importar el `estado` |
+| R13/R14 | Cancelar (R13) o reasignar (R14) una orden abierta no puede dejar la comisión del colaborador, en su quincena, por debajo de sus descuentos tipo `prestamo` ya registrados | BD | `proteger_orden_lavado` (SCRUM-159), vía `validar_cobertura_prestamos_colaborador` — alcanzable para ambas; SOLO considera `tipo = 'prestamo'` (jabón/multa/cxc pueden superar la comisión por diseño) |
 
 Además, el porcentaje de comisión de una orden (`porcentaje_comision`) se copia del colaborador al crearla y queda congelado — lo asigna el trigger `preparar_orden_lavado` e ignora cualquier valor que llegue en el `INSERT`; solo se recalcula si `colaborador_id` cambia mientras la orden sigue abierta (`proteger_orden_lavado`).
 
@@ -182,3 +235,34 @@ Además, el porcentaje de comisión de una orden (`porcentaje_comision`) se copi
 - **Dato sensible excluido**: en `usuarios`, `password_hash` se quita del jsonb antes de guardarlo (ni en `valor_anterior` ni en `valor_nuevo`).
 - **La auditoría es inmutable**: `UPDATE` sobre `auditoria` → `23514`; `DELETE` o `TRUNCATE` → `23001`. Ninguno de los dos se puede evitar con un rol superusuario, porque son triggers, no RLS.
 - **`service_role` no escribe auditoría directamente**: solo la función `registrar_auditoria()` (que corre `security definer`) puede insertar en `auditoria`; `service_role` tiene `INSERT`/`UPDATE`/`DELETE`/`TRUNCATE` revocados sobre esa tabla.
+
+## Seguridad: RLS por rol (Bloque 11, SCRUM-147)
+
+Las 11 tablas tienen `enable row level security`, pero hasta esta migración ninguna tenía políticas (`anon`/`authenticated` sin ningún privilegio). `agregar_politicas_rls_por_rol` agrega, por tabla, los GRANT y las políticas que modelan la misma matriz de permisos que ya aplican los middlewares de `apps/api` — ver ADR 0003 para esa matriz a nivel de API, y el ADR de esta migración para la matriz completa a nivel de BD (incluye `usuarios`, `parametros_negocio` y `auditoria`, que el ADR 0003 no cubre).
+
+- `public.rol_actual()` lee `request.jwt.claims -> app_metadata ->> 'rol'` (el claim de Supabase Auth). La API no usa Supabase Auth hoy, así que esta función y las políticas que dependen de ella son defensa en profundidad, no algo que el tráfico real de la API ejercite — la API sigue con `service_role`, que bypasea RLS.
+- Dos políticas son condicionales sobre el valor nuevo de `estado` en un `UPDATE` (mismo criterio que `exigirSuperadminParaReabrir`/`exigirPermisoParaCancelar` en la API): reabrir una jornada (`estado → 'abierta'`) exige `superadmin`; anular una orden (`estado → 'cancelada'`) exige `superadmin` o `administrador`.
+- `usuarios.password_hash` nunca tiene `GRANT` para `authenticated`, en ninguna política ni rol — se bloquea a nivel de columna, antes de que RLS evalúe nada.
+- `pendiente` y `anon` no tienen ninguna política en ninguna tabla: acceso nulo.
+
+## Pagos de crédito (SCRUM-158)
+
+`pagos_credito` agrupa N órdenes del mismo cliente, pagadas completas de una sola vez (sin abonos parciales, sin vales, sin cupo). Es de solo inserción — `revoke update, delete, truncate ... from service_role`, igual que `auditoria` — y la única vía de escritura es `registrar_pago_credito(p_cliente_id, p_orden_ids, p_usuario_id)`, que bloquea las filas de las órdenes, valida todo (existencia, mismo cliente, a crédito, `entregada`, sin pago previo, sin ids repetidos) y solo entonces crea el pago y marca `ordenes_lavado.pago_credito_id` en todas — todo o nada.
+
+`authenticated` nunca puede poner `pago_credito_id` directamente: a diferencia de columnas de tablas nuevas, esta se agregó a una tabla que YA tenía un `GRANT` de tabla completa (de `agregar_politicas_rls_por_rol.sql`), así que hubo que revocar `INSERT`/`UPDATE` de tabla completa y volver a concederlos por columnas explícitas sin `pago_credito_id` — un `REVOKE` de columna sola, encima de un `GRANT` de tabla, no restringe nada (confirmado probándolo). Ver ADR 0005 para el detalle completo, incluida la regla R11 (una orden pagada no se cancela) y por qué es inalcanzable hoy.
+
+## Nómina quincenal (SCRUM-159)
+
+`descuentos_colaborador` registra descuentos de un colaborador contra su comisión de la quincena en curso (`registrar_descuento()`), con una columna `tipo` (`prestamo`/`jabon`/`multa`/`cxc` — comparado contra la planilla real, hoja T1; ampliable a café/abono/fondo con solo un `CHECK` nuevo, ver ADR 0006) en vez de una tabla por categoría. Solo `tipo = 'prestamo'` tiene límite por comisión disponible; los demás se registran sin límite — lo que no cubra la comisión queda como `saldo_pendiente` y se convierte automáticamente en un descuento `cxc` de la quincena siguiente al liquidar. `liquidaciones_nomina`/`liquidacion_colaboradores` son el encabezado y el detalle CONGELADO de cerrar una quincena (`liquidar_quincena()`), ambas inmutables también para `service_role` (mismo patrón que `pagos_credito`). `ordenes_lavado.liquidacion_id` sigue el mismo mecanismo que `pago_credito_id`: `authenticated` no puede escribirla directamente, y `proteger_orden_lavado()` (extendida otra vez, conservando todo lo de SCRUM-158) permite que pase de `null` a un valor incluso en una orden ya cerrada; esa misma función también bloquea, como su primer chequeo, reasignar el colaborador de cualquier orden ya liquidada (R12b, sin importar el `estado`).
+
+`comision_colaborador_periodo()` es la única fuente del cálculo de comisión por periodo (la regla de redondeo vive en `comision_orden()`: por orden, entero en pesos, `round()` estándar); `descuentos_colaborador_periodo()` es la única fuente del cálculo de descuentos (un parámetro de tipo opcional: todos los tipos, o uno puntual) — las reutilizan `registrar_descuento()`, `liquidar_quincena()` y R13/R14 (cancelar o reasignar una orden abierta no puede dejar la comisión por debajo de los descuentos tipo `prestamo` pendientes de esa quincena; jabón/multa/cxc no protegen nada ahí). El default de `p_hoy` en `liquidar_quincena()` usa `America/Bogota`, nunca `current_date` (UTC) — ver ADR 0006 para el bug concreto que esto evita. Ver ADR 0006 para el detalle completo, incluido el hallazgo de que `registrar_auditoria()` exige una columna `id` (por eso `liquidacion_colaboradores` tiene `id` propio además del par único `liquidacion_id`+`colaborador_id`) y por qué `limites_quincena()`/`comision_orden()`/`comision_colaborador_periodo()`/`descuentos_colaborador_periodo()`/`validar_cobertura_prestamos_colaborador()` sí tienen `GRANT` para `authenticated`, a diferencia del resto de funciones de este bloque.
+
+## Módulos del panel (ADR 0007)
+
+Caja, crédito con vales, inventario, QR de la jornada y reportes. 8 tablas nuevas, 23 en total:
+
+- `cajas` (una por jornada, única abierta a la vez; base inicial y arqueo con `diferencia` generada), `egresos_caja` y `cobros_caja` (inmutables). El cobro es la entrega: `registrar_cobro()` pasa la orden de `terminada` a `entregada`, fija su medio (y a crédito su empresa y su vale) y deja el cobro. `ordenes_lavado.entregada_en` la asigna un trigger.
+- `clientes` gana `cupo_credito`, `dia_corte` y `contacto` (solo empresas). `vales_credito`: un vale por orden a crédito; de él solo cambia la verificación, y nunca después del pago. `detalles_pago_credito` guarda el medio de cada pago; `registrar_pago_credito_con_medio()` exige vales verificados y paga con `registrar_pago_credito()`.
+- `insumos` y `movimientos_inventario`: el stock solo cambia con `registrar_movimiento_inventario()` y nunca queda en negativo.
+- `tokens_jornada`: hash SHA-256 de los tokens de un solo uso del QR; ningún rol de la aplicación los lee.
+- Reportes en SQL (`reporte_ventas_por_dia`, `reporte_mix_servicios`, `reporte_colaboradores`, `reporte_ingresos_por_hora`) y `resumen_nomina_periodo()`, la vista previa exacta de `liquidar_quincena()`. Agregan en la base para no depender del límite de 1.000 filas de PostgREST.

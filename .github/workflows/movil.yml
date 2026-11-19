@@ -1,0 +1,58 @@
+# Integración continua de la app móvil (apps/movil).
+# Formato, análisis estático y pruebas con la versión de Flutter del proyecto.
+name: CI móvil
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - "apps/movil/**"
+      - "packages/contratos/**"
+      - ".github/workflows/movil.yml"
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - "apps/movil/**"
+      - "packages/contratos/**"
+      - ".github/workflows/movil.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: apps/movil
+
+jobs:
+  verificar:
+    name: Formato, análisis y pruebas
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Preparar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.1
+          channel: stable
+          cache: true
+
+      - name: Instalar dependencias
+        run: flutter pub get
+
+      - name: Formato
+        run: dart format --set-exit-if-changed lib test integration_test
+
+      - name: Análisis estático
+        run: flutter analyze
+
+      - name: Pruebas
+        run: flutter test

@@ -1,9 +1,10 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { LayoutPrincipal } from '@/components/layout/LayoutPrincipal';
+import { ProveedorSesion } from '@/features/autenticacion';
 import { CONSULTA_PANTALLA_ANGOSTA } from '@/hooks/usePantallaAngosta';
 
 /** Simula el ancho de la ventana y permite cruzar el punto de quiebre. */
@@ -28,16 +29,31 @@ function simularPantalla({ angosta }) {
   };
 }
 
-function renderizarLayout() {
+const SESION_ADMIN = {
+  usuario: { id: 1, nombre: 'Ana Prueba', email: 'ana@prueba.com', rol: 'administrador' },
+  token: 'token-de-prueba',
+};
+
+function renderizarLayout(rutaInicial = '/') {
+  const router = createMemoryRouter(
+    [
+      {
+        path: '/',
+        element: <LayoutPrincipal />,
+        children: [
+          { index: true, element: <p>Contenido de la página</p> },
+          { path: 'tablero', handle: { ajustarAlAlto: true }, element: <p>Tablero ajustado</p> },
+          { path: 'inicio', handle: { ajustarAlAlto: 'escritorio' }, element: <p>Inicio ajustado</p> },
+          { path: '*', element: <p>Otra página</p> },
+        ],
+      },
+    ],
+    { initialEntries: [rutaInicial] },
+  );
   return render(
-    <MemoryRouter initialEntries={['/']}>
-      <Routes>
-        <Route path="/" element={<LayoutPrincipal />}>
-          <Route index element={<p>Contenido de la página</p>} />
-          <Route path="*" element={<p>Otra página</p>} />
-        </Route>
-      </Routes>
-    </MemoryRouter>,
+    <ProveedorSesion sesionInicial={SESION_ADMIN}>
+      <RouterProvider router={router} />
+    </ProveedorSesion>,
   );
 }
 
@@ -63,6 +79,24 @@ describe('LayoutPrincipal: estructura', () => {
     renderizarLayout();
 
     expect(within(screen.getByRole('main')).getByText('Contenido de la página')).toBeInTheDocument();
+  });
+
+  it('ajusta el contenido al alto disponible cuando la ruta lo pide', () => {
+    const { unmount } = renderizarLayout();
+    expect(screen.getByText('Contenido de la página').parentElement).toHaveClass('min-h-full');
+    unmount();
+
+    renderizarLayout('/tablero');
+    const contenedor = screen.getByText('Tablero ajustado').parentElement;
+    expect(contenedor).toHaveClass('h-full', 'flex-col');
+    expect(contenedor).not.toHaveClass('min-h-full');
+  });
+
+  it('con "escritorio" crece con el contenido y solo se fija al alto desde 1200 × 720', () => {
+    renderizarLayout('/inicio');
+    const contenedor = screen.getByText('Inicio ajustado').parentElement;
+    expect(contenedor).toHaveClass('min-h-full', 'flex-col', 'ajustado:h-full');
+    expect(contenedor).not.toHaveClass('h-full');
   });
 
   it('ofrece un enlace para saltar al contenido', () => {

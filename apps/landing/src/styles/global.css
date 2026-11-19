@@ -1,0 +1,13 @@
+/* Fuentes empaquetadas (sin CDN): el navegador solo baja los alfabetos que usa. */
+@import '@fontsource-variable/dm-sans/opsz.css';
+@import '@fontsource/jetbrains-mono/600.css';
+
+@import './tokens.css';
+@import './base.css';
+@import './secciones/nav.css';
+@import './secciones/hero.css';
+@import './secciones/producto.css';
+@import './secciones/flujo.css';
+@import './secciones/modulos.css';
+@import './secciones/app.css';
+@import './secciones/cierre.css';

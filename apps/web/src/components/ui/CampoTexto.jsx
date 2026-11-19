@@ -1,14 +1,26 @@
 import { useId } from 'react';
 
 const ESTILOS_BASE = [
-  'h-10 w-full rounded-control border bg-white px-3 text-cuerpo text-neutro-900',
-  'placeholder:text-neutro-400 transition-colors',
-  'focus-visible:outline-2 focus-visible:outline-offset-2',
+  'w-full rounded-control border bg-white px-3 text-cuerpo font-medium text-neutro-900',
+  'placeholder:font-normal placeholder:text-neutro-400',
+  'transition-[border-color,box-shadow] duration-150 outline-none',
   'disabled:cursor-not-allowed disabled:bg-neutro-100 disabled:text-neutro-500',
 ].join(' ');
 
-const ESTILOS_NORMAL = 'border-neutro-300 hover:not-disabled:border-neutro-400 focus-visible:outline-primario';
-const ESTILOS_CON_ERROR = 'border-error bg-error-suave focus-visible:outline-error';
+const ESTILOS_NORMAL =
+  'border-neutro-300 hover:not-disabled:border-neutro-400 focus-visible:border-primario focus-visible:shadow-foco-campo';
+const VARIANTES = {
+  normal: '',
+  placa: 'font-mono font-semibold tracking-campo-placa uppercase placeholder:tracking-normal',
+};
+
+const TAMANOS = {
+  normal: 'h-9.5',
+  grande: 'h-11',
+};
+
+const ESTILOS_CON_ERROR =
+  'border-error bg-error-suave focus-visible:border-error focus-visible:shadow-foco-campo';
 
 /**
  * Campo de texto con etiqueta asociada, texto de ayuda y mensaje de error.
@@ -23,6 +35,12 @@ const ESTILOS_CON_ERROR = 'border-error bg-error-suave focus-visible:outline-err
  * @param {string} [props.error] Mensaje de error; si viene, el campo se marca inválido.
  * @param {boolean} [props.requerido]
  * @param {string} [props.id] Se genera uno si no se entrega.
+ * @param {'normal'|'grande'} [props.tamano] `grande` (44 px) para formularios de una
+ *   sola columna, como el de ingreso.
+ * @param {import('react').ReactNode} [props.accion] Botón pequeño dentro del campo, a la
+ *   derecha (por ejemplo, mostrar u ocultar la contraseña).
+ * @param {'normal'|'placa'} [props.variante] `placa` escribe en JetBrains Mono y
+ *   mayúsculas, como el campo de placa del diseño.
  * @param {string} [props.className] Clases del contenedor.
  */
 export function CampoTexto({
@@ -31,6 +49,9 @@ export function CampoTexto({
   error,
   requerido = false,
   id,
+  variante = 'normal',
+  tamano = 'normal',
+  accion,
   className = '',
   ...resto
 }) {
@@ -53,15 +74,20 @@ export function CampoTexto({
         ) : null}
       </label>
 
-      <input
-        id={idCampo}
-        type="text"
-        {...resto}
-        required={requerido}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={descritoPor}
-        className={`${ESTILOS_BASE} ${error ? ESTILOS_CON_ERROR : ESTILOS_NORMAL}`}
-      />
+      <div className="relative">
+        <input
+          id={idCampo}
+          type="text"
+          {...resto}
+          required={requerido}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={descritoPor}
+          className={`${ESTILOS_BASE} ${TAMANOS[tamano] ?? TAMANOS.normal} ${VARIANTES[variante] ?? ''} ${
+            error ? ESTILOS_CON_ERROR : ESTILOS_NORMAL
+          } ${accion ? 'pr-11' : ''}`}
+        />
+        {accion ? <div className="absolute inset-y-0 right-1 flex items-center">{accion}</div> : null}
+      </div>
 
       {ayuda ? (
         <p id={idAyuda} className="text-meta text-neutro-600">

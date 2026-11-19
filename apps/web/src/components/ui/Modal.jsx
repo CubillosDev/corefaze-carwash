@@ -8,6 +8,8 @@ import { useFocoAtrapado } from '@/hooks/useFocoAtrapado';
 const ANCHOS = {
   pequeno: 'escritorio:max-w-md',
   mediano: 'escritorio:max-w-lg',
+  // Formularios de registro, como "Nuevo servicio" en el diseño (540 px).
+  formulario: 'escritorio:max-w-135',
   grande: 'escritorio:max-w-2xl',
 };
 
@@ -25,11 +27,13 @@ const ANCHOS = {
  * @param {boolean} props.abierto
  * @param {() => void} props.alCerrar
  * @param {string} props.titulo
- * @param {'pequeno'|'mediano'|'grande'} [props.tamano]
- * @param {import('react').ReactNode} [props.pie] Botones de acción al pie.
+ * @param {string} [props.descripcion] Línea de apoyo bajo el título.
+ * @param {'pequeno'|'mediano'|'formulario'|'grande'} [props.tamano]
+ * @param {import('react').ReactNode} [props.pie] Contenido del pie: botones de
+ *   acción alineados a la derecha. Un bloque con flex-1 queda a la izquierda.
  * @param {import('react').ReactNode} props.children
  */
-export function Modal({ abierto, alCerrar, titulo, tamano = 'mediano', pie, children }) {
+export function Modal({ abierto, alCerrar, titulo, descripcion, tamano = 'mediano', pie, children }) {
   const contenedor = useRef(null);
   const idTitulo = useId();
 
@@ -56,7 +60,7 @@ export function Modal({ abierto, alCerrar, titulo, tamano = 'mediano', pie, chil
         tabIndex={-1}
         aria-hidden="true"
         onClick={alCerrar}
-        className="absolute inset-0 animate-aparecer bg-velo"
+        className="absolute inset-0 animate-aparecer bg-velo backdrop-blur-velo"
       />
 
       <div
@@ -70,26 +74,31 @@ export function Modal({ abierto, alCerrar, titulo, tamano = 'mediano', pie, chil
           ANCHOS[tamano] ?? ANCHOS.mediano
         }`}
       >
-        <div className="flex items-start gap-4 border-b border-neutro-200 px-5 py-4">
-          <h2 id={idTitulo} className="min-w-0 flex-1 text-titulo-modal text-neutro-900">
-            {titulo}
-          </h2>
+        <div className="flex items-start justify-between gap-3 border-b border-neutro-100 px-5.5 pt-4.5 pb-3.5">
+          <div className="min-w-0">
+            <h2 id={idTitulo} className="text-titulo-modal text-neutro-900">
+              {titulo}
+            </h2>
+            {descripcion ? (
+              <p className="mt-0.5 text-detalle text-neutro-600">{descripcion}</p>
+            ) : null}
+          </div>
           <button
             type="button"
             onClick={alCerrar}
             aria-label="Cerrar ventana"
-            className="-m-1 shrink-0 rounded-opcion p-1 text-neutro-500 transition-colors hover:bg-neutro-100 hover:text-neutro-800"
+            className="inline-flex size-7.5 shrink-0 items-center justify-center rounded-opcion text-neutro-500 transition-colors duration-150 hover:bg-neutro-75"
           >
-            <IconoCerrar />
+            <IconoCerrar className="size-3.75" />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-control text-neutro-700">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5.5 pt-4 pb-4.5 text-control text-neutro-700">
           {children}
         </div>
 
         {pie ? (
-          <div className="flex flex-wrap justify-end gap-2 border-t border-neutro-200 bg-neutro-50 px-5 py-4">
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-neutro-150 bg-neutro-25 px-5.5 py-3.25">
             {pie}
           </div>
         ) : null}

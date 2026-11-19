@@ -413,8 +413,20 @@ describe('PATCH /api/auth/usuarios/:id/rol', () => {
     });
   });
 
-  describe('no puede quedar el sistema sin ningún superadmin activo (hallazgo de revisión del PR #7)', () => {
-    it('rechaza degradar al único superadmin activo (409)', async () => {
+  describe('un superadmin no puede quitarse a sí mismo el rol de superadmin (SCRUM-141, decisión definitiva)', () => {
+    it('rechaza la autodegradación aunque exista otro superadmin activo (409)', async () => {
+      const { token: tokenSuperAdmin, id } = await registrarYObtenerToken('superadmin');
+      await registrarYObtenerToken('superadmin'); // otro superadmin activo: no cambia el resultado
+
+      const respuesta = await conApiKey('patch', `/api/auth/usuarios/${id}/rol`)
+        .set('Authorization', `Bearer ${tokenSuperAdmin}`)
+        .send({ rol: 'administrador' });
+
+      expect(respuesta.status).toBe(409);
+      expect(respuesta.body.usuario).toBeUndefined();
+    });
+
+    it('rechaza la autodegradación siendo el último superadmin activo (409)', async () => {
       const { token: tokenSuperAdmin, id } = await registrarYObtenerToken('superadmin');
 
       await sinOtrosSuperadminActivos(id, async () => {
@@ -425,12 +437,25 @@ describe('PATCH /api/auth/usuarios/:id/rol', () => {
         expect(respuesta.status).toBe(409);
       });
     });
+  });
 
-    it('permite degradar a un superadmin si queda otro superadmin activo (200)', async () => {
-      const { token: tokenSuperAdmin, id: idPrimero } = await registrarYObtenerToken('superadmin');
-      await registrarYObtenerToken('superadmin');
+  describe('no puede quedar el sistema sin ningún superadmin activo (hallazgo de revisión del PR #7)', () => {
+    // No hay una prueba de integración separada para "rechaza que OTRO
+    // superadmin degrade al único superadmin activo", distinta de la
+    // autodegradación de arriba: por HTTP, quien llama a esta ruta ya
+    // tuvo que pasar autorizarRoles(superadmin), es decir, ya es un
+    // superadmin ACTIVO — y ese actor, si no es el objetivo, cuenta como
+    // "otro superadmin activo" para la invariante, así que la única
+    // forma de que el conteo llegue a cero por HTTP es que actor y
+    // objetivo sean la misma persona (lo que el bloque de arriba ya
+    // cubre). La regla, aislada de esa restricción de autorización, está
+    // probada de forma directa en usuarios.service.test.js, llamando a
+    // asignarRol con un actor que NO es superadmin.
+    it('un superadmin degrada a OTRO superadmin si queda uno activo (200)', async () => {
+      const { token: tokenSuperAdmin } = await registrarYObtenerToken('superadmin');
+      const { id: idObjetivo } = await registrarYObtenerToken('superadmin');
 
-      const respuesta = await conApiKey('patch', `/api/auth/usuarios/${idPrimero}/rol`)
+      const respuesta = await conApiKey('patch', `/api/auth/usuarios/${idObjetivo}/rol`)
         .set('Authorization', `Bearer ${tokenSuperAdmin}`)
         .send({ rol: 'administrador' });
 

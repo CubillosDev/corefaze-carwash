@@ -1,0 +1,91 @@
+/*
+ * Única fuente de tokens de la landing. Los valores salen del diseño
+ * "Landing Corefaze" (objeto de temas y estilos del prototipo).
+ */
+:root {
+  --azul: #1268e8;
+  --azul-hover: #0f5bcc;
+  --azul-claro: #4d9bff;
+  --azul-profundo: #0b3d91;
+  --medianoche: #0a1020;
+  --grafito: #171b24;
+  --panel-navy: #0e1730;
+  --verde: #16a34a;
+  --verde-vivo: #22c55e;
+  --rojo: #dc2626;
+  --amarillo-placa: #f2c230;
+  --tinta-placa: #111111;
+
+  --degradado-boton: linear-gradient(180deg, #2c7df3 0%, #1268e8 100%);
+  --sombra-boton: inset 0 1px 0 rgb(255 255 255 / 25%), 0 1px 2px rgb(10 16 32 / 20%),
+    0 12px 28px -12px rgb(18 104 232 / 75%);
+  --sombra-boton-hover: inset 0 1px 0 rgb(255 255 255 / 25%), 0 1px 2px rgb(10 16 32 / 20%),
+    0 16px 34px -12px rgb(18 104 232 / 85%);
+
+  --curva: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --curva-salida: cubic-bezier(0.16, 1, 0.3, 1);
+  --curva-resorte: cubic-bezier(0.34, 1.4, 0.5, 1);
+
+  --fuente: 'DM Sans Variable', 'DM Sans', system-ui, sans-serif;
+  --fuente-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --relleno-seccion: clamp(80px, 10vw, 130px);
+  --margen-lateral: clamp(16px, 4vw, 32px);
+
+  /* Tema claro */
+  --fondo: #ffffff;
+  --fondo-2: #f5f6f8;
+  --superficie: #ffffff;
+  --superficie-2: #f5f6f8;
+  --linea: #e6e8ec;
+  --tinta: #0a1020;
+  --tinta-2: #4a5163;
+  --tinta-3: #8a90a0;
+  --chip: #eef1f5;
+  --perilla: #ffffff;
+  --azul-suave: #e7effd;
+  --nav: rgb(255 255 255 / 80%);
+  --nav-linea: rgb(10 16 32 / 8%);
+  --punto-rejilla: rgb(10 16 32 / 7%);
+  --brillo: rgb(18 104 232 / 12%);
+  --sombra-marco: 0 40px 100px rgb(10 30 70 / 16%);
+  --hero-arriba: #eaf1ff;
+  --linea-rejilla: rgb(10 16 32 / 5%);
+  --vidrio: rgb(255 255 255 / 72%);
+  --anillo-marco: rgb(255 255 255 / 70%);
+  --panel-marca: #1268e8;
+  --barra-suave: #c9daf8;
+  --sol: #0a1020;
+  --luna: #8a90a0;
+
+  color-scheme: light;
+}
+
+:root[data-tema='oscuro'] {
+  --fondo: #0a1020;
+  --fondo-2: #0e1730;
+  --superficie: #111a33;
+  --superficie-2: #16213f;
+  --linea: rgb(255 255 255 / 9%);
+  --tinta: #ffffff;
+  --tinta-2: #b4bcd0;
+  --tinta-3: #7f89a3;
+  --chip: rgb(255 255 255 / 7%);
+  --perilla: #1268e8;
+  --azul-suave: rgb(18 104 232 / 20%);
+  --nav: rgb(14 23 48 / 78%);
+  --nav-linea: rgb(255 255 255 / 10%);
+  --punto-rejilla: rgb(255 255 255 / 6%);
+  --brillo: rgb(18 104 232 / 24%);
+  --sombra-marco: 0 40px 100px rgb(0 0 0 / 55%);
+  --hero-arriba: #0e1a3d;
+  --linea-rejilla: rgb(255 255 255 / 5%);
+  --vidrio: rgb(17 26 51 / 70%);
+  --anillo-marco: rgb(255 255 255 / 6%);
+  --panel-marca: #0b3d91;
+  --barra-suave: rgb(77 155 255 / 35%);
+  --sol: #7f89a3;
+  --luna: #ffffff;
+
+  color-scheme: dark;
+}

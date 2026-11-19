@@ -5,6 +5,11 @@
  *
  * Contrato de la API (apps/api):
  * - Todo /api/* exige el encabezado X-API-Key, salvo /api/salud.
+ * - Cuando hay sesión, se agrega Authorization: Bearer <token>. El token lo
+ *   entrega la sesión (ver `vincularSesion`) y su respaldo en sessionStorage
+ *   se maneja aquí (guardarSesion, leerSesionGuardada, borrarSesionGuardada).
+ * - Un 401 en una solicitud que llevaba token, o un token vencido, cierra la
+ *   sesión: se borra el respaldo y se avisa a la sesión.
  * - Los errores llegan como { mensaje } y, en 400, como
  *   { mensaje, errores: [{ campo, mensaje }] }.
  *
@@ -47,18 +52,23 @@ export class ErrorHttp extends Error {
    * @param {object} [opciones]
    * @param {number} [opciones.estado] Código HTTP; 0 si no hubo respuesta.
    * @param {Record<string, string>} [opciones.erroresPorCampo] En 400: campo -> mensaje.
+   * @param {string} [opciones.mensajeDelServidor] Texto original de la API. No se
+   *   muestra tal cual: quien lo usa decide si habla del negocio o es técnico.
    * @param {unknown} [opciones.causa]
    */
-  constructor(mensaje, { estado = 0, erroresPorCampo = {}, causa } = {}) {
+  constructor(mensaje, { estado = 0, erroresPorCampo = {}, mensajeDelServidor = '', causa } = {}) {
     super(mensaje, { cause: causa });
     this.name = 'ErrorHttp';
     this.estado = estado;
     this.erroresPorCampo = erroresPorCampo;
+    this.mensajeDelServidor = mensajeDelServidor;
   }
 }
 
+const mensajeDelServidorDe = (cuerpo) => (typeof cuerpo?.mensaje === 'string' ? cuerpo.mensaje : '');
+
 function mensajeDeEstado(estado, cuerpo) {
-  const mensajeDelServidor = typeof cuerpo?.mensaje === 'string' ? cuerpo.mensaje : '';
+  const mensajeDelServidor = mensajeDelServidorDe(cuerpo);
 
   if (mensajeDelServidor !== '' && ESTADOS_CON_MENSAJE_DEL_SERVIDOR.has(estado)) {
     return mensajeDelServidor;
@@ -129,12 +139,18 @@ function construirUrl(urlBase, ruta, consulta) {
  * @param {string} [configuracion.llaveApi] Valor del encabezado X-API-Key.
  * @param {number} [configuracion.tiempoMaximoMs]
  * @param {typeof fetch} [configuracion.hacerPeticion] Implementación de fetch.
+ * @param {() => (string|null)} [configuracion.obtenerToken] Token de la sesión
+ *   actual, o null si no hay sesión.
+ * @param {() => void} [configuracion.alSesionExpirada] Se llama cuando la API
+ *   responde 401 a una solicitud que llevaba token.
  */
 export function crearHttpCliente({
   urlBase,
   llaveApi = '',
   tiempoMaximoMs = TIEMPO_MAXIMO_POR_DEFECTO_MS,
   hacerPeticion = (...argumentos) => fetch(...argumentos),
+  obtenerToken = () => null,
+  alSesionExpirada = () => {},
 }) {
   /**
    * @param {string} ruta Camino relativo a la URL base, por ejemplo 'servicios'.
@@ -167,9 +183,20 @@ export function crearHttpCliente({
     if (datos !== undefined) {
       encabezados['Content-Type'] = 'application/json';
     }
+    const token = obtenerToken();
+    if (token) {
+      encabezados.Authorization = `Bearer ${token}`;
+    }
 
     // Si quien llama ya canceló, no se envía nada.
     signal?.throwIfAborted();
+
+    // Un token vencido no viaja: se cierra la sesión sin esperar el 401.
+    if (token && tokenVencido(token)) {
+      borrarSesionGuardada();
+      alSesionExpirada();
+      throw new ErrorHttp(MENSAJES_POR_ESTADO[401], { estado: 401 });
+    }
 
     const controlador = new AbortController();
     const temporizador = setTimeout(() => controlador.abort(), tiempoDeEstaSolicitud);
@@ -188,9 +215,16 @@ export function crearHttpCliente({
       const cuerpo = await leerCuerpo(respuesta);
 
       if (!respuesta.ok) {
+        // Sin token no hay sesión que cerrar: un 401 al iniciar sesión es solo
+        // "credenciales incorrectas" y lo resuelve quien llama.
+        if (respuesta.status === 401 && token) {
+          borrarSesionGuardada();
+          alSesionExpirada();
+        }
         throw new ErrorHttp(mensajeDeEstado(respuesta.status, cuerpo), {
           estado: respuesta.status,
           erroresPorCampo: erroresPorCampoDe(cuerpo),
+          mensajeDelServidor: mensajeDelServidorDe(cuerpo),
         });
       }
 
@@ -216,7 +250,99 @@ export function crearHttpCliente({
   });
 }
 
+/*
+ * Respaldo de la sesión: el token vive en memoria y se copia en
+ * sessionStorage (nunca en localStorage) para no perder la sesión al recargar
+ * la pestaña. sessionStorage se borra al cerrar la pestaña y no se comparte
+ * entre pestañas. Se limpia al cerrar sesión, ante un 401 y si el token vence.
+ */
+const CLAVE_SESION = 'corefaze.sesion';
+
+function almacenDeSesion() {
+  try {
+    return globalThis.sessionStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * ¿El JWT ya venció? Lee solo el campo `exp` del payload, sin validar la
+ * firma (eso lo hace la API). Si no se puede leer, se deja decidir a la API.
+ *
+ * @param {string} token
+ * @param {number} [ahora] Milisegundos; se puede fijar en pruebas.
+ */
+export function tokenVencido(token, ahora = Date.now()) {
+  try {
+    const payload = String(token).split('.')[1];
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const { exp } = JSON.parse(atob(base64));
+    return typeof exp === 'number' && exp * 1000 <= ahora;
+  } catch {
+    return false;
+  }
+}
+
+/** @param {{ usuario: object, token: string }} sesion */
+export function guardarSesion(sesion) {
+  try {
+    almacenDeSesion()?.setItem(CLAVE_SESION, JSON.stringify(sesion));
+  } catch {
+    // Sin almacenamiento disponible (modo privado estricto): la sesión sigue en memoria.
+  }
+}
+
+export function borrarSesionGuardada() {
+  try {
+    almacenDeSesion()?.removeItem(CLAVE_SESION);
+  } catch {
+    // Nada que borrar.
+  }
+}
+
+/**
+ * Sesión guardada en esta pestaña, o null si no hay, está dañada o el token
+ * venció (en esos casos también se borra).
+ *
+ * @returns {{ usuario: object, token: string } | null}
+ */
+export function leerSesionGuardada() {
+  try {
+    const sesion = JSON.parse(almacenDeSesion()?.getItem(CLAVE_SESION) ?? 'null');
+    if (sesion?.token && sesion?.usuario && !tokenVencido(sesion.token)) {
+      return sesion;
+    }
+  } catch {
+    // Contenido dañado: se trata como si no hubiera sesión.
+  }
+  borrarSesionGuardada();
+  return null;
+}
+
+const SIN_SESION = Object.freeze({ obtenerToken: () => null, alSesionExpirada: () => {} });
+let enlaceSesion = SIN_SESION;
+
+/**
+ * Conecta la sesión con el cliente HTTP de la aplicación. Lo llama una sola vez
+ * el proveedor de sesión; el token se pide en cada solicitud, así que nunca se
+ * copia ni se guarda fuera de la sesión.
+ *
+ * @param {{ obtenerToken: () => (string|null), alSesionExpirada: () => void }} enlace
+ * @returns {() => void} Desconecta la sesión.
+ */
+export function vincularSesion(enlace) {
+  enlaceSesion = enlace;
+  return () => {
+    if (enlaceSesion === enlace) {
+      enlaceSesion = SIN_SESION;
+    }
+  };
+}
+
 export const httpCliente = crearHttpCliente({
   urlBase: import.meta.env.VITE_API_URL ?? '',
   llaveApi: import.meta.env.VITE_API_KEY ?? '',
+  obtenerToken: () => enlaceSesion.obtenerToken(),
+  alSesionExpirada: () => enlaceSesion.alSesionExpirada(),
 });

@@ -1056,6 +1056,9 @@ describe('ordenesLavado.service', () => {
       ['en_proceso', 'terminada'],
       ['en_proceso', 'cancelada'],
       ['terminada', 'entregada'],
+      // Devolver a la fase anterior (por ahora, ADR 0010).
+      ['en_proceso', 'registrada'],
+      ['terminada', 'en_proceso'],
     ])('permite la transición de %s a %s', async (estadoInicial, estadoFinal) => {
       await abrirJornadaDePrueba();
       const escenario = await construirEscenarioValido();
@@ -1088,6 +1091,18 @@ describe('ordenesLavado.service', () => {
       const orden = await crearOrden(datosOrdenValida(escenario), USUARIO_ID_PRUEBA);
       await expect(
         cambiarEstadoOrden(orden.id, 'entregada', undefined, USUARIO_ID_PRUEBA),
+      ).rejects.toThrow(Conflicto);
+    });
+
+    it('rechaza devolver dos fases de una vez: de terminada a registrada', async () => {
+      await abrirJornadaDePrueba();
+      const escenario = await construirEscenarioValido();
+      const orden = await crearOrden(datosOrdenValida(escenario), USUARIO_ID_PRUEBA);
+      await cambiarEstadoOrden(orden.id, 'en_proceso', undefined, USUARIO_ID_PRUEBA);
+      await cambiarEstadoOrden(orden.id, 'terminada', undefined, USUARIO_ID_PRUEBA);
+
+      await expect(
+        cambiarEstadoOrden(orden.id, 'registrada', undefined, USUARIO_ID_PRUEBA),
       ).rejects.toThrow(Conflicto);
     });
 

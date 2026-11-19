@@ -1,0 +1,33 @@
+name: corefaze_movil
+description: App móvil de recepción de Corefaze CarWash.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_secure_storage: ^11.2.0
+  http: ^1.6.0
+  mobile_scanner: ^7.5.0
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+  fonts:
+    - family: DM Sans
+      fonts:
+        - asset: assets/fonts/DMSans-Variable.ttf
+    - family: JetBrains Mono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Variable.ttf
