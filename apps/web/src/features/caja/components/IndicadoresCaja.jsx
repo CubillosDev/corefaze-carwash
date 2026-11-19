@@ -29,15 +29,15 @@ export function IndicadoresCaja({ totales, baseInicial }) {
   ];
 
   return (
-    <dl className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(min(160px,100%),1fr))] rounded-tarjeta border border-neutro-200 bg-white">
+    <dl className="mt-4 grid grid-cols-1 rounded-tarjeta border border-neutro-200 bg-white escritorio:grid-cols-[repeat(auto-fit,minmax(160px,1fr))]">
       {indicadores.map((indicador, indice) => (
         <div
           key={indicador.etiqueta}
-          className={`px-4.5 py-3.5 ${indice > 0 ? 'border-neutro-150 max-escritorio:border-t escritorio:border-l' : ''}`}
+          className={`min-w-0 px-4.5 py-3.5 ${indice > 0 ? 'border-neutro-150 max-escritorio:border-t escritorio:border-l' : ''}`}
         >
           <dt className="text-meta text-neutro-600">{indicador.etiqueta}</dt>
           <dd className="mt-0.75 text-indicador whitespace-nowrap tabular-nums">{indicador.valor}</dd>
-          <dd className="mt-px text-nota whitespace-nowrap text-neutro-450">{indicador.apoyo}</dd>
+          <dd className="mt-px text-nota text-neutro-450">{indicador.apoyo}</dd>
         </div>
       ))}
     </dl>

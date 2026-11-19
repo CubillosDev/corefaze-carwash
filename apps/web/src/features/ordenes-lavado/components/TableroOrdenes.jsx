@@ -24,7 +24,7 @@ import { plural } from '@/utils/plural';
  */
 export function TableroOrdenes({ ordenes, datosDe, puedeAnular, ordenOcupada, alCambiarEstado }) {
   return (
-    <div className="-mr-3.5 mt-3.5 grid min-h-88 flex-1 snap-x snap-mandatory grid-cols-[repeat(4,80vw)] grid-rows-[minmax(0,1fr)] gap-2.5 overflow-x-auto pb-1 escritorio:mr-0 escritorio:grid-cols-[repeat(4,minmax(190px,1fr))]">
+    <div className="relative -mr-3.5 mt-3.5 grid min-h-88 flex-1 snap-x snap-mandatory grid-cols-[repeat(4,80vw)] grid-rows-[minmax(0,1fr)] gap-2.5 overflow-x-auto pb-1 escritorio:mr-0 escritorio:grid-cols-[repeat(4,minmax(190px,1fr))]">
       {FASES_DEL_TABLERO.map((estado) => {
         const tarjetas = ordenes.filter((orden) => orden.estado === estado);
         const titulo = etiquetaEstadoOrden(estado);
