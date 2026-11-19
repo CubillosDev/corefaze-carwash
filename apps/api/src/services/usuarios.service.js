@@ -275,29 +275,36 @@ const exigirQueQuedeOtroSuperadminActivo = async (idExcluido) => {
  * función ya debe haber verificado que quien la invoca es "superadmin"
  * (responsabilidad del middleware `autorizarRoles`, no de este service).
  *
- * Regla de negocio (hallazgo de revisión del PR #7): el sistema nunca
- * puede quedar sin ningún superadmin activo. Si el usuario objetivo es
- * superadmin y el rol nuevo es distinto, se exige que quede AL MENOS otro
- * superadmin activo además de él (`exigirQueQuedeOtroSuperadminActivo`).
- * La regla aplica sin importar quién hace la petición — no es "no te
- * quites tu propio rol a ti mismo", es "que siempre quede alguien que
- * pueda volver a asignar roles"; eso cubre también el caso de quitarle
- * el rol a OTRO superadmin si es el último. Nunca bloquea que uno mismo
- * se quite su propio rol de superadmin cuando queda otro activo — eso
- * ya está intencionalmente permitido (ver la descripción del Bloque 6 y
- * sus pruebas), así que SCRUM-141 no le agrega una restricción nueva.
+ * Reglas de negocio, en este orden, cuando el usuario objetivo es
+ * superadmin y el rol nuevo es distinto:
+ *
+ * 1. (SCRUM-141, decisión definitiva) Un superadmin NUNCA puede quitarse
+ *    a sí mismo el rol de superadmin, sin importar cuántos otros
+ *    superadmin activos existan — a diferencia de degradar a OTRO
+ *    superadmin (regla 2), esta es incondicional: no depende del conteo.
+ *    Por eso se revisa primero, y por `id`/`usuarioId`, no por un conteo.
+ * 2. (hallazgo de revisión del PR #7) El sistema nunca puede quedar sin
+ *    ningún superadmin activo: degradar a OTRO superadmin (no a uno
+ *    mismo) exige que quede AL MENOS uno más activo además de él
+ *    (`exigirQueQuedeOtroSuperadminActivo`). Cubre también el caso de
+ *    quitarle el rol al penúltimo superadmin activo que queda.
  *
  * @param {number|string} id
  * @param {string} rol uno de los roles del dominio (ver constants/dominio.js ROLES)
  * @param {number} usuarioId quién hace el cambio (lo lee registrar_auditoria())
  * @returns {Promise<object>} el usuario actualizado (sin passwordHash)
  * @throws {NoEncontrado} si el id no existe
- * @throws {Conflicto} si degradar a este usuario deja el sistema sin ningún superadmin activo
+ * @throws {Conflicto} si intenta quitarse a sí mismo el rol de superadmin, o si
+ *   degradar a este usuario deja el sistema sin ningún superadmin activo
  */
 const asignarRol = async (id, rol, usuarioId) => {
   const usuario = await obtenerUsuarioOFallar(id);
 
   if (usuario.rol === 'superadmin' && rol !== 'superadmin') {
+    if (Number(id) === Number(usuarioId)) {
+      throw new Conflicto('No puedes quitarte a ti mismo el rol de superadmin');
+    }
+
     await exigirQueQuedeOtroSuperadminActivo(id);
   }
 

@@ -230,12 +230,54 @@ describe('usuarios.service', () => {
       expect(actualizado.passwordHash).toBeUndefined();
     });
 
-    describe('no puede quedar el sistema sin ningún superadmin activo (hallazgo de revisión del PR #7)', () => {
-      it('rechaza degradar al único superadmin activo (409 Conflicto)', async () => {
+    describe('un superadmin no puede quitarse a sí mismo el rol de superadmin (SCRUM-141, decisión definitiva)', () => {
+      it('rechaza la autodegradación aunque exista otro superadmin activo (409 Conflicto)', async () => {
+        const dueno = await obtenerUsuarioPorEmail(EMAIL_DUENO);
+        const otroSuperadmin = await crearUsuarioDePrueba();
+        await asignarRol(otroSuperadmin.id, 'superadmin', dueno.id);
+
+        await expect(asignarRol(dueno.id, 'administrador', dueno.id)).rejects.toThrow(Conflicto);
+        await expect(obtenerUsuarioPorId(dueno.id)).resolves.toMatchObject({ rol: 'superadmin' });
+      });
+
+      it('rechaza la autodegradación siendo el último superadmin activo (409 Conflicto)', async () => {
         const dueno = await obtenerUsuarioPorEmail(EMAIL_DUENO);
 
         await sinOtrosSuperadminActivos(dueno.id, async () => {
           await expect(asignarRol(dueno.id, 'administrador', dueno.id)).rejects.toThrow(Conflicto);
+          await expect(obtenerUsuarioPorId(dueno.id)).resolves.toMatchObject({
+            rol: 'superadmin',
+          });
+        });
+      });
+
+      it('no aplica si el rol nuevo también es superadmin (no es una degradación real)', async () => {
+        const dueno = await obtenerUsuarioPorEmail(EMAIL_DUENO);
+
+        await expect(asignarRol(dueno.id, 'superadmin', dueno.id)).resolves.toMatchObject({
+          rol: 'superadmin',
+        });
+      });
+
+      it('no aplica si el usuario objetivo no es superadmin', async () => {
+        const creado = await crearUsuarioDePrueba();
+        await asignarRol(creado.id, 'soporte', creado.id);
+
+        await expect(asignarRol(creado.id, 'administrador', creado.id)).resolves.toMatchObject({
+          rol: 'administrador',
+        });
+      });
+    });
+
+    describe('no puede quedar el sistema sin ningún superadmin activo (hallazgo de revisión del PR #7)', () => {
+      it('rechaza que OTRO actor degrade al único superadmin activo (409 Conflicto)', async () => {
+        const dueno = await obtenerUsuarioPorEmail(EMAIL_DUENO);
+        const otroActor = await crearUsuarioDePrueba();
+
+        await sinOtrosSuperadminActivos(dueno.id, async () => {
+          await expect(asignarRol(dueno.id, 'administrador', otroActor.id)).rejects.toThrow(
+            Conflicto,
+          );
           await expect(obtenerUsuarioPorId(dueno.id)).resolves.toMatchObject({
             rol: 'superadmin',
           });
@@ -247,13 +289,16 @@ describe('usuarios.service', () => {
         const otro = await crearUsuarioDePrueba();
         await asignarRol(otro.id, 'superadmin', dueno.id);
         await supabase.from('usuarios').update({ activo: false }).eq('id', otro.id);
+        const otroActor = await crearUsuarioDePrueba();
 
         await sinOtrosSuperadminActivos(dueno.id, async () => {
-          await expect(asignarRol(dueno.id, 'administrador', dueno.id)).rejects.toThrow(Conflicto);
+          await expect(asignarRol(dueno.id, 'administrador', otroActor.id)).rejects.toThrow(
+            Conflicto,
+          );
         });
       });
 
-      it('permite degradar a un superadmin si queda otro superadmin activo', async () => {
+      it('permite que un superadmin degrade a OTRO superadmin si queda uno activo (200)', async () => {
         const dueno = await obtenerUsuarioPorEmail(EMAIL_DUENO);
         const usuario1 = await crearUsuarioDePrueba();
         const usuario2 = await crearUsuarioDePrueba();
@@ -270,14 +315,6 @@ describe('usuarios.service', () => {
 
         await expect(asignarRol(creado.id, 'administrador', creado.id)).resolves.toMatchObject({
           rol: 'administrador',
-        });
-      });
-
-      it('la regla no aplica si el rol nuevo también es superadmin', async () => {
-        const dueno = await obtenerUsuarioPorEmail(EMAIL_DUENO);
-
-        await expect(asignarRol(dueno.id, 'superadmin', dueno.id)).resolves.toMatchObject({
-          rol: 'superadmin',
         });
       });
     });
