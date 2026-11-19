@@ -68,10 +68,12 @@ const esErrorDeJornada = (mensaje) => /jornada/i.test(mensaje);
  * @param {object} props
  * @param {() => void} props.alCerrar
  * @param {(orden: object) => void} props.alCrear Recibe la orden creada por la API.
+ * @param {object} [props.valoresIniciales] Para abrirlo ya con algunos campos, por ejemplo
+ *   a crédito de una empresa desde el módulo de crédito.
  */
-export function FormularioOrden({ alCerrar, alCrear }) {
+export function FormularioOrden({ alCerrar, alCrear, valoresIniciales }) {
   const catalogos = useCarga(cargarCatalogos);
-  const [valores, setValores] = useState(VALORES_INICIALES_ORDEN);
+  const [valores, setValores] = useState(() => ({ ...VALORES_INICIALES_ORDEN, ...valoresIniciales }));
   const [errores, setErrores] = useState({});
   const [errorDeApi, setErrorDeApi] = useState('');
   const [enviando, setEnviando] = useState(false);

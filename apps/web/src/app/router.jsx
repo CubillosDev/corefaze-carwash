@@ -75,6 +75,7 @@ export const rutas = [
               },
               {
                 path: RUTAS.CREDITO,
+                handle: { ajustarAlAlto: true },
                 Component: paginaDiferida(() => import('@/features/credito'), 'CreditoPage'),
               },
               {

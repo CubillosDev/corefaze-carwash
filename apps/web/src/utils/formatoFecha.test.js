@@ -5,6 +5,7 @@ import {
   formatoFechaHora,
   formatoFechaLarga,
   formatoHora,
+  fechaEnBogota,
   horaDelDiaEnBogota,
 } from '@/utils/formatoFecha';
 
@@ -110,5 +111,13 @@ describe('horaDelDiaEnBogota', () => {
 
   it('devuelve null si no es una fecha', () => {
     expect(horaDelDiaEnBogota('')).toBeNull();
+  });
+});
+
+describe('fechaEnBogota', () => {
+  it('da la fecha de negocio en Bogotá, no la de UTC', () => {
+    // 00:30 UTC del 16 = 7:30 p. m. del 15 en Bogotá.
+    expect(fechaEnBogota('2026-01-16T00:30:00Z')).toBe('2026-01-15');
+    expect(fechaEnBogota('no es fecha')).toBe('');
   });
 });

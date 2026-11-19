@@ -2,13 +2,11 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
-import { CreditoPage } from '@/features/credito';
 import { ReportesPage } from '@/features/reportes';
 import { UsuariosPage } from '@/features/usuarios';
 
 describe('módulos sin endpoint en la API', () => {
   it.each([
-    ['Crédito', CreditoPage],
     ['Reportes', ReportesPage],
     ['Usuarios', UsuariosPage],
   ])('%s muestra un estado vacío honesto, sin datos inventados', (titulo, Pagina) => {
