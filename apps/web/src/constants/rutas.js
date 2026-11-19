@@ -49,6 +49,7 @@ export const MENU_PRINCIPAL = Object.freeze([
   opcion(RUTAS.CREDITO, 'Crédito', 'credito', GRUPOS_MENU.OPERACION),
   opcion(RUTAS.JORNADAS, 'Jornadas', 'jornadas', GRUPOS_MENU.OPERACION),
   opcion(RUTAS.VEHICULOS, 'Vehículos', 'vehiculo', GRUPOS_MENU.OPERACION),
+  opcion(RUTAS.NOMINA, 'Nómina', 'nomina', GRUPOS_MENU.ADMINISTRACION),
   opcion(RUTAS.REPORTES, 'Reportes', 'reportes', GRUPOS_MENU.ADMINISTRACION),
   opcion(RUTAS.COLABORADORES, 'Colaboradores', 'colaboradores', GRUPOS_MENU.ADMINISTRACION),
   opcion(RUTAS.SERVICIOS, 'Catálogo', 'catalogo', GRUPOS_MENU.ADMINISTRACION),
