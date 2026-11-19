@@ -95,6 +95,10 @@ export const rutas = [
                 Component: paginaDiferida(() => import('@/features/nomina'), 'NominaPage'),
               },
               {
+                path: RUTAS.INVENTARIO,
+                Component: paginaDiferida(() => import('@/features/inventario'), 'InventarioPage'),
+              },
+              {
                 path: RUTAS.REPORTES,
                 Component: paginaDiferida(() => import('@/features/reportes'), 'ReportesPage'),
               },
