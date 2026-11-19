@@ -68,15 +68,16 @@ describe('credito.controller', () => {
   });
 
   describe('listarPagos', () => {
-    it('responde 200 con el historial de pagos', async () => {
-      creditoService.listarPagos.mockResolvedValue([{ id: 1 }]);
+    it('responde 200 con la página de pagos, pasando la consulta completa (incluye paginación)', async () => {
+      const resultado = { pagos: [{ id: 1 }], total: 1, pagina: 1, porPagina: 20, totalPaginas: 1 };
+      creditoService.listarPagos.mockResolvedValue(resultado);
 
       const res = crearRespuesta();
-      await listarPagos(crearPeticion({ consulta: { clienteId: 1 } }), res, jest.fn());
+      await listarPagos(crearPeticion({ consulta: { clienteId: 1, pagina: 1 } }), res, jest.fn());
 
-      expect(creditoService.listarPagos).toHaveBeenCalledWith({ clienteId: 1 });
+      expect(creditoService.listarPagos).toHaveBeenCalledWith({ clienteId: 1, pagina: 1 });
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ pagos: [{ id: 1 }] });
+      expect(res.json).toHaveBeenCalledWith(resultado);
     });
   });
 

@@ -52,10 +52,14 @@ const PUEDEN_PAGAR = autorizarRoles(ROLES_ENUM.SUPERADMIN, ROLES_ENUM.ADMINISTRA
  * /api/credito/clientes:
  *   get:
  *     tags: [Crédito]
- *     summary: Listar clientes con crédito habilitado y su saldo pendiente
+ *     summary: Listar clientes con crédito habilitado o con deuda pendiente
  *     description: >
- *       Saldo pendiente = suma de órdenes a crédito no canceladas y sin
- *       pago asociado, sin importar su estado operativo.
+ *       Incluye clientes con creditoHabilitado=true, y también los que ya
+ *       no lo tienen habilitado pero siguen con deuda sin pagar (la deuda
+ *       no se borra al deshabilitar el crédito). Por cliente: saldoPendiente
+ *       (todas las órdenes a crédito no canceladas y sin pago, sin importar
+ *       su estado operativo) y saldoPagable/cantidadOrdenesPagables (el
+ *       subconjunto ya 'entregada', lo que se puede pagar ahora).
  *     security:
  *       - ApiKeyAuth: []
  *         BearerAuth: []
@@ -114,21 +118,34 @@ router.get(
  * /api/credito/pagos:
  *   get:
  *     tags: [Crédito]
- *     summary: Listar el historial de pagos de crédito
+ *     summary: Listar el historial de pagos de crédito, paginado
  *     parameters:
  *       - in: query
  *         name: clienteId
  *         required: false
  *         schema:
  *           type: integer
+ *       - in: query
+ *         name: pagina
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: porPagina
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *           maximum: 100
  *     security:
  *       - ApiKeyAuth: []
  *         BearerAuth: []
  *     responses:
  *       200:
- *         description: Lista de pagos de crédito
+ *         description: Página de pagos de crédito, con total y totalPaginas
  *       400:
- *         description: clienteId inválido
+ *         description: clienteId, pagina o porPagina inválidos
  *       401:
  *         description: Usuario no autenticado
  *       403:

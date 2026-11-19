@@ -5,6 +5,34 @@ const { ESTADOS_ORDEN, MEDIOS_PAGO } = require('../constants/dominio');
 const { Conflicto, NoEncontrado, SolicitudInvalida } = require('../utils/errores');
 const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
 
+// supabase/config.toml fija max_rows=1000: cualquier select sin .range()
+// explícito se trunca ahí en silencio. TAMANO_PAGINA_AGREGADO usa ese
+// mismo tope como tamaño de página en traerTodasLasFilas, para que un
+// agregado (suma de saldo, lista completa de órdenes pagables) nunca
+// pierda filas más allá de la 1000 sin necesitar una vista o función
+// nueva en Postgres.
+const TAMANO_PAGINA_AGREGADO = 1000;
+
+const POR_PAGINA_DEFECTO_PAGOS = 20;
+const POR_PAGINA_MAXIMO_PAGOS = 100;
+
+// credito_habilitado se expone (no solo se filtra por él): un cliente con
+// deuda pendiente puede aparecer en listarClientesConCredito aunque ya lo
+// tenga en false (ver su JSDoc), y sin este campo no habría forma de
+// distinguir ese caso desde la respuesta.
+const COLUMNAS_CLIENTE_CON_CREDITO =
+  'id, nombre, documento, telefono, email, estado, credito_habilitado';
+
+// vehiculo/servicio/colaborador son selects anidados sobre una FK directa
+// de ordenes_lavado (vehiculo_id, servicio_id, colaborador_id): mismo
+// patrón que el embed de tarifas_servicio en servicios.service.js, solo
+// que aquí la FK es directa en vez de inversa. Reemplaza los *_id crudos
+// que tenía antes esta lista: lo que necesita quien va a pagar o a
+// revisar un pago ya pagado es placa/nombre/código, no un id interno.
+const COLUMNAS_ORDEN_LEGIBLE =
+  'id, fecha, turno, valor, ' +
+  'vehiculo:vehiculos(placa), servicio:servicios(nombre), colaborador:colaboradores(codigo, nombre)';
+
 // Nunca *: así nunca se filtran creado_en ni columnas internas mientras el
 // contrato HTTP no las incluya (ver supabase/README.md, "Contrato de
 // integración con la API"). El alias "ordenes" es el mismo patrón de
@@ -12,10 +40,7 @@ const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgre
 // ordenes_lavado.pago_credito_id -> pagos_credito.id.
 const COLUMNAS_PAGO =
   'id, cliente_id, valor_total, registrado_por, pagado_en, ' +
-  'ordenes:ordenes_lavado(id, fecha, turno, valor, servicio_id, vehiculo_id, colaborador_id)';
-
-const COLUMNAS_ORDEN_PENDIENTE =
-  'id, fecha, turno, valor, servicio_id, vehiculo_id, colaborador_id';
+  `ordenes:ordenes_lavado(${COLUMNAS_ORDEN_LEGIBLE})`;
 
 /**
  * Traduce un error de Postgres (vía supabase-js) a una de las clases de
@@ -48,55 +73,128 @@ const traducirErrorPostgres = crearTraductorErroresPostgres({
 });
 
 /**
- * Lista los clientes con crédito habilitado y su saldo pendiente.
+ * Pagina por rangos una consulta Postgrest hasta agotarla, para no
+ * depender del límite implícito de max_rows=1000 (ver TAMANO_PAGINA_AGREGADO).
+ * `construirPagina(desde, hasta)` debe devolver la consulta ya filtrada,
+ * encadenando `.range(desde, hasta)` al final.
  *
- * Saldo pendiente = suma de valor de sus órdenes con medio_pago='credito',
- * estado<>'cancelada' y sin pago asociado (pago_credito_id is null) — la
- * misma definición documentada en agregar_pagos_credito.sql. Incluye
- * TODAS las órdenes no pagadas sin importar su estado operativo
- * (registrada/en_proceso/terminada/entregada): la deuda existe desde que
- * se registra la orden, aunque solo las 'entregada' sean pagables ahora
- * (ver listarOrdenesPendientesDeCliente).
+ * @param {(desde: number, hasta: number) => PromiseLike<{ data: object[], error: object|null }>} construirPagina
+ * @returns {Promise<object[]>}
+ */
+const traerTodasLasFilas = async (construirPagina) => {
+  const filas = [];
+  let desde = 0;
+
+  for (;;) {
+    const hasta = desde + TAMANO_PAGINA_AGREGADO - 1;
+    const { data, error } = await construirPagina(desde, hasta);
+
+    if (error) {
+      throw error;
+    }
+
+    filas.push(...data);
+
+    if (data.length < TAMANO_PAGINA_AGREGADO) {
+      return filas;
+    }
+    desde += TAMANO_PAGINA_AGREGADO;
+  }
+};
+
+/** Parte un arreglo en trozos de tamaño `tamano`, para un .in(...) que podría superar max_rows. */
+const trocear = (arreglo, tamano) => {
+  const trozos = [];
+  for (let i = 0; i < arreglo.length; i += tamano) {
+    trozos.push(arreglo.slice(i, i + tamano));
+  }
+  return trozos;
+};
+
+/**
+ * Lista los clientes con crédito: con credito_habilitado=true, O con
+ * deuda pendiente aunque ya se les haya deshabilitado el crédito (una
+ * orden a crédito solo pudo crearse cuando el cliente SÍ lo tenía
+ * habilitado — ver resolverClienteCredito en ordenesLavado.service.js —
+ * y deshabilitarlo después no borra esa deuda ni la hace menos cobrable).
  *
- * @returns {Promise<Array<object>>} cada cliente con su saldoPendiente (0 si no debe nada)
+ * Por cliente devuelve:
+ * - saldoPendiente: suma de TODAS sus órdenes a crédito no canceladas y
+ *   sin pago (pago_credito_id is null), sin importar su estado operativo
+ *   (registrada/en_proceso/terminada/entregada) — la deuda existe desde
+ *   que se registra la orden.
+ * - saldoPagable y cantidadOrdenesPagables: el subconjunto de lo anterior
+ *   que además está 'entregada' (R11), es decir lo que de verdad se puede
+ *   pagar ahora con registrarPagoCredito (ver listarOrdenesPendientesDeCliente).
+ *
+ * @returns {Promise<Array<object>>}
  */
 const listarClientesConCredito = async () => {
-  const { data: clientes, error: errorClientes } = await supabase
-    .from('clientes')
-    .select('id, nombre, documento, telefono, email, estado')
-    .eq('credito_habilitado', true);
+  const ordenesPendientesDePago = await traerTodasLasFilas((desde, hasta) =>
+    supabase
+      .from('ordenes_lavado')
+      .select('cliente_id, valor, estado')
+      .eq('medio_pago', MEDIOS_PAGO.CREDITO)
+      .is('pago_credito_id', null)
+      .neq('estado', ESTADOS_ORDEN.CANCELADA)
+      .order('id', { ascending: true })
+      .range(desde, hasta),
+  );
 
-  if (errorClientes) {
-    throw new Error(`No se pudo listar los clientes con crédito: ${errorClientes.message}`);
-  }
+  const saldosPorCliente = new Map();
+  ordenesPendientesDePago.forEach(({ cliente_id: clienteId, valor, estado }) => {
+    const saldo = saldosPorCliente.get(clienteId) ?? {
+      saldoPendiente: 0,
+      saldoPagable: 0,
+      cantidadOrdenesPagables: 0,
+    };
+    saldo.saldoPendiente += valor;
+    if (estado === ESTADOS_ORDEN.ENTREGADA) {
+      saldo.saldoPagable += valor;
+      saldo.cantidadOrdenesPagables += 1;
+    }
+    saldosPorCliente.set(clienteId, saldo);
+  });
 
-  if (clientes.length === 0) {
+  const clientesConCreditoHabilitado = await traerTodasLasFilas((desde, hasta) =>
+    supabase
+      .from('clientes')
+      .select('id')
+      .eq('credito_habilitado', true)
+      .order('id', { ascending: true })
+      .range(desde, hasta),
+  );
+
+  const idsRelevantes = [
+    ...new Set([
+      ...clientesConCreditoHabilitado.map((cliente) => cliente.id),
+      ...saldosPorCliente.keys(),
+    ]),
+  ];
+
+  if (idsRelevantes.length === 0) {
     return [];
   }
 
-  const idsClientes = clientes.map((cliente) => cliente.id);
-  const saldosPorCliente = new Map(idsClientes.map((id) => [id, 0]));
+  const paginasDeClientes = await Promise.all(
+    trocear(idsRelevantes, TAMANO_PAGINA_AGREGADO).map(async (grupo) => {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select(COLUMNAS_CLIENTE_CON_CREDITO)
+        .in('id', grupo);
 
-  const { data: ordenes, error: errorOrdenes } = await supabase
-    .from('ordenes_lavado')
-    .select('cliente_id, valor')
-    .in('cliente_id', idsClientes)
-    .eq('medio_pago', MEDIOS_PAGO.CREDITO)
-    .is('pago_credito_id', null)
-    .neq('estado', ESTADOS_ORDEN.CANCELADA);
+      if (error) {
+        throw new Error(`No se pudo listar los clientes con crédito: ${error.message}`);
+      }
+      return data;
+    }),
+  );
 
-  if (errorOrdenes) {
-    throw new Error(`No se pudo calcular el saldo pendiente: ${errorOrdenes.message}`);
-  }
+  const saldoVacio = { saldoPendiente: 0, saldoPagable: 0, cantidadOrdenesPagables: 0 };
 
-  ordenes.forEach((orden) => {
-    saldosPorCliente.set(orden.cliente_id, saldosPorCliente.get(orden.cliente_id) + orden.valor);
-  });
-
-  return aCamelCase(clientes).map((cliente) => ({
-    ...cliente,
-    saldoPendiente: saldosPorCliente.get(cliente.id),
-  }));
+  return aCamelCase(paginasDeClientes.flat())
+    .map((cliente) => ({ ...cliente, ...(saldosPorCliente.get(cliente.id) ?? saldoVacio) }))
+    .sort((a, b) => a.id - b.id);
 };
 
 /**
@@ -105,6 +203,9 @@ const listarClientesConCredito = async () => {
  * paga una orden entregada"). Es el conjunto exacto de ordenIds válidos
  * para registrarPagoCredito — a diferencia del saldo pendiente (que
  * incluye órdenes aún no entregadas), esta lista solo trae lo pagable.
+ * Paginada internamente igual que listarClientesConCredito: un cliente
+ * con un backlog muy grande no debe perder órdenes pagables más allá de
+ * la fila 1000 (ver traerTodasLasFilas).
  *
  * @param {number|string} clienteId
  * @returns {Promise<Array<object>>}
@@ -113,20 +214,19 @@ const listarClientesConCredito = async () => {
 const listarOrdenesPendientesDeCliente = async (clienteId) => {
   await clientesService.obtenerClienteOFallar(clienteId);
 
-  const { data, error } = await supabase
-    .from('ordenes_lavado')
-    .select(COLUMNAS_ORDEN_PENDIENTE)
-    .eq('cliente_id', clienteId)
-    .eq('medio_pago', MEDIOS_PAGO.CREDITO)
-    .eq('estado', ESTADOS_ORDEN.ENTREGADA)
-    .is('pago_credito_id', null)
-    .order('fecha', { ascending: true });
+  const ordenes = await traerTodasLasFilas((desde, hasta) =>
+    supabase
+      .from('ordenes_lavado')
+      .select(COLUMNAS_ORDEN_LEGIBLE)
+      .eq('cliente_id', clienteId)
+      .eq('medio_pago', MEDIOS_PAGO.CREDITO)
+      .eq('estado', ESTADOS_ORDEN.ENTREGADA)
+      .is('pago_credito_id', null)
+      .order('fecha', { ascending: true })
+      .range(desde, hasta),
+  );
 
-  if (error) {
-    throw new Error(`No se pudo listar las órdenes pendientes de pago: ${error.message}`);
-  }
-
-  return aCamelCase(data);
+  return aCamelCase(ordenes);
 };
 
 /**
@@ -163,24 +263,45 @@ const obtenerPagoOFallar = async (id) => {
 };
 
 /**
- * Lista el historial de pagos de crédito, opcionalmente filtrado por cliente.
- * @param {{ clienteId?: number }} [filtros]
- * @returns {Promise<Array<object>>}
+ * Lista el historial de pagos de crédito paginado, opcionalmente
+ * filtrado por cliente. Mismo criterio de paginación que
+ * listarUsuarios en usuarios.service.js: pagina/porPagina (máx. 100) y
+ * total vía { count: 'exact' }.
+ *
+ * @param {{ clienteId?: number, pagina?: number, porPagina?: number }} [filtros]
+ * @returns {Promise<{ pagos: object[], total: number, pagina: number, porPagina: number, totalPaginas: number }>}
  */
-const listarPagos = async (filtros = {}) => {
-  let consulta = supabase.from('pagos_credito').select(COLUMNAS_PAGO);
+const listarPagos = async ({
+  clienteId,
+  pagina = 1,
+  porPagina = POR_PAGINA_DEFECTO_PAGOS,
+} = {}) => {
+  const porPaginaEfectivo = Math.min(porPagina, POR_PAGINA_MAXIMO_PAGOS);
 
-  if (filtros.clienteId !== undefined) {
-    consulta = consulta.eq('cliente_id', filtros.clienteId);
+  let consulta = supabase.from('pagos_credito').select(COLUMNAS_PAGO, { count: 'exact' });
+
+  if (clienteId !== undefined) {
+    consulta = consulta.eq('cliente_id', clienteId);
   }
 
-  const { data, error } = await consulta.order('pagado_en', { ascending: false });
+  const desde = (pagina - 1) * porPaginaEfectivo;
+  const hasta = desde + porPaginaEfectivo - 1;
+
+  const { data, count, error } = await consulta
+    .order('pagado_en', { ascending: false })
+    .range(desde, hasta);
 
   if (error) {
     throw new Error(`No se pudo listar los pagos de crédito: ${error.message}`);
   }
 
-  return aCamelCase(data);
+  return {
+    pagos: aCamelCase(data),
+    total: count,
+    pagina,
+    porPagina: porPaginaEfectivo,
+    totalPaginas: Math.max(1, Math.ceil(count / porPaginaEfectivo)),
+  };
 };
 
 /**

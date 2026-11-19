@@ -280,6 +280,97 @@ describe('credito.service', () => {
       const clientes = await listarClientesConCredito();
       expect(clientes.find((c) => c.id === cliente.id).saldoPendiente).toBe(0);
     });
+
+    it('incluye un cliente al que ya se le deshabilitó el crédito, mientras tenga deuda sin pagar', async () => {
+      await abrirJornadaDePrueba();
+      const cliente = await crearClienteConCreditoDePrueba();
+      await crearOrdenCreditoDePrueba(cliente, { estado: 'registrada' }); // 15000, aún deuda
+
+      await clientesService.actualizarCliente(
+        cliente.id,
+        { creditoHabilitado: false },
+        USUARIO_ID_PRUEBA,
+      );
+
+      const clientes = await listarClientesConCredito();
+      expect(clientes.find((c) => c.id === cliente.id)).toMatchObject({
+        creditoHabilitado: false,
+        saldoPendiente: 15000,
+      });
+    });
+
+    it('distingue saldoPendiente (toda la deuda) de saldoPagable/cantidadOrdenesPagables (solo entregadas)', async () => {
+      await abrirJornadaDePrueba();
+      const cliente = await crearClienteConCreditoDePrueba();
+      await crearOrdenCreditoDePrueba(cliente, { estado: 'entregada' }); // 15000, pagable
+      await crearOrdenCreditoDePrueba(cliente, { estado: 'registrada' }); // 15000, deuda pero no pagable aún
+
+      const clientes = await listarClientesConCredito();
+
+      expect(clientes.find((c) => c.id === cliente.id)).toMatchObject({
+        saldoPendiente: 30000,
+        saldoPagable: 15000,
+        cantidadOrdenesPagables: 1,
+      });
+    });
+
+    it('no trunca el saldo cuando hay más de 1000 órdenes pendientes (mock de Supabase, ver max_rows en supabase/config.toml)', async () => {
+      const CLIENTE_ID = 777;
+      const TOTAL_ORDENES = 1001;
+      const ordenesFalsas = Array.from({ length: TOTAL_ORDENES }, (_, indice) => ({
+        cliente_id: CLIENTE_ID,
+        valor: 1,
+        estado: indice % 2 === 0 ? 'entregada' : 'registrada',
+      }));
+      const clienteFalso = {
+        id: CLIENTE_ID,
+        nombre: 'Cliente Mock',
+        documento: 'MOCKDOC001',
+        telefono: '3000000000',
+        email: null,
+        estado: 'activo',
+        credito_habilitado: false,
+      };
+
+      // Constructor falso de un query builder de Postgrest: .select/.eq/.is/
+      // .neq/.in/.order no filtran de verdad (devuelven las mismas filas
+      // completas vía .then), solo .range() las pagina — suficiente para
+      // probar que traerTodasLasFilas no se detiene en la página 1000.
+      const construirTablaFalsa = (filas) => {
+        const builder = {};
+        ['select', 'eq', 'is', 'neq', 'in', 'order'].forEach((metodo) => {
+          builder[metodo] = jest.fn(() => builder);
+        });
+        builder.range = jest.fn((desde, hasta) =>
+          Promise.resolve({ data: filas.slice(desde, hasta + 1), error: null }),
+        );
+        builder.then = (resolver) => resolver({ data: filas, error: null });
+        return builder;
+      };
+
+      const tablasFalsas = {
+        ordenes_lavado: construirTablaFalsa(ordenesFalsas),
+        clientes: construirTablaFalsa([clienteFalso]),
+      };
+
+      const espiaFrom = jest
+        .spyOn(supabase, 'from')
+        .mockImplementation((tabla) => tablasFalsas[tabla]);
+
+      try {
+        const clientes = await listarClientesConCredito();
+        const encontrado = clientes.find((c) => c.id === CLIENTE_ID);
+        const entregadas = ordenesFalsas.filter((o) => o.estado === 'entregada').length;
+
+        expect(encontrado.saldoPendiente).toBe(TOTAL_ORDENES);
+        expect(encontrado.cantidadOrdenesPagables).toBe(entregadas);
+        expect(encontrado.saldoPagable).toBe(entregadas);
+        // 1001 filas en 2 páginas de .range(): prueba que sí se pidió la segunda.
+        expect(tablasFalsas.ordenes_lavado.range).toHaveBeenCalledTimes(2);
+      } finally {
+        espiaFrom.mockRestore();
+      }
+    });
   });
 
   describe('listarOrdenesPendientesDeCliente', () => {
@@ -326,6 +417,52 @@ describe('credito.service', () => {
 
       const ordenes = await listarOrdenesPendientesDeCliente(cliente.id);
       expect(ordenes.map((o) => o.id)).not.toContain(orden.id);
+    });
+
+    it('incluye los datos legibles de vehículo, servicio y colaborador (no solo sus ids)', async () => {
+      await abrirJornadaDePrueba();
+      const cliente = await crearClienteConCreditoDePrueba();
+      const vehiculo = await crearVehiculoDePrueba(cliente.id);
+      const colaborador = await obtenerColaboradorCompartido();
+      const servicio = await obtenerServicioCompartido();
+
+      const orden = await ordenesLavadoService.crearOrden(
+        {
+          turno: siguienteTurno(),
+          vehiculoId: vehiculo.id,
+          servicioId: servicio.id,
+          colaboradorId: colaborador.id,
+          medioPago: 'credito',
+          clienteId: cliente.id,
+        },
+        USUARIO_ID_PRUEBA,
+      );
+      await ordenesLavadoService.cambiarEstadoOrden(
+        orden.id,
+        'en_proceso',
+        undefined,
+        USUARIO_ID_PRUEBA,
+      );
+      await ordenesLavadoService.cambiarEstadoOrden(
+        orden.id,
+        'terminada',
+        undefined,
+        USUARIO_ID_PRUEBA,
+      );
+      await ordenesLavadoService.cambiarEstadoOrden(
+        orden.id,
+        'entregada',
+        undefined,
+        USUARIO_ID_PRUEBA,
+      );
+
+      const ordenes = await listarOrdenesPendientesDeCliente(cliente.id);
+
+      expect(ordenes.find((o) => o.id === orden.id)).toMatchObject({
+        vehiculo: { placa: vehiculo.placa },
+        servicio: { nombre: servicio.nombre },
+        colaborador: { codigo: colaborador.codigo, nombre: colaborador.nombre },
+      });
     });
   });
 
@@ -478,10 +615,60 @@ describe('credito.service', () => {
         clienteId: cliente.id,
       });
     });
+
+    it('las órdenes del pago incluyen los datos legibles de vehículo, servicio y colaborador', async () => {
+      await abrirJornadaDePrueba();
+      const cliente = await crearClienteConCreditoDePrueba();
+      const vehiculo = await crearVehiculoDePrueba(cliente.id);
+      const colaborador = await obtenerColaboradorCompartido();
+      const servicio = await obtenerServicioCompartido();
+
+      const orden = await ordenesLavadoService.crearOrden(
+        {
+          turno: siguienteTurno(),
+          vehiculoId: vehiculo.id,
+          servicioId: servicio.id,
+          colaboradorId: colaborador.id,
+          medioPago: 'credito',
+          clienteId: cliente.id,
+        },
+        USUARIO_ID_PRUEBA,
+      );
+      await ordenesLavadoService.cambiarEstadoOrden(
+        orden.id,
+        'en_proceso',
+        undefined,
+        USUARIO_ID_PRUEBA,
+      );
+      await ordenesLavadoService.cambiarEstadoOrden(
+        orden.id,
+        'terminada',
+        undefined,
+        USUARIO_ID_PRUEBA,
+      );
+      await ordenesLavadoService.cambiarEstadoOrden(
+        orden.id,
+        'entregada',
+        undefined,
+        USUARIO_ID_PRUEBA,
+      );
+
+      const pagoCreado = await registrarPagoCredito(
+        { clienteId: cliente.id, ordenIds: [orden.id] },
+        USUARIO_ID_PRUEBA,
+      );
+
+      const pago = await obtenerPagoOFallar(pagoCreado.id);
+      expect(pago.ordenes[0]).toMatchObject({
+        vehiculo: { placa: vehiculo.placa },
+        servicio: { nombre: servicio.nombre },
+        colaborador: { codigo: colaborador.codigo, nombre: colaborador.nombre },
+      });
+    });
   });
 
   describe('listarPagos', () => {
-    it('incluye los pagos recién creados', async () => {
+    it('incluye los pagos recién creados, con el total y la página por defecto', async () => {
       await abrirJornadaDePrueba();
       const cliente = await crearClienteConCreditoDePrueba();
       const orden = await crearOrdenCreditoDePrueba(cliente);
@@ -490,8 +677,14 @@ describe('credito.service', () => {
         USUARIO_ID_PRUEBA,
       );
 
-      const pagos = await listarPagos();
-      expect(pagos.map((p) => p.id)).toContain(pago.id);
+      const resultado = await listarPagos();
+      expect(resultado.pagos.map((p) => p.id)).toContain(pago.id);
+      expect(resultado.pagina).toBe(1);
+      expect(resultado.porPagina).toBe(20);
+      expect(resultado.total).toBeGreaterThanOrEqual(1);
+      expect(resultado.totalPaginas).toBe(
+        Math.max(1, Math.ceil(resultado.total / resultado.porPagina)),
+      );
     });
 
     it('filtra por clienteId', async () => {
@@ -509,10 +702,40 @@ describe('credito.service', () => {
         USUARIO_ID_PRUEBA,
       );
 
-      const pagosDeA = await listarPagos({ clienteId: clienteA.id });
-      const idsDeA = pagosDeA.map((p) => p.id);
+      const resultado = await listarPagos({ clienteId: clienteA.id });
+      const idsDeA = resultado.pagos.map((p) => p.id);
       expect(idsDeA).toContain(pagoA.id);
       expect(idsDeA).not.toContain(pagoB.id);
+      expect(resultado.total).toBe(1);
+    });
+
+    it('pagina: porPagina=1 trae solo un pago por página, y total refleja el conteo completo', async () => {
+      await abrirJornadaDePrueba();
+      const cliente = await crearClienteConCreditoDePrueba();
+      const primera = await crearOrdenCreditoDePrueba(cliente);
+      const segunda = await crearOrdenCreditoDePrueba(cliente);
+      await registrarPagoCredito(
+        { clienteId: cliente.id, ordenIds: [primera.id] },
+        USUARIO_ID_PRUEBA,
+      );
+      await registrarPagoCredito(
+        { clienteId: cliente.id, ordenIds: [segunda.id] },
+        USUARIO_ID_PRUEBA,
+      );
+
+      const paginaUno = await listarPagos({ clienteId: cliente.id, pagina: 1, porPagina: 1 });
+      const paginaDos = await listarPagos({ clienteId: cliente.id, pagina: 2, porPagina: 1 });
+
+      expect(paginaUno.pagos).toHaveLength(1);
+      expect(paginaDos.pagos).toHaveLength(1);
+      expect(paginaUno.pagos[0].id).not.toBe(paginaDos.pagos[0].id);
+      expect(paginaUno.total).toBe(2);
+      expect(paginaUno.totalPaginas).toBe(2);
+    });
+
+    it('porPagina por encima de 100 se recorta al máximo', async () => {
+      const resultado = await listarPagos({ porPagina: 1000 });
+      expect(resultado.porPagina).toBe(100);
     });
   });
 });

@@ -207,16 +207,39 @@ const crearOrdenCredito = async (clienteId, { estado = 'entregada' } = {}) => {
 };
 
 describe('GET /api/credito/clientes', () => {
-  it('incluye un cliente con crédito recién creado, con saldoPendiente calculado', async () => {
+  it('incluye un cliente con crédito recién creado, con saldoPendiente/saldoPagable/cantidadOrdenesPagables', async () => {
     await abrirJornada();
     const cliente = await registrarClienteEmpresaConCredito();
-    await crearOrdenCredito(cliente.id);
+    await crearOrdenCredito(cliente.id, { estado: 'entregada' });
+    await crearOrdenCredito(cliente.id, { estado: 'registrada' });
 
     const respuesta = await conToken('get', '/api/credito/clientes');
 
     expect(respuesta.status).toBe(200);
     const encontrado = respuesta.body.clientes.find((c) => c.id === cliente.id);
-    expect(encontrado).toMatchObject({ saldoPendiente: 15000 });
+    expect(encontrado).toMatchObject({
+      creditoHabilitado: true,
+      saldoPendiente: 30000,
+      saldoPagable: 15000,
+      cantidadOrdenesPagables: 1,
+    });
+  });
+
+  it('incluye un cliente al que ya se le deshabilitó el crédito, mientras tenga deuda sin pagar', async () => {
+    await abrirJornada();
+    const cliente = await registrarClienteEmpresaConCredito();
+    await crearOrdenCredito(cliente.id, { estado: 'registrada' });
+
+    const deshabilitado = await conToken('put', `/api/clientes/${cliente.id}`).send({
+      creditoHabilitado: false,
+    });
+    expect(deshabilitado.body.cliente.creditoHabilitado).toBe(false);
+
+    const respuesta = await conToken('get', '/api/credito/clientes');
+
+    expect(respuesta.status).toBe(200);
+    const encontrado = respuesta.body.clientes.find((c) => c.id === cliente.id);
+    expect(encontrado).toMatchObject({ creditoHabilitado: false, saldoPendiente: 15000 });
   });
 
   it('soporte puede consultar (200)', async () => {
@@ -243,7 +266,7 @@ describe('GET /api/credito/clientes', () => {
 });
 
 describe('GET /api/credito/clientes/:id/ordenes-pendientes', () => {
-  it('incluye solo las órdenes a crédito entregadas y sin pago', async () => {
+  it('incluye solo las órdenes a crédito entregadas y sin pago, con datos legibles de vehículo/servicio/colaborador', async () => {
     await abrirJornada();
     const cliente = await registrarClienteEmpresaConCredito();
     const entregada = await crearOrdenCredito(cliente.id, { estado: 'entregada' });
@@ -256,6 +279,17 @@ describe('GET /api/credito/clientes/:id/ordenes-pendientes', () => {
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.ordenes.map((o) => o.id)).toEqual([entregada.id]);
+
+    const colaborador = await obtenerColaboradorCompartido();
+    const servicio = await obtenerServicioCompartido();
+    expect(respuesta.body.ordenes[0]).toMatchObject({
+      fecha: entregada.fecha,
+      turno: entregada.turno,
+      valor: entregada.valor,
+      vehiculo: { placa: expect.any(String) },
+      servicio: { nombre: servicio.nombre },
+      colaborador: { codigo: colaborador.codigo, nombre: colaborador.nombre },
+    });
   });
 
   it('cliente inexistente: 404', async () => {
@@ -465,15 +499,57 @@ describe('GET /api/credito/pagos', () => {
     expect(listaCompleta.status).toBe(200);
     const idsCompletos = listaCompleta.body.pagos.map((p) => p.id);
     expect(idsCompletos).toEqual(expect.arrayContaining([pagoA.body.pago.id, pagoB.body.pago.id]));
+    expect(listaCompleta.body).toMatchObject({ pagina: 1, porPagina: 20 });
+    expect(listaCompleta.body.total).toBeGreaterThanOrEqual(2);
 
     const filtrada = await conToken('get', `/api/credito/pagos?clienteId=${clienteA.id}`);
     const idsFiltrados = filtrada.body.pagos.map((p) => p.id);
     expect(idsFiltrados).toContain(pagoA.body.pago.id);
     expect(idsFiltrados).not.toContain(pagoB.body.pago.id);
+    expect(filtrada.body.total).toBe(1);
+  });
+
+  it('pagina/porPagina: trae solo una página y refleja el total y totalPaginas correctos', async () => {
+    await abrirJornada();
+    const cliente = await registrarClienteEmpresaConCredito();
+    const primera = await crearOrdenCredito(cliente.id);
+    const segunda = await crearOrdenCredito(cliente.id);
+    await conToken('post', '/api/credito/pagos').send({
+      clienteId: cliente.id,
+      ordenIds: [primera.id],
+    });
+    await conToken('post', '/api/credito/pagos').send({
+      clienteId: cliente.id,
+      ordenIds: [segunda.id],
+    });
+
+    const paginaUno = await conToken(
+      'get',
+      `/api/credito/pagos?clienteId=${cliente.id}&pagina=1&porPagina=1`,
+    );
+    const paginaDos = await conToken(
+      'get',
+      `/api/credito/pagos?clienteId=${cliente.id}&pagina=2&porPagina=1`,
+    );
+
+    expect(paginaUno.body.pagos).toHaveLength(1);
+    expect(paginaDos.body.pagos).toHaveLength(1);
+    expect(paginaUno.body.pagos[0].id).not.toBe(paginaDos.body.pagos[0].id);
+    expect(paginaUno.body).toMatchObject({ total: 2, totalPaginas: 2, porPagina: 1 });
   });
 
   it('clienteId inválido en el filtro: 400', async () => {
     const respuesta = await conToken('get', '/api/credito/pagos?clienteId=abc');
+    expect(respuesta.status).toBe(400);
+  });
+
+  it('porPagina por encima del máximo (100): 400', async () => {
+    const respuesta = await conToken('get', '/api/credito/pagos?porPagina=101');
+    expect(respuesta.status).toBe(400);
+  });
+
+  it('pagina menor a 1: 400', async () => {
+    const respuesta = await conToken('get', '/api/credito/pagos?pagina=0');
     expect(respuesta.status).toBe(400);
   });
 
@@ -497,6 +573,14 @@ describe('GET /api/credito/pagos/:id', () => {
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.pago.ordenes.map((o) => o.id)).toEqual([orden.id]);
+
+    const colaborador = await obtenerColaboradorCompartido();
+    const servicio = await obtenerServicioCompartido();
+    expect(respuesta.body.pago.ordenes[0]).toMatchObject({
+      vehiculo: { placa: expect.any(String) },
+      servicio: { nombre: servicio.nombre },
+      colaborador: { codigo: colaborador.codigo, nombre: colaborador.nombre },
+    });
   });
 
   it('id inexistente: 404', async () => {
@@ -507,5 +591,64 @@ describe('GET /api/credito/pagos/:id', () => {
   it('id inválido: 400', async () => {
     const respuesta = await conToken('get', '/api/credito/pagos/abc');
     expect(respuesta.status).toBe(400);
+  });
+});
+
+// Matriz de roles completa, con aserciones reales por endpoint (no
+// inferidas de un endpoint hermano): los 4 de consulta comparten la misma
+// instancia de PUEDEN_CONSULTAR (superadmin/administrador/soporte: 200;
+// pendiente: 403; sin JWT: 401) — POST /pagos ya queda cubierto en su
+// propio describe arriba (PUEDEN_PAGAR: superadmin/administrador 201,
+// soporte/pendiente 403, sin JWT 401).
+describe('RBAC: matriz completa de roles en los endpoints de consulta', () => {
+  let cliente;
+  let pagoId;
+
+  beforeAll(async () => {
+    await abrirJornada();
+    cliente = await registrarClienteEmpresaConCredito();
+    const orden = await crearOrdenCredito(cliente.id);
+    const pago = await conToken('post', '/api/credito/pagos').send({
+      clienteId: cliente.id,
+      ordenIds: [orden.id],
+    });
+    pagoId = pago.body.pago.id;
+  });
+
+  const ENDPOINTS_DE_CONSULTA = [
+    { nombre: 'GET /clientes', ruta: () => '/api/credito/clientes' },
+    {
+      nombre: 'GET /clientes/:id/ordenes-pendientes',
+      ruta: () => `/api/credito/clientes/${cliente.id}/ordenes-pendientes`,
+    },
+    { nombre: 'GET /pagos', ruta: () => '/api/credito/pagos' },
+    { nombre: 'GET /pagos/:id', ruta: () => `/api/credito/pagos/${pagoId}` },
+  ];
+
+  describe.each(ENDPOINTS_DE_CONSULTA)('$nombre', ({ ruta }) => {
+    it('superadmin: 200', async () => {
+      const respuesta = await conToken('get', ruta(), TOKEN_SUPERADMIN);
+      expect(respuesta.status).toBe(200);
+    });
+
+    it('administrador: 200', async () => {
+      const respuesta = await conToken('get', ruta(), TOKEN_ADMINISTRADOR);
+      expect(respuesta.status).toBe(200);
+    });
+
+    it('soporte: 200', async () => {
+      const respuesta = await conToken('get', ruta(), TOKEN_SOPORTE);
+      expect(respuesta.status).toBe(200);
+    });
+
+    it('pendiente: 403', async () => {
+      const respuesta = await conToken('get', ruta(), TOKEN_PENDIENTE);
+      expect(respuesta.status).toBe(403);
+    });
+
+    it('sin JWT: 401', async () => {
+      const respuesta = await conApiKey('get', ruta());
+      expect(respuesta.status).toBe(401);
+    });
   });
 });

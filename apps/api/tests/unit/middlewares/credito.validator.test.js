@@ -97,5 +97,29 @@ describe('credito.validator', () => {
       expect(resultado.isEmpty()).toBe(false);
       expect(resultado.array()[0].path).toBe('clienteId');
     });
+
+    it('pasa con pagina y porPagina válidos', async () => {
+      const resultado = await ejecutarValidacionesDeQuery(validarFiltroListarPagos, {
+        pagina: '2',
+        porPagina: '50',
+      });
+      expect(resultado.isEmpty()).toBe(true);
+    });
+
+    it('rechaza una pagina menor a 1', async () => {
+      const resultado = await ejecutarValidacionesDeQuery(validarFiltroListarPagos, {
+        pagina: '0',
+      });
+      expect(resultado.isEmpty()).toBe(false);
+      expect(resultado.array().some((error) => error.path === 'pagina')).toBe(true);
+    });
+
+    it('rechaza un porPagina mayor al máximo (100)', async () => {
+      const resultado = await ejecutarValidacionesDeQuery(validarFiltroListarPagos, {
+        porPagina: '101',
+      });
+      expect(resultado.isEmpty()).toBe(false);
+      expect(resultado.array().some((error) => error.path === 'porPagina')).toBe(true);
+    });
   });
 });

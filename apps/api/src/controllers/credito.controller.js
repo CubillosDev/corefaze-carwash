@@ -21,9 +21,8 @@ const listarOrdenesPendientes = async (req, res) => {
 
 /** GET /api/credito/pagos */
 const listarPagos = async (req, res) => {
-  const { clienteId } = req.datos.consulta;
-  const pagos = await creditoService.listarPagos({ clienteId });
-  return res.status(200).json({ pagos });
+  const resultado = await creditoService.listarPagos(req.datos.consulta);
+  return res.status(200).json(resultado);
 };
 
 /** GET /api/credito/pagos/:id */
