@@ -373,7 +373,7 @@ $$;
 
 -- Reabre una caja cerrada (por ejemplo, si se cerró antes de tiempo). El
 -- arqueo anterior queda en la auditoría.
-create function public.reabrir_caja(p_caja_id bigint, p_usuario_id bigint)
+create function public.reabrir_caja(p_caja_id bigint)
 returns bigint
 language plpgsql
 set search_path = ''
@@ -400,15 +400,15 @@ comment on function public.registrar_egreso_caja(text, varchar, integer, bigint)
 comment on function public.registrar_cobro(bigint, text, integer, bigint, varchar, bigint) is
   'Todo o nada: cobra y entrega una orden terminada en la caja abierta (terminada -> entregada), guarda el medio y, a crédito, la empresa y el vale.';
 comment on function public.cerrar_caja(integer, bigint) is 'Cierra la caja abierta con el arqueo (esperado contra contado).';
-comment on function public.reabrir_caja(bigint, bigint) is 'Reabre una caja cerrada; el arqueo anterior queda en la auditoría.';
+comment on function public.reabrir_caja(bigint) is 'Reabre una caja cerrada; el arqueo anterior y quién la reabrió quedan en la auditoría.';
 
 revoke execute on function public.abrir_caja(integer, bigint) from public, anon, authenticated;
 revoke execute on function public.registrar_egreso_caja(text, varchar, integer, bigint) from public, anon, authenticated;
 revoke execute on function public.registrar_cobro(bigint, text, integer, bigint, varchar, bigint) from public, anon, authenticated;
 revoke execute on function public.cerrar_caja(integer, bigint) from public, anon, authenticated;
-revoke execute on function public.reabrir_caja(bigint, bigint) from public, anon, authenticated;
+revoke execute on function public.reabrir_caja(bigint) from public, anon, authenticated;
 grant execute on function public.abrir_caja(integer, bigint) to service_role;
 grant execute on function public.registrar_egreso_caja(text, varchar, integer, bigint) to service_role;
 grant execute on function public.registrar_cobro(bigint, text, integer, bigint, varchar, bigint) to service_role;
 grant execute on function public.cerrar_caja(integer, bigint) to service_role;
-grant execute on function public.reabrir_caja(bigint, bigint) to service_role;
+grant execute on function public.reabrir_caja(bigint) to service_role;

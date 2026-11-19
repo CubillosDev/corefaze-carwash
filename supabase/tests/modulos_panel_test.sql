@@ -169,7 +169,7 @@ select throws_ok(
 );
 
 select isnt(
-  public.reabrir_caja((select id from public.cajas where jornada_id = (select id from public.jornadas where fecha = '2031-03-05')), (select usuario from fx)),
+  public.reabrir_caja((select id from public.cajas where jornada_id = (select id from public.jornadas where fecha = '2031-03-05'))),
   null, 'Reabre la caja cerrada'
 );
 

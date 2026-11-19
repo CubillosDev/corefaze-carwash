@@ -246,7 +246,7 @@ const cerrarCaja = async ({ efectivoContado }, usuarioId) => {
 /** Reabre una caja cerrada. */
 const reabrirCaja = async (id, usuarioId) => {
   await obtenerCajaOFallar(id);
-  await ejecutar(usuarioId, 'reabrir_caja', { p_caja_id: id, p_usuario_id: usuarioId });
+  await ejecutar(usuarioId, 'reabrir_caja', { p_caja_id: id });
   return obtenerCajaOFallar(id);
 };
 
