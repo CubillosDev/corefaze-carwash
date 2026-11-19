@@ -69,3 +69,34 @@ jobs:
 
       - name: Auditoría de dependencias
         run: npm audit --workspace apps/api --audit-level=high
+
+  trazabilidad:
+    name: Trazabilidad (tiempos de ejecución)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # Mide las funciones de seguridad y la cadena de middlewares sin base de
+      # datos; la tabla queda en el resumen de esta corrida.
+      - name: Medir tiempos de los servicios
+        run: npm run trazabilidad --workspace apps/api
+
+      - name: Guardar el reporte de trazabilidad
+        uses: actions/upload-artifact@v4
+        with:
+          name: trazabilidad-tiempos
+          path: docs/trazabilidad/
+          retention-days: 30
