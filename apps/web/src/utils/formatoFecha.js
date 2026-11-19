@@ -99,3 +99,57 @@ export function formatoFechaHora(valor) {
   const hora = normalizarEspacios(FORMATEADOR_HORA.format(fecha));
   return `${FORMATEADOR_FECHA.format(fecha)} ${hora}`;
 }
+
+const FORMATEADOR_FECHA_LARGA = new Intl.DateTimeFormat('es-CO', {
+  timeZone: ZONA_BOGOTA,
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+});
+
+const FORMATEADOR_HORA_DEL_DIA = new Intl.DateTimeFormat('es-CO', {
+  timeZone: ZONA_BOGOTA,
+  hour: 'numeric',
+  hourCycle: 'h23',
+});
+
+/**
+ * Solo la hora, en Bogotá y con reloj de 12 horas.
+ *
+ *   formatoHora('2026-08-03T14:30:00-05:00') -> "2:30 p. m."
+ *
+ * @param {Date|number|string|null|undefined} valor
+ * @returns {string} Cadena vacía si el valor no es una fecha utilizable.
+ */
+export function formatoHora(valor) {
+  const fecha = aFecha(valor);
+  return fecha === null ? '' : normalizarEspacios(FORMATEADOR_HORA.format(fecha));
+}
+
+/**
+ * Día de la semana, día y mes, con mayúscula inicial, en Bogotá.
+ *
+ *   formatoFechaLarga('2026-08-03') -> "Lunes, 3 de agosto"
+ *
+ * @param {Date|number|string|null|undefined} valor
+ * @returns {string} Cadena vacía si el valor no es una fecha utilizable.
+ */
+export function formatoFechaLarga(valor) {
+  const fecha = aFecha(valor);
+  if (fecha === null) {
+    return '';
+  }
+  const texto = normalizarEspacios(FORMATEADOR_FECHA_LARGA.format(fecha));
+  return texto.charAt(0).toLocaleUpperCase('es-CO') + texto.slice(1);
+}
+
+/**
+ * Hora del día (0 a 23) en Bogotá, sin depender de la zona del equipo.
+ *
+ * @param {Date|number|string} valor
+ * @returns {number|null}
+ */
+export function horaDelDiaEnBogota(valor) {
+  const fecha = aFecha(valor);
+  return fecha === null ? null : Number(FORMATEADOR_HORA_DEL_DIA.format(fecha));
+}

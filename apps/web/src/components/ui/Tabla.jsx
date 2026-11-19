@@ -51,12 +51,12 @@ export function Tabla({
         <caption className="sr-only">{descripcion}</caption>
 
         <thead>
-          <tr className="border-b border-neutro-200 bg-neutro-50">
+          <tr className="border-b border-neutro-150">
             {columnas.map((columna) => (
               <th
                 key={columna.clave}
                 scope="col"
-                className={`px-4 py-3 font-semibold text-neutro-600 ${claseDeAlineacion(columna)}`}
+                className={`px-4 py-2.75 text-encabezado-tabla whitespace-nowrap text-neutro-500 uppercase ${claseDeAlineacion(columna)}`}
               >
                 {columna.titulo}
               </th>
@@ -67,7 +67,7 @@ export function Tabla({
         <tbody>
           {filas.length === 0 ? (
             <tr>
-              <td colSpan={columnas.length} className="px-4 py-12 text-center text-neutro-500">
+              <td colSpan={columnas.length} className="px-5 py-10 text-center text-detalle text-neutro-450">
                 {mensajeVacio}
               </td>
             </tr>
@@ -75,12 +75,12 @@ export function Tabla({
             filas.map((fila, indice) => (
               <tr
                 key={fila[claveFila] ?? indice}
-                className="border-b border-neutro-100 transition-colors last:border-b-0 hover:bg-primario-50"
+                className="h-12.5 border-b border-neutro-100 transition-colors last:border-b-0 hover:bg-neutro-25"
               >
                 {columnas.map((columna) => (
                   <td
                     key={columna.clave}
-                    className={`px-4 py-3 text-neutro-800 ${claseDeAlineacion(columna)}`}
+                    className={`px-4 py-2 text-neutro-900 ${claseDeAlineacion(columna)}`}
                   >
                     {columna.render ? columna.render(fila) : fila[columna.clave]}
                   </td>

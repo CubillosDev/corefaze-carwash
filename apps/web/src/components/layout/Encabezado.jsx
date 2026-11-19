@@ -1,13 +1,15 @@
 import logoCorefaze from '@/assets/images/logo-corefaze.webp';
 import { Boton } from '@/components/ui/Boton';
 import { IconoMenu } from '@/components/ui/iconos/IconoMenu';
+import { MenuPerfil } from '@/features/autenticacion';
 
 /**
  * Cabecera del panel sobre el fondo del marco: logo, divisor y nombre de la
  * aplicación. Al pasar el puntero, el logo se despliega y muestra la palabra
  * COREFAZE.
  *
- * En pantallas angostas suma el botón que abre el cajón de navegación.
+ * En pantallas angostas suma el botón que abre el cajón de navegación. A la
+ * derecha va el menú de perfil (nombre, rol y cerrar sesión).
  *
  * @param {object} props
  * @param {() => void} props.alAbrirMenu
@@ -16,7 +18,7 @@ import { IconoMenu } from '@/components/ui/iconos/IconoMenu';
  */
 export function Encabezado({ alAbrirMenu, menuAbierto, idMenu }) {
   return (
-    <header className="flex h-encabezado shrink-0 items-center px-3 escritorio:px-4.5">
+    <header className="flex h-encabezado shrink-0 items-center justify-between gap-3 px-3 escritorio:px-4.5">
       <div className="flex items-center gap-3.5">
         <Boton
           variante="marco"
@@ -41,6 +43,8 @@ export function Encabezado({ alAbrirMenu, menuAbierto, idMenu }) {
 
         <span className="text-marca text-white">CarWash</span>
       </div>
+
+      <MenuPerfil />
     </header>
   );
 }

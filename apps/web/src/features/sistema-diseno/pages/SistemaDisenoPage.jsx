@@ -2,17 +2,22 @@ import { useState } from 'react';
 
 import { Alerta } from '@/components/ui/Alerta';
 import { Boton } from '@/components/ui/Boton';
+import { CampoSeleccion } from '@/components/ui/CampoSeleccion';
 import { CampoTexto } from '@/components/ui/CampoTexto';
 import { IconoMenu } from '@/components/ui/iconos/IconoMenu';
 import { Modal } from '@/components/ui/Modal';
 import { Tabla } from '@/components/ui/Tabla';
+import { MenuPerfil } from '@/features/autenticacion';
 import { MuestraDeColor } from '@/features/sistema-diseno/components/MuestraDeColor';
 import { MuestraDeForma } from '@/features/sistema-diseno/components/MuestraDeForma';
+import { MuestrasDelPanel } from '@/features/sistema-diseno/components/MuestrasDelPanel';
 import { SeccionDelCatalogo } from '@/features/sistema-diseno/components/SeccionDelCatalogo';
 import { useValoresDeTokens } from '@/features/sistema-diseno/hooks/useValoresDeTokens';
 import { formatoFecha, formatoFechaHora } from '@/utils/formatoFecha';
 import { formatoMoneda } from '@/utils/formatoMoneda';
 import { formatoPlaca } from '@/utils/formatoPlaca';
+import { formatoPorcentaje } from '@/utils/formatoPorcentaje';
+import { formatoTelefono } from '@/utils/formatoTelefono';
 
 const GRUPOS_DE_COLOR = [
   {
@@ -21,15 +26,20 @@ const GRUPOS_DE_COLOR = [
     tonos: [
       { token: 'marco', clase: 'bg-marco' },
       { token: 'velo', clase: 'bg-velo' },
+      { token: 'velo-suave', clase: 'bg-velo-suave' },
     ],
   },
   {
     nombre: 'Primario · Electric Blue',
     nota: 'Botones primarios, foco y selección. Solo existen los tonos que usa el diseño.',
     tonos: [
+      { token: 'primario-25', clase: 'bg-primario-25' },
       { token: 'primario-50', clase: 'bg-primario-50' },
       { token: 'primario-100', clase: 'bg-primario-100' },
       { token: 'primario-200', clase: 'bg-primario-200' },
+      { token: 'primario-250', clase: 'bg-primario-250' },
+      { token: 'primario-300', clase: 'bg-primario-300' },
+      { token: 'primario-400', clase: 'bg-primario-400' },
       { token: 'primario-500', clase: 'bg-primario-500' },
       { token: 'primario-600', clase: 'bg-primario-600' },
       { token: 'primario-800', clase: 'bg-primario-800' },
@@ -42,18 +52,27 @@ const GRUPOS_DE_COLOR = [
   },
   {
     nombre: 'Neutros',
-    nota: 'Superficies y bordes en los tonos claros; texto e iconos en los oscuros.',
+    nota: 'Superficies y bordes en los tonos claros; texto e iconos en los oscuros. Los grises del prototipo que difieren en 1 o 2 unidades se agrupan en el tono más cercano.',
     tonos: [
+      { token: 'neutro-25', clase: 'bg-neutro-25' },
       { token: 'neutro-50', clase: 'bg-neutro-50' },
+      { token: 'neutro-75', clase: 'bg-neutro-75' },
       { token: 'neutro-100', clase: 'bg-neutro-100' },
       { token: 'neutro-150', clase: 'bg-neutro-150' },
       { token: 'neutro-200', clase: 'bg-neutro-200' },
+      { token: 'neutro-225', clase: 'bg-neutro-225' },
       { token: 'neutro-250', clase: 'bg-neutro-250' },
+      { token: 'neutro-275', clase: 'bg-neutro-275' },
       { token: 'neutro-300', clase: 'bg-neutro-300' },
+      { token: 'neutro-325', clase: 'bg-neutro-325' },
       { token: 'neutro-350', clase: 'bg-neutro-350' },
+      { token: 'neutro-375', clase: 'bg-neutro-375' },
       { token: 'neutro-400', clase: 'bg-neutro-400' },
+      { token: 'neutro-450', clase: 'bg-neutro-450' },
       { token: 'neutro-500', clase: 'bg-neutro-500' },
+      { token: 'neutro-550', clase: 'bg-neutro-550' },
       { token: 'neutro-600', clase: 'bg-neutro-600' },
+      { token: 'neutro-650', clase: 'bg-neutro-650' },
       { token: 'neutro-700', clase: 'bg-neutro-700' },
       { token: 'neutro-800', clase: 'bg-neutro-800' },
       { token: 'neutro-900', clase: 'bg-neutro-900' },
@@ -67,6 +86,7 @@ const GRUPOS_DE_COLOR = [
       { token: 'exito-solido', clase: 'bg-exito-solido' },
       { token: 'exito-suave', clase: 'bg-exito-suave' },
       { token: 'advertencia', clase: 'bg-advertencia' },
+      { token: 'advertencia-fuerte', clase: 'bg-advertencia-fuerte' },
       { token: 'advertencia-solido', clase: 'bg-advertencia-solido' },
       { token: 'advertencia-suave', clase: 'bg-advertencia-suave' },
       { token: 'error', clase: 'bg-error' },
@@ -78,24 +98,33 @@ const GRUPOS_DE_COLOR = [
 ];
 
 const ESCALA_TIPOGRAFICA = [
-  { clase: 'text-indicador', uso: 'Cifras de indicadores' },
+  { clase: 'text-kpi', uso: 'Valor de los indicadores del tablero' },
+  { clase: 'text-indicador', uso: 'Cifras de tarjetas' },
   { clase: 'text-titulo', uso: 'Título de página' },
   { clase: 'text-total', uso: 'Totales' },
+  { clase: 'text-titulo-cajon', uso: 'Nombre en el panel de detalle' },
   { clase: 'text-titulo-modal', uso: 'Título de ventana modal' },
+  { clase: 'text-saludo', uso: 'Saludo del panel de jornada' },
   { clase: 'text-marca', uso: 'Nombre de la aplicación en la cabecera' },
   { clase: 'text-titulo-tarjeta', uso: 'Título de tarjeta y de sección' },
   { clase: 'text-cuerpo', uso: 'Navegación y campos' },
   { clase: 'text-control', uso: 'Botones y filas de tabla' },
   { clase: 'text-detalle', uso: 'Subtítulos y chips' },
   { clase: 'text-meta', uso: 'Etiquetas de campo y datos secundarios' },
-  { clase: 'text-micro', uso: 'Insignias y encabezados de tabla' },
+  { clase: 'text-nota', uso: 'Líneas de apoyo bajo valores e insignias' },
+  { clase: 'text-micro', uso: 'Contadores y placas pequeñas' },
+  { clase: 'text-encabezado-tabla uppercase', uso: 'Encabezados de tabla, en mayúsculas' },
   { clase: 'text-etiqueta uppercase', uso: 'Etiqueta de sección, siempre en mayúsculas' },
+  { clase: 'text-etiqueta-menu uppercase', uso: 'Título dentro de menús desplegables' },
+  { clase: 'text-avatar', uso: 'Iniciales del avatar pequeño' },
 ];
 
 const RADIOS = [
   { clase: 'rounded-placa', uso: 'Placa' },
   { clase: 'rounded-opcion', uso: 'Opciones de menú y botón de cerrar' },
   { clase: 'rounded-control', uso: 'Botones, campos y píldora del menú' },
+  { clase: 'rounded-bloque', uso: 'Bloques internos, avisos y control segmentado' },
+  { clase: 'rounded-menu', uso: 'Menús desplegables y tarjetas del tablero' },
   { clase: 'rounded-tarjeta', uso: 'Tarjetas y tablas' },
   { clase: 'rounded-modal', uso: 'Modal; panel y cajón en móvil' },
   { clase: 'rounded-panel', uso: 'Panel principal y hoja inferior' },
@@ -103,9 +132,19 @@ const RADIOS = [
 
 const SOMBRAS = [
   { clase: 'shadow-pildora', uso: 'Píldora activa del menú' },
+  { clase: 'shadow-segmento', uso: 'Opción elegida del control segmentado' },
+  { clase: 'shadow-tarjeta', uso: 'Tarjeta del tablero en reposo' },
+  { clase: 'shadow-tarjeta-hover', uso: 'Tarjeta del tablero al pasar el puntero' },
+  { clase: 'shadow-boton-primario', uso: 'Botón principal de la página' },
+  { clase: 'shadow-foco-campo', uso: 'Anillo de foco de los campos' },
+  { clase: 'shadow-menu', uso: 'Menú de acciones de una tarjeta' },
+  { clase: 'shadow-desplegable', uso: 'Menús de la cabecera' },
+  { clase: 'shadow-aviso', uso: 'Aviso flotante' },
   { clase: 'shadow-barra-lateral', uso: 'Borde derecho de la barra lateral' },
   { clase: 'shadow-cajon', uso: 'Cajón de navegación abierto' },
+  { clase: 'shadow-panel-lateral', uso: 'Panel de detalle a la derecha' },
   { clase: 'shadow-modal', uso: 'Ventana modal' },
+  { clase: 'shadow-punto-activo', uso: 'Punto verde de jornada abierta' },
 ];
 
 const ANIMACIONES = [
@@ -113,6 +152,8 @@ const ANIMACIONES = [
   { variable: '--animate-aparecer-velo', uso: 'Velo del cajón de navegación' },
   { variable: '--animate-entrar-vista', uso: 'Entrada del contenido al cambiar de página' },
   { variable: '--animate-entrar-modal', uso: 'Entrada de la ventana modal' },
+  { variable: '--animate-entrar-lateral', uso: 'Entrada del panel de detalle' },
+  { variable: '--animate-girar', uso: 'Indicador de carga' },
 ];
 
 /** La utilidad de texto coincide con su variable: 'text-etiqueta uppercase' -> '--text-etiqueta'. */
@@ -165,6 +206,8 @@ const EJEMPLOS_DE_FORMATO = [
   },
   { id: 7, llamada: "formatoPlaca('aaa-111')", resultado: formatoPlaca('aaa-111') },
   { id: 8, llamada: "formatoPlaca('BBB22B')", resultado: formatoPlaca('BBB22B') },
+  { id: 9, llamada: 'formatoPorcentaje(0.37)', resultado: formatoPorcentaje(0.37) },
+  { id: 10, llamada: "formatoTelefono('3000000001')", resultado: formatoTelefono('3000000001') },
 ];
 
 /**
@@ -278,7 +321,7 @@ export function SistemaDisenoPage() {
 
       <SeccionDelCatalogo
         titulo="Movimiento y punto de quiebre"
-        descripcion="Una sola curva para todo el sistema. Por debajo del punto escritorio, la barra lateral pasa a ser un cajón."
+        descripcion="Una sola curva para todo el sistema. Por debajo del punto escritorio (760 px), la barra lateral pasa a ser un cajón. Desde el punto amplio (1100 px), el panel de jornada del tablero pasa de 264 a 300 px. El interlineado leading-apoyo (1.45) es el de los textos de apoyo de varias líneas."
       >
         <div className="flex flex-col gap-5">
           <dl className="grid gap-x-6 gap-y-3 text-meta escritorio:grid-cols-[auto_1fr]">
@@ -369,7 +412,8 @@ export function SistemaDisenoPage() {
         <div className="grid gap-5 escritorio:grid-cols-2">
           <CampoTexto
             etiqueta="Placa del vehículo"
-            ayuda="Tres letras y tres números, sin guiones."
+            variante="placa"
+            ayuda="Variante placa: JetBrains Mono y mayúsculas."
             placeholder="ABC123"
             requerido
             value={placa}
@@ -382,6 +426,40 @@ export function SistemaDisenoPage() {
           />
           <CampoTexto etiqueta="Observaciones" placeholder="Opcional" />
           <CampoTexto etiqueta="Código interno" defaultValue="CW-0001" disabled />
+        </div>
+      </SeccionDelCatalogo>
+
+      <SeccionDelCatalogo
+        titulo="Listas desplegables"
+        descripcion="Mismo molde que el campo de texto, para elegir una opción de una lista cerrada. Usa el select nativo: funciona con teclado, lectores de pantalla y en el móvil."
+      >
+        <div className="grid gap-5 escritorio:grid-cols-2">
+          <CampoSeleccion
+            etiqueta="Tipo de vehículo"
+            marcador="Selecciona un tipo"
+            ayuda="Define la tarifa del servicio."
+            opciones={[
+              { valor: 'automovil', texto: 'Automóvil' },
+              { valor: 'camioneta', texto: 'Camioneta' },
+              { valor: 'moto_hasta_150cc', texto: 'Moto hasta 150 cc' },
+            ]}
+            requerido
+          />
+          <CampoSeleccion
+            etiqueta="Cliente"
+            marcador="Selecciona un cliente"
+            error="Elige el cliente dueño del vehículo."
+            opciones={[{ valor: 1, texto: 'Cliente de ejemplo' }]}
+          />
+          <CampoSeleccion
+            etiqueta="Medio de pago"
+            defaultValue="efectivo"
+            opciones={[
+              { valor: 'efectivo', texto: 'Efectivo' },
+              { valor: 'nequi', texto: 'Nequi' },
+            ]}
+            disabled
+          />
         </div>
       </SeccionDelCatalogo>
 
@@ -471,6 +549,17 @@ export function SistemaDisenoPage() {
           descripcion="Ejemplos de las funciones de formato con su resultado"
         />
       </SeccionDelCatalogo>
+
+      <SeccionDelCatalogo
+        titulo="Menú de perfil"
+        descripcion="Va en la cabecera, sobre el marco oscuro: el botón con la silueta abre un menú con el nombre, el correo, el rol y «Cerrar sesión». Se cierra con Escape o al hacer clic por fuera. Aquí usa la sesión actual."
+      >
+        <div className="flex h-52 items-start justify-end rounded-tarjeta bg-marco p-3">
+          <MenuPerfil />
+        </div>
+      </SeccionDelCatalogo>
+
+      <MuestrasDelPanel />
     </div>
   );
 }

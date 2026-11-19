@@ -3,6 +3,7 @@ import { createBrowserRouter } from 'react-router';
 
 import { LayoutPrincipal } from '@/components/layout/LayoutPrincipal';
 import { RUTAS } from '@/constants/rutas';
+import { IngresoPage, RutaConPermiso, RutaPrivada } from '@/features/autenticacion';
 
 /**
  * Página con carga diferida: se descarga aparte, la primera vez que se visita.
@@ -12,6 +13,7 @@ const paginaDiferida = (cargarFeature, nombre) =>
   lazy(() => cargarFeature().then((modulo) => ({ default: modulo[nombre] })));
 
 const cargarInicio = () => import('@/features/inicio');
+const cargarOrdenes = () => import('@/features/ordenes-lavado');
 
 /**
  * El catálogo del sistema de diseño es una herramienta de trabajo: solo existe
@@ -27,14 +29,70 @@ const rutasDeDesarrollo = import.meta.env.DEV
     ]
   : [];
 
+/*
+ * Estructura:
+ *   /ingreso            pública
+ *   RutaPrivada         sin sesión -> /ingreso; cuenta pendiente -> pantalla de espera
+ *     LayoutPrincipal   cabecera, menú y área de contenido
+ *       RutaConPermiso  rol sin acceso al módulo -> "Sin permiso" (403)
+ *         páginas
+ */
 export const rutas = [
+  { path: RUTAS.INGRESO, Component: IngresoPage },
   {
-    path: RUTAS.INICIO,
-    Component: LayoutPrincipal,
+    Component: RutaPrivada,
     children: [
-      { index: true, Component: paginaDiferida(cargarInicio, 'InicioPage') },
-      ...rutasDeDesarrollo,
-      { path: '*', Component: paginaDiferida(cargarInicio, 'NoEncontradaPage') },
+      {
+        path: RUTAS.INICIO,
+        Component: LayoutPrincipal,
+        children: [
+          {
+            Component: RutaConPermiso,
+            children: [
+              { index: true, Component: paginaDiferida(cargarInicio, 'InicioPage') },
+              {
+                path: RUTAS.ORDENES_LAVADO,
+                Component: paginaDiferida(cargarOrdenes, 'OrdenesLavadoPage'),
+                children: [{ path: ':idOrden', Component: paginaDiferida(cargarOrdenes, 'DetalleOrdenPage') }],
+              },
+              {
+                path: RUTAS.JORNADAS,
+                Component: paginaDiferida(() => import('@/features/jornadas'), 'JornadasPage'),
+              },
+              {
+                path: RUTAS.CLIENTES,
+                Component: paginaDiferida(() => import('@/features/clientes'), 'ClientesPage'),
+              },
+              {
+                path: RUTAS.VEHICULOS,
+                Component: paginaDiferida(() => import('@/features/vehiculos'), 'VehiculosPage'),
+              },
+              {
+                path: RUTAS.CREDITO,
+                Component: paginaDiferida(() => import('@/features/credito'), 'CreditoPage'),
+              },
+              {
+                path: RUTAS.COLABORADORES,
+                Component: paginaDiferida(() => import('@/features/colaboradores'), 'ColaboradoresPage'),
+              },
+              {
+                path: RUTAS.SERVICIOS,
+                Component: paginaDiferida(() => import('@/features/servicios'), 'ServiciosPage'),
+              },
+              {
+                path: RUTAS.USUARIOS,
+                Component: paginaDiferida(() => import('@/features/usuarios'), 'UsuariosPage'),
+              },
+              {
+                path: RUTAS.REPORTES,
+                Component: paginaDiferida(() => import('@/features/reportes'), 'ReportesPage'),
+              },
+              ...rutasDeDesarrollo,
+              { path: '*', Component: paginaDiferida(cargarInicio, 'NoEncontradaPage') },
+            ],
+          },
+        ],
+      },
     ],
   },
 ];
