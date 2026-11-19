@@ -167,6 +167,84 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 - Pruebas: un archivo `pruebas.env` en la carpeta de entrega del equipo, fuera del repositorio.
 - Producción: el gestor de contraseñas del equipo, nunca en archivos compartidos por chat.
 
+## Proyecto Supabase: titular y recreación
+
+Cada proyecto Supabase tiene un único **titular**: la persona dueña de la cuenta donde vive el proyecto, la
+única que lo vincula (`supabase link`) y le aplica migraciones (`supabase db push`). Hoy el titular es
+**Diego Urbano Pira**, con su propia cuenta (la cuenta anterior, de Diego Cubillos, quedó bloqueada). Nadie
+más, y **las herramientas automatizadas de desarrollo nunca**, aplica una migración contra un proyecto Supabase remoto: enlazar
+y hacer push al remoto son siempre operaciones manuales del titular, desde su propia máquina.
+
+### Checklist para recrear un proyecto
+
+Si hay que recrear el proyecto (cambio de titular, proyecto bloqueado, nuevo entorno):
+
+1. **Crear el proyecto** en la cuenta del nuevo titular. Región recomendada: `sa-east-1` (São Paulo, la más
+   cercana a Colombia). Generar la contraseña de la base con `crypto` (ver "Secretos" arriba) y guardarla en
+   el gestor de contraseñas del equipo — nunca en el repositorio ni por chat.
+2. **Vincular y aplicar las migraciones**, en este orden:
+   ```bash
+   npx supabase link --project-ref <ref-del-proyecto>
+   npx supabase db push --dry-run
+   npx supabase db push
+   npx supabase migration list
+   ```
+   `migration list` debe mostrar todas las migraciones de `supabase/migrations/` como aplicadas, ninguna
+   pendiente ni huérfana.
+3. **Revocar la función de plataforma `rls_auto_enable()`**: Supabase la crea con el proyecto (no viene en
+   nuestras migraciones) y no es explotable, pero los avisos de seguridad del panel la marcan igual:
+   ```sql
+   revoke execute on function public.rls_auto_enable() from public, anon, authenticated;
+   ```
+4. **Actualizar `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`**: en el `.env` local de quien vaya a operar la
+   API localmente, y en las variables del servicio de la API en Render, en los entornos que correspondan
+   (pruebas y producción son proyectos Supabase distintos; no comparten estas variables).
+5. **Crear el superadmin una sola vez**: `npm run seed:superadmin --workspace apps/api`, desde una máquina
+   del equipo, con las variables del entorno recién creado.
+6. **Datos demo solo en pruebas**: `seed-demo.js` con `ENTORNO=pruebas`; nunca en producción (el script se
+   niega a correr con `ENTORNO=produccion`).
+7. **Invitar al equipo** a la organización de Supabase del nuevo titular, con el rol que corresponda a cada
+   quien.
+8. **Reconectar los conectores externos** que apunten al proyecto anterior (CI, dashboards, cualquier cosa
+   que dependa de la URL o la llave anteriores).
+
+### Verificación
+
+Después de aplicar las migraciones, correr estas 4 consultas contra el proyecto (SQL Editor de Supabase o
+`psql`) y confirmar el resultado esperado. Ninguna de las cuatro necesita (ni debe llevar) referencias, URLs,
+llaves ni contraseñas reales:
+
+1. **Migraciones aplicadas** — 24 o más (una por archivo en `supabase/migrations/`):
+   ```sql
+   select count(*) from supabase_migrations.schema_migrations;
+   ```
+2. **Tablas de `public` sin RLS** — 0 filas:
+   ```sql
+   select c.relname
+   from pg_class c
+   join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity;
+   ```
+3. **Funciones de `public` ejecutables por `anon`** — 0 filas:
+   ```sql
+   select p.proname
+   from pg_proc p
+   join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and has_function_privilege('anon', p.oid, 'EXECUTE');
+   ```
+4. **Funciones de `public` ejecutables por `authenticated`** — exactamente estas 6, ninguna más (las
+   auxiliares que las funciones de negocio o las políticas RLS invocan directamente como `authenticated`;
+   todo lo demás pasa por la API con `service_role`):
+   ```sql
+   select p.proname
+   from pg_proc p
+   join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and has_function_privilege('authenticated', p.oid, 'EXECUTE')
+   order by p.proname;
+   ```
+   Resultado esperado: `comision_colaborador_periodo`, `comision_orden`, `descuentos_colaborador_periodo`,
+   `limites_quincena`, `rol_actual`, `validar_cobertura_prestamos_colaborador`.
+
 ## Respaldos
 
 - **Antes de cada migración** en un entorno de la nube:
