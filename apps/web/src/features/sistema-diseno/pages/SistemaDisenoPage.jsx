@@ -56,6 +56,14 @@ const GRUPOS_DE_COLOR = [
     tonos: [{ token: 'resalte', clase: 'bg-resalte' }],
   },
   {
+    nombre: 'Gráficos',
+    nota: 'Series del mix de servicios en Reportes, después de primario y primario-800. Solo para marcas de gráficos, nunca para texto.',
+    tonos: [
+      { token: 'grafico-cian', clase: 'bg-grafico-cian' },
+      { token: 'grafico-violeta', clase: 'bg-grafico-violeta' },
+    ],
+  },
+  {
     nombre: 'Neutros',
     nota: 'Superficies y bordes en los tonos claros; texto e iconos en los oscuros. Los grises del prototipo que difieren en 1 o 2 unidades se agrupan en el tono más cercano.',
     tonos: [

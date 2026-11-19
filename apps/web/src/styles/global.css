@@ -57,6 +57,13 @@
    * --------------------------------------------------------------------- */
   --color-resalte: #f2c230;
 
+  /* --- Gráficos --------------------------------------------------------------
+   * Series del "Mix de servicios" de Reportes, después del azul y del Deep
+   * Blue. Solo para marcas de gráficos, nunca para texto.
+   * --------------------------------------------------------------------- */
+  --color-grafico-cian: #0ea5c6;
+  --color-grafico-violeta: #8b5cf6;
+
   /* --- Neutros -------------------------------------------------------------
    * El prototipo usa grises que difieren en 1 o 2 unidades RGB (#f2f3f5 y
    * #f1f2f4, por ejemplo). Se agrupan en el tono más cercano de esta escala:

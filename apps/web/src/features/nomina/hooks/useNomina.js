@@ -3,13 +3,7 @@ import { useCallback, useState } from 'react';
 import { listarColaboradores } from '@/features/colaboradores';
 import { obtenerQuincena } from '@/features/nomina/api/nomina.api';
 import { useCarga } from '@/hooks/useCarga';
-
-/** El día anterior a una fecha sin hora (YYYY-MM-DD), sin zona horaria. */
-function diaAnterior(fecha) {
-  const dia = new Date(`${fecha}T00:00:00Z`);
-  dia.setUTCDate(dia.getUTCDate() - 1);
-  return dia.toISOString().slice(0, 10);
-}
+import { sumarDias } from '@/utils/aritmeticaFechas';
 
 /**
  * Nómina de la quincena actual o de la anterior (el selector del diseño) y
@@ -19,7 +13,7 @@ function diaAnterior(fecha) {
 export function useNomina() {
   const [periodo, setPeriodo] = useState('actual');
   const [inicioActual, setInicioActual] = useState(null);
-  const fecha = periodo === 'anterior' && inicioActual ? diaAnterior(inicioActual) : null;
+  const fecha = periodo === 'anterior' && inicioActual ? sumarDias(inicioActual, -1) : null;
 
   const cargar = useCallback(
     async (signal) => {
