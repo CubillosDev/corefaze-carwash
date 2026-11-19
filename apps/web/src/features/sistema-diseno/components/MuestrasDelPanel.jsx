@@ -40,7 +40,6 @@ import { IconoUsuarios } from '@/components/ui/iconos/IconoUsuarios';
 import { IconoVisto } from '@/components/ui/iconos/IconoVisto';
 import { Indicador } from '@/components/ui/Indicador';
 import { Insignia } from '@/components/ui/Insignia';
-import { ModuloProximamente } from '@/components/ui/ModuloProximamente';
 import { Paginacion } from '@/components/ui/Paginacion';
 import { PanelLateral } from '@/components/ui/PanelLateral';
 import { Placa } from '@/components/ui/Placa';
@@ -232,8 +231,8 @@ export function MuestrasDelPanel() {
         <div className="grid gap-3 escritorio:grid-cols-2">
           <Tarjeta relleno="ninguno">
             <EstadoVacio
-              titulo="Disponible próximamente"
-              descripcion="La API todavía no ofrece esta información."
+              titulo="Sin resultados"
+              descripcion="No hay movimientos que coincidan con la búsqueda."
               icono={<IconoReportes className="size-5" />}
             />
           </Tarjeta>
@@ -248,18 +247,6 @@ export function MuestrasDelPanel() {
             <EstadoError mensaje="No pudimos comunicarnos con el servidor." alReintentar={() => {}} />
           </Tarjeta>
         </div>
-      </SeccionDelCatalogo>
-
-      <SeccionDelCatalogo
-        titulo="Módulo disponible próximamente"
-        descripcion="Para las pantallas del diseño que la API todavía no soporta: marco fiel, sin datos inventados."
-      >
-        <ModuloProximamente
-          titulo="Reportes"
-          descripcion="Ventas, servicios y colaboradores por periodo"
-          motivo="La API todavía no entrega reportes por periodo."
-          icono={<IconoReportes className="size-5" />}
-        />
       </SeccionDelCatalogo>
 
       <SeccionDelCatalogo titulo="Paginación">

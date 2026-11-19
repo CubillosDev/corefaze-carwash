@@ -7,14 +7,14 @@ describe('EstadoVacio', () => {
   it('muestra título, descripción y acción', () => {
     render(
       <EstadoVacio
-        titulo="Disponible próximamente"
-        descripcion="La API todavía no ofrece esta información."
+        titulo="Sin resultados"
+        descripcion="No hay movimientos que coincidan con la búsqueda."
         accion={<button type="button">Volver</button>}
       />,
     );
 
-    expect(screen.getByText('Disponible próximamente')).toBeInTheDocument();
-    expect(screen.getByText('La API todavía no ofrece esta información.')).toBeInTheDocument();
+    expect(screen.getByText('Sin resultados')).toBeInTheDocument();
+    expect(screen.getByText('No hay movimientos que coincidan con la búsqueda.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Volver' })).toBeInTheDocument();
   });
 
