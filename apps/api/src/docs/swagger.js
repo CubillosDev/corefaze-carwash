@@ -54,6 +54,10 @@ const definicion = {
       name: 'Parámetros de negocio',
       description: 'Comisión vigente, costos fijos/variables y demás parámetros del lavadero',
     },
+    {
+      name: 'Nómina',
+      description: 'Descuentos y liquidación quincenal de comisiones de los colaboradores',
+    },
   ],
   components: {
     securitySchemes: {

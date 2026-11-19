@@ -34,6 +34,7 @@ const ESTADOS_ACTIVIDAD = aEnumeracion(dominio.estadosActividad);
 const TIPOS_CLIENTE = aEnumeracion(dominio.tiposCliente);
 const TIPOS_VINCULACION = aEnumeracion(dominio.tiposVinculacion);
 const ESTADOS_JORNADA = aEnumeracion(dominio.estadosJornada);
+const TIPOS_DESCUENTO = aEnumeracion(dominio.tiposDescuento);
 // ROLES (abajo) se mantiene como array plano: auth.validator.js lo usa
 // con .isIn(ROLES)/.join(', ') de express-validator, y dominio.test.js ya
 // prueba esa forma — cambiarlo a enum rompería ambos. ROLES_ENUM es la
@@ -64,4 +65,5 @@ module.exports = {
   TIPOS_VINCULACION,
   DIAS_GRACIA_CODIGO_COLABORADOR: dominio.diasGraciaCodigoColaborador,
   ESTADOS_JORNADA,
+  TIPOS_DESCUENTO,
 };
