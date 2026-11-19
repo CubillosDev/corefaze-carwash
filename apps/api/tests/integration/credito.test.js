@@ -170,8 +170,21 @@ const siguienteTurno = () => {
   return contadorTurno;
 };
 
-/** Crea una orden a crédito para el cliente dado y la lleva al estado pedido (por defecto, 'entregada'). */
-const crearOrdenCredito = async (clienteId, { estado = 'entregada' } = {}) => {
+const numeroVale = () => `VC-${Math.floor(Math.random() * 1e9)}`;
+
+/** Registra el vale de la orden y lo marca verificado: requisito para poder pagarla (R12). */
+const crearValeVerificado = async (ordenId) => {
+  await conToken('post', '/api/credito/vales').send({ ordenId, numero: numeroVale() });
+  await conToken('patch', `/api/credito/vales/${ordenId}`).send({ verificado: true });
+};
+
+/**
+ * Crea una orden a crédito para el cliente dado y la lleva al estado pedido
+ * (por defecto, 'entregada'), con su vale ya verificado (por defecto:
+ * `conVale` solo se pone en `false` para probar el 409 de "vale no
+ * verificado", ya cubierto también en creditoVales.test.js).
+ */
+const crearOrdenCredito = async (clienteId, { estado = 'entregada', conVale = true } = {}) => {
   const vehiculo = await registrarVehiculo(clienteId);
   const colaborador = await obtenerColaboradorCompartido();
   const servicio = await obtenerServicioCompartido();
@@ -185,6 +198,10 @@ const crearOrdenCredito = async (clienteId, { estado = 'entregada' } = {}) => {
     clienteId,
   });
   const orden = creada.body.orden;
+
+  if (conVale) {
+    await crearValeVerificado(orden.id);
+  }
 
   if (estado === 'registrada') {
     return orden;
@@ -323,17 +340,20 @@ describe('POST /api/credito/pagos', () => {
     const respuesta = await conToken('post', '/api/credito/pagos').send({
       clienteId: cliente.id,
       ordenIds: [primera.id, segunda.id],
+      medio: 'transferencia',
     });
 
     expect(respuesta.status).toBe(201);
     expect(respuesta.body.pago).toMatchObject({
       clienteId: cliente.id,
       valorTotal: primera.valor + segunda.valor,
+      detalle: { medio: 'transferencia' },
     });
 
     const segundoIntento = await conToken('post', '/api/credito/pagos').send({
       clienteId: cliente.id,
       ordenIds: [primera.id],
+      medio: 'transferencia',
     });
     expect(segundoIntento.status).toBe(409);
   });
@@ -346,6 +366,7 @@ describe('POST /api/credito/pagos', () => {
     const respuesta = await conToken('post', '/api/credito/pagos', TOKEN_SUPERADMIN).send({
       clienteId: cliente.id,
       ordenIds: [orden.id],
+      medio: 'transferencia',
     });
 
     expect(respuesta.status).toBe(201);
@@ -359,6 +380,7 @@ describe('POST /api/credito/pagos', () => {
     const respuesta = await conToken('post', '/api/credito/pagos', TOKEN_SOPORTE).send({
       clienteId: cliente.id,
       ordenIds: [orden.id],
+      medio: 'transferencia',
     });
 
     expect(respuesta.status).toBe(403);
@@ -378,13 +400,37 @@ describe('POST /api/credito/pagos', () => {
     const respuesta = await conToken('post', '/api/credito/pagos', TOKEN_PENDIENTE).send({
       clienteId: cliente.id,
       ordenIds: [orden.id],
+      medio: 'transferencia',
     });
 
     expect(respuesta.status).toBe(403);
   });
 
   it('campo obligatorio faltante: sin clienteId (400)', async () => {
-    const respuesta = await conToken('post', '/api/credito/pagos').send({ ordenIds: [1] });
+    const respuesta = await conToken('post', '/api/credito/pagos').send({
+      ordenIds: [1],
+      medio: 'transferencia',
+    });
+    expect(respuesta.status).toBe(400);
+  });
+
+  it('medio faltante: 400', async () => {
+    const cliente = await registrarClienteEmpresaConCredito();
+    const respuesta = await conToken('post', '/api/credito/pagos').send({
+      clienteId: cliente.id,
+      ordenIds: [1],
+    });
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body.errores.some((error) => error.campo === 'medio')).toBe(true);
+  });
+
+  it('medio inválido (no es transferencia, cheque ni efectivo): 400', async () => {
+    const cliente = await registrarClienteEmpresaConCredito();
+    const respuesta = await conToken('post', '/api/credito/pagos').send({
+      clienteId: cliente.id,
+      ordenIds: [1],
+      medio: 'nequi',
+    });
     expect(respuesta.status).toBe(400);
   });
 
@@ -393,6 +439,7 @@ describe('POST /api/credito/pagos', () => {
     const respuesta = await conToken('post', '/api/credito/pagos').send({
       clienteId: cliente.id,
       ordenIds: [],
+      medio: 'transferencia',
     });
     expect(respuesta.status).toBe(400);
   });
@@ -405,6 +452,7 @@ describe('POST /api/credito/pagos', () => {
     const respuesta = await conToken('post', '/api/credito/pagos').send({
       clienteId: cliente.id,
       ordenIds: [orden.id, orden.id],
+      medio: 'transferencia',
     });
     expect(respuesta.status).toBe(400);
   });
@@ -413,6 +461,7 @@ describe('POST /api/credito/pagos', () => {
     const respuesta = await conToken('post', '/api/credito/pagos').send({
       clienteId: 999999999,
       ordenIds: [1],
+      medio: 'transferencia',
     });
     expect(respuesta.status).toBe(404);
   });
@@ -425,6 +474,7 @@ describe('POST /api/credito/pagos', () => {
     const respuesta = await conToken('post', '/api/credito/pagos').send({
       clienteId: cliente.id,
       ordenIds: [orden.id, 999999999],
+      medio: 'transferencia',
     });
     expect(respuesta.status).toBe(404);
   });
@@ -438,6 +488,7 @@ describe('POST /api/credito/pagos', () => {
     const respuesta = await conToken('post', '/api/credito/pagos').send({
       clienteId: clienteA.id,
       ordenIds: [ordenDeB.id],
+      medio: 'transferencia',
     });
     expect(respuesta.status).toBe(409);
   });
@@ -450,8 +501,27 @@ describe('POST /api/credito/pagos', () => {
     const respuesta = await conToken('post', '/api/credito/pagos').send({
       clienteId: cliente.id,
       ordenIds: [ordenEnProceso.id],
+      medio: 'transferencia',
     });
     expect(respuesta.status).toBe(409);
+  });
+
+  // R12 (hallazgo de seguridad, PR fix/CW_API_DUrbano_PagoCreditoExigeVale):
+  // antes existía una ruta (sin "medio" en el body) que pagaba sin exigir el
+  // vale verificado. Caso completo con el mensaje exacto de la API: ver
+  // creditoVales.test.js, "verifica un vale por su número...".
+  it('una orden sin el vale verificado: 409', async () => {
+    await abrirJornada();
+    const cliente = await registrarClienteEmpresaConCredito();
+    const sinVale = await crearOrdenCredito(cliente.id, { conVale: false });
+
+    const respuesta = await conToken('post', '/api/credito/pagos').send({
+      clienteId: cliente.id,
+      ordenIds: [sinVale.id],
+      medio: 'transferencia',
+    });
+    expect(respuesta.status).toBe(409);
+    expect(respuesta.body.mensaje).toBe('Solo se pagan órdenes con el vale verificado');
   });
 
   it('mass assignment: un valorTotal enviado por el cliente se ignora', async () => {
@@ -462,6 +532,7 @@ describe('POST /api/credito/pagos', () => {
     const respuesta = await conToken('post', '/api/credito/pagos').send({
       clienteId: cliente.id,
       ordenIds: [orden.id],
+      medio: 'transferencia',
       valorTotal: 1,
     });
 
@@ -473,6 +544,7 @@ describe('POST /api/credito/pagos', () => {
     const respuesta = await conApiKey('post', '/api/credito/pagos').send({
       clienteId: 1,
       ordenIds: [1],
+      medio: 'transferencia',
     });
     expect(respuesta.status).toBe(401);
   });
@@ -489,10 +561,12 @@ describe('GET /api/credito/pagos', () => {
     const pagoA = await conToken('post', '/api/credito/pagos').send({
       clienteId: clienteA.id,
       ordenIds: [ordenA.id],
+      medio: 'transferencia',
     });
     const pagoB = await conToken('post', '/api/credito/pagos').send({
       clienteId: clienteB.id,
       ordenIds: [ordenB.id],
+      medio: 'transferencia',
     });
 
     const listaCompleta = await conToken('get', '/api/credito/pagos');
@@ -517,10 +591,12 @@ describe('GET /api/credito/pagos', () => {
     await conToken('post', '/api/credito/pagos').send({
       clienteId: cliente.id,
       ordenIds: [primera.id],
+      medio: 'transferencia',
     });
     await conToken('post', '/api/credito/pagos').send({
       clienteId: cliente.id,
       ordenIds: [segunda.id],
+      medio: 'transferencia',
     });
 
     const paginaUno = await conToken(
@@ -567,6 +643,7 @@ describe('GET /api/credito/pagos/:id', () => {
     const creado = await conToken('post', '/api/credito/pagos').send({
       clienteId: cliente.id,
       ordenIds: [orden.id],
+      medio: 'transferencia',
     });
 
     const respuesta = await conToken('get', `/api/credito/pagos/${creado.body.pago.id}`);
@@ -611,6 +688,7 @@ describe('RBAC: matriz completa de roles en los endpoints de consulta', () => {
     const pago = await conToken('post', '/api/credito/pagos').send({
       clienteId: cliente.id,
       ordenIds: [orden.id],
+      medio: 'transferencia',
     });
     pagoId = pago.body.pago.id;
   });

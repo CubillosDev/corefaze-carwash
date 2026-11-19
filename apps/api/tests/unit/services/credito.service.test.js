@@ -13,6 +13,8 @@ const {
   obtenerPagoOFallar,
   listarPagos,
   registrarPagoCredito,
+  registrarVale,
+  marcarVerificacion,
 } = require('../../../src/services/credito.service');
 const { NoEncontrado, Conflicto, SolicitudInvalida } = require('../../../src/utils/errores');
 const { generarSello, crearGeneradorDeValorUnico } = require('../../utils/valorUnico');
@@ -164,8 +166,26 @@ const siguienteTurno = () => {
   return contadorTurno;
 };
 
-/** Crea una orden a crédito para el cliente dado, en el estado pedido (por defecto, 'entregada'). */
-const crearOrdenCreditoDePrueba = async (cliente, { estado = 'entregada' } = {}) => {
+const numeroUnicoVale = crearGeneradorDeValorUnico(
+  selloDocumento,
+  (sello, contador) => `VALE-${sello}-${contador}`,
+);
+
+/** Registra el vale de la orden y lo marca verificado: requisito para poder pagarla (R12). */
+const crearValeVerificadoDePrueba = async (ordenId) => {
+  await registrarVale({ ordenId, numero: numeroUnicoVale() }, USUARIO_ID_PRUEBA);
+  await marcarVerificacion(ordenId, true, USUARIO_ID_PRUEBA);
+};
+
+/**
+ * Crea una orden a crédito para el cliente dado, en el estado pedido (por
+ * defecto, 'entregada'), con su vale ya verificado (por defecto: `conVale`
+ * solo se pone en `false` para probar el 409 de "vale no verificado").
+ */
+const crearOrdenCreditoDePrueba = async (
+  cliente,
+  { estado = 'entregada', conVale = true } = {},
+) => {
   const vehiculo = await crearVehiculoDePrueba(cliente.id);
   const colaborador = await obtenerColaboradorCompartido();
   const servicio = await obtenerServicioCompartido();
@@ -181,6 +201,10 @@ const crearOrdenCreditoDePrueba = async (cliente, { estado = 'entregada' } = {})
     },
     USUARIO_ID_PRUEBA,
   );
+
+  if (conVale) {
+    await crearValeVerificadoDePrueba(orden.id);
+  }
 
   if (estado === 'registrada') {
     return orden;
@@ -273,7 +297,7 @@ describe('credito.service', () => {
       const orden = await crearOrdenCreditoDePrueba(cliente);
 
       await registrarPagoCredito(
-        { clienteId: cliente.id, ordenIds: [orden.id] },
+        { clienteId: cliente.id, ordenIds: [orden.id], medio: 'transferencia' },
         USUARIO_ID_PRUEBA,
       );
 
@@ -396,7 +420,7 @@ describe('credito.service', () => {
       const orden = await crearOrdenCreditoDePrueba(cliente);
 
       await registrarPagoCredito(
-        { clienteId: cliente.id, ordenIds: [orden.id] },
+        { clienteId: cliente.id, ordenIds: [orden.id], medio: 'transferencia' },
         USUARIO_ID_PRUEBA,
       );
 
@@ -474,7 +498,7 @@ describe('credito.service', () => {
       const segunda = await crearOrdenCreditoDePrueba(cliente);
 
       const pago = await registrarPagoCredito(
-        { clienteId: cliente.id, ordenIds: [primera.id, segunda.id] },
+        { clienteId: cliente.id, ordenIds: [primera.id, segunda.id], medio: 'transferencia' },
         USUARIO_ID_PRUEBA,
       );
 
@@ -484,6 +508,7 @@ describe('credito.service', () => {
         registradoPor: USUARIO_ID_PRUEBA,
       });
       expect(pago.pagadoEn).toBeDefined();
+      expect(pago.detalle).toMatchObject({ medio: 'transferencia' });
       expect(pago.ordenes.map((orden) => orden.id).sort()).toEqual([primera.id, segunda.id].sort());
 
       const ordenesPendientes = await listarOrdenesPendientesDeCliente(cliente.id);
@@ -492,14 +517,20 @@ describe('credito.service', () => {
 
     it('lanza NoEncontrado si el cliente no existe', async () => {
       await expect(
-        registrarPagoCredito({ clienteId: 999999999, ordenIds: [1] }, USUARIO_ID_PRUEBA),
+        registrarPagoCredito(
+          { clienteId: 999999999, ordenIds: [1], medio: 'transferencia' },
+          USUARIO_ID_PRUEBA,
+        ),
       ).rejects.toThrow(NoEncontrado);
     });
 
     it('lanza SolicitudInvalida si el arreglo de órdenes viene vacío', async () => {
       const cliente = await crearClienteConCreditoDePrueba();
       await expect(
-        registrarPagoCredito({ clienteId: cliente.id, ordenIds: [] }, USUARIO_ID_PRUEBA),
+        registrarPagoCredito(
+          { clienteId: cliente.id, ordenIds: [], medio: 'transferencia' },
+          USUARIO_ID_PRUEBA,
+        ),
       ).rejects.toThrow(SolicitudInvalida);
     });
 
@@ -510,7 +541,7 @@ describe('credito.service', () => {
 
       await expect(
         registrarPagoCredito(
-          { clienteId: cliente.id, ordenIds: [orden.id, orden.id] },
+          { clienteId: cliente.id, ordenIds: [orden.id, orden.id], medio: 'transferencia' },
           USUARIO_ID_PRUEBA,
         ),
       ).rejects.toThrow(SolicitudInvalida);
@@ -523,7 +554,7 @@ describe('credito.service', () => {
 
       await expect(
         registrarPagoCredito(
-          { clienteId: cliente.id, ordenIds: [orden.id, 999999999] },
+          { clienteId: cliente.id, ordenIds: [orden.id, 999999999], medio: 'transferencia' },
           USUARIO_ID_PRUEBA,
         ),
       ).rejects.toThrow(NoEncontrado);
@@ -537,7 +568,7 @@ describe('credito.service', () => {
 
       await expect(
         registrarPagoCredito(
-          { clienteId: clienteA.id, ordenIds: [ordenDeB.id] },
+          { clienteId: clienteA.id, ordenIds: [ordenDeB.id], medio: 'transferencia' },
           USUARIO_ID_PRUEBA,
         ),
       ).rejects.toThrow(Conflicto);
@@ -550,7 +581,7 @@ describe('credito.service', () => {
 
       await expect(
         registrarPagoCredito(
-          { clienteId: cliente.id, ordenIds: [ordenEnProceso.id] },
+          { clienteId: cliente.id, ordenIds: [ordenEnProceso.id], medio: 'transferencia' },
           USUARIO_ID_PRUEBA,
         ),
       ).rejects.toThrow(Conflicto);
@@ -561,13 +592,36 @@ describe('credito.service', () => {
       const cliente = await crearClienteConCreditoDePrueba();
       const orden = await crearOrdenCreditoDePrueba(cliente);
       await registrarPagoCredito(
-        { clienteId: cliente.id, ordenIds: [orden.id] },
+        { clienteId: cliente.id, ordenIds: [orden.id], medio: 'transferencia' },
         USUARIO_ID_PRUEBA,
       );
 
       await expect(
-        registrarPagoCredito({ clienteId: cliente.id, ordenIds: [orden.id] }, USUARIO_ID_PRUEBA),
+        registrarPagoCredito(
+          { clienteId: cliente.id, ordenIds: [orden.id], medio: 'transferencia' },
+          USUARIO_ID_PRUEBA,
+        ),
       ).rejects.toThrow(Conflicto);
+    });
+
+    // R12 (hallazgo de seguridad, PR fix/CW_API_DUrbano_PagoCreditoExigeVale):
+    // antes existía una ruta (sin "medio" en el body) que pagaba sin exigir
+    // el vale verificado. Ahora el service siempre llama a
+    // registrar_pago_credito_con_medio, que lo exige sin excepción.
+    it('lanza Conflicto si alguna orden no tiene el vale verificado', async () => {
+      await abrirJornadaDePrueba();
+      const cliente = await crearClienteConCreditoDePrueba();
+      const sinVale = await crearOrdenCreditoDePrueba(cliente, { conVale: false });
+
+      await expect(
+        registrarPagoCredito(
+          { clienteId: cliente.id, ordenIds: [sinVale.id], medio: 'transferencia' },
+          USUARIO_ID_PRUEBA,
+        ),
+      ).rejects.toThrow(Conflicto);
+
+      const ordenesPendientes = await listarOrdenesPendientesDeCliente(cliente.id);
+      expect(ordenesPendientes.map((orden) => orden.id)).toContain(sinVale.id);
     });
 
     it('todo o nada: si el pago falla, ninguna de las órdenes indicadas queda marcada', async () => {
@@ -576,13 +630,13 @@ describe('credito.service', () => {
       const yaPagada = await crearOrdenCreditoDePrueba(cliente);
       const valida = await crearOrdenCreditoDePrueba(cliente);
       await registrarPagoCredito(
-        { clienteId: cliente.id, ordenIds: [yaPagada.id] },
+        { clienteId: cliente.id, ordenIds: [yaPagada.id], medio: 'transferencia' },
         USUARIO_ID_PRUEBA,
       );
 
       await expect(
         registrarPagoCredito(
-          { clienteId: cliente.id, ordenIds: [yaPagada.id, valida.id] },
+          { clienteId: cliente.id, ordenIds: [yaPagada.id, valida.id], medio: 'transferencia' },
           USUARIO_ID_PRUEBA,
         ),
       ).rejects.toThrow(Conflicto);
@@ -606,7 +660,7 @@ describe('credito.service', () => {
       const cliente = await crearClienteConCreditoDePrueba();
       const orden = await crearOrdenCreditoDePrueba(cliente);
       const pagoCreado = await registrarPagoCredito(
-        { clienteId: cliente.id, ordenIds: [orden.id] },
+        { clienteId: cliente.id, ordenIds: [orden.id], medio: 'transferencia' },
         USUARIO_ID_PRUEBA,
       );
 
@@ -652,9 +706,10 @@ describe('credito.service', () => {
         undefined,
         USUARIO_ID_PRUEBA,
       );
+      await crearValeVerificadoDePrueba(orden.id);
 
       const pagoCreado = await registrarPagoCredito(
-        { clienteId: cliente.id, ordenIds: [orden.id] },
+        { clienteId: cliente.id, ordenIds: [orden.id], medio: 'transferencia' },
         USUARIO_ID_PRUEBA,
       );
 
@@ -673,7 +728,7 @@ describe('credito.service', () => {
       const cliente = await crearClienteConCreditoDePrueba();
       const orden = await crearOrdenCreditoDePrueba(cliente);
       const pago = await registrarPagoCredito(
-        { clienteId: cliente.id, ordenIds: [orden.id] },
+        { clienteId: cliente.id, ordenIds: [orden.id], medio: 'transferencia' },
         USUARIO_ID_PRUEBA,
       );
 
@@ -694,11 +749,11 @@ describe('credito.service', () => {
       const ordenA = await crearOrdenCreditoDePrueba(clienteA);
       const ordenB = await crearOrdenCreditoDePrueba(clienteB);
       const pagoA = await registrarPagoCredito(
-        { clienteId: clienteA.id, ordenIds: [ordenA.id] },
+        { clienteId: clienteA.id, ordenIds: [ordenA.id], medio: 'transferencia' },
         USUARIO_ID_PRUEBA,
       );
       const pagoB = await registrarPagoCredito(
-        { clienteId: clienteB.id, ordenIds: [ordenB.id] },
+        { clienteId: clienteB.id, ordenIds: [ordenB.id], medio: 'transferencia' },
         USUARIO_ID_PRUEBA,
       );
 
@@ -715,11 +770,11 @@ describe('credito.service', () => {
       const primera = await crearOrdenCreditoDePrueba(cliente);
       const segunda = await crearOrdenCreditoDePrueba(cliente);
       await registrarPagoCredito(
-        { clienteId: cliente.id, ordenIds: [primera.id] },
+        { clienteId: cliente.id, ordenIds: [primera.id], medio: 'transferencia' },
         USUARIO_ID_PRUEBA,
       );
       await registrarPagoCredito(
-        { clienteId: cliente.id, ordenIds: [segunda.id] },
+        { clienteId: cliente.id, ordenIds: [segunda.id], medio: 'transferencia' },
         USUARIO_ID_PRUEBA,
       );
 

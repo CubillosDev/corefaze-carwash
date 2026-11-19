@@ -44,7 +44,7 @@ const PUEDEN_PAGAR = autorizarRoles(ROLES_ENUM.SUPERADMIN, ROLES_ENUM.ADMINISTRA
  *   schemas:
  *     PagoCreditoRegistrar:
  *       type: object
- *       required: [clienteId, ordenIds]
+ *       required: [clienteId, ordenIds, medio]
  *       properties:
  *         clienteId:
  *           type: integer
@@ -53,8 +53,15 @@ const PUEDEN_PAGAR = autorizarRoles(ROLES_ENUM.SUPERADMIN, ROLES_ENUM.ADMINISTRA
  *           type: array
  *           items:
  *             type: integer
- *           description: Ids de las órdenes a crédito a pagar (todas del mismo cliente, entregadas, sin pago previo).
+ *           description: >
+ *             Ids de las órdenes a crédito a pagar (todas del mismo cliente, entregadas, sin pago
+ *             previo, con su vale verificado).
  *           example: [10, 11, 12]
+ *         medio:
+ *           type: string
+ *           enum: [transferencia, cheque, efectivo]
+ *           description: Obligatorio. Cómo pagó la empresa; queda registrado en el pago.
+ *           example: transferencia
  */
 
 /**
@@ -213,10 +220,13 @@ router.get(
  *     tags: [Crédito]
  *     summary: Registrar el pago completo de un conjunto de órdenes a crédito
  *     description: >
- *       Todo o nada: si cualquier orden indicada no existe, no es del
- *       cliente, no es a crédito, no está entregada o ya tiene un pago, no
- *       se paga nada (ver registrar_pago_credito en la base de datos). No
- *       se admiten abonos parciales, cupo, vales ni fecha de corte.
+ *       Todo o nada: exige que TODAS las órdenes indicadas tengan su vale
+ *       verificado (ver POST /api/credito/vales/verificacion); si cualquiera
+ *       no lo tiene, o no existe, no es del cliente, no es a crédito, no
+ *       está entregada o ya tiene un pago, no se paga nada (ver
+ *       registrar_pago_credito_con_medio en la base de datos). El medio de
+ *       pago es obligatorio y queda registrado. No se admiten abonos
+ *       parciales, cupo ni fecha de corte.
  *     requestBody:
  *       required: true
  *       content:
@@ -230,7 +240,7 @@ router.get(
  *       201:
  *         description: Pago de crédito registrado correctamente
  *       400:
- *         description: Datos inválidos (clienteId, ordenIds vacío o con ids repetidos)
+ *         description: Datos inválidos (clienteId, ordenIds vacío o con ids repetidos, medio faltante o inválido)
  *       401:
  *         description: Usuario no autenticado
  *       403:
@@ -238,7 +248,9 @@ router.get(
  *       404:
  *         description: El cliente, o alguna de las órdenes indicadas, no existe
  *       409:
- *         description: Alguna orden no es del cliente, no es a crédito, no está entregada, o ya tiene un pago registrado
+ *         description: >
+ *           Alguna orden no es del cliente, no es a crédito, no está entregada, ya tiene un pago
+ *           registrado, o no tiene su vale verificado
  */
 router.post('/pagos', autenticarJWT, PUEDEN_PAGAR, validarRegistrarPago, validar, registrarPago);
 
@@ -347,7 +359,14 @@ router.patch(
  *       404: { description: Orden no encontrada }
  *       409: { description: La orden no es a crédito, ya tiene vale o el número ya existe }
  */
-router.post('/vales', autenticarJWT, PUEDEN_CONSULTAR, validarRegistrarVale, validar, registrarVale);
+router.post(
+  '/vales',
+  autenticarJWT,
+  PUEDEN_CONSULTAR,
+  validarRegistrarVale,
+  validar,
+  registrarVale,
+);
 
 /**
  * @swagger
@@ -377,7 +396,14 @@ router.post('/vales', autenticarJWT, PUEDEN_CONSULTAR, validarRegistrarVale, val
  *       401: { description: Usuario no autenticado }
  *       403: { description: Rol sin permiso }
  */
-router.post('/vales/verificacion', autenticarJWT, PUEDEN_CONSULTAR, validarVerificarVale, validar, verificarVale);
+router.post(
+  '/vales/verificacion',
+  autenticarJWT,
+  PUEDEN_CONSULTAR,
+  validarVerificarVale,
+  validar,
+  verificarVale,
+);
 
 /**
  * @swagger
@@ -407,6 +433,13 @@ router.post('/vales/verificacion', autenticarJWT, PUEDEN_CONSULTAR, validarVerif
  *       404: { description: La orden no tiene vale }
  *       409: { description: La orden ya está pagada }
  */
-router.patch('/vales/:ordenId', autenticarJWT, PUEDEN_CONSULTAR, validarMarcarVale, validar, marcarVale);
+router.patch(
+  '/vales/:ordenId',
+  autenticarJWT,
+  PUEDEN_CONSULTAR,
+  validarMarcarVale,
+  validar,
+  marcarVale,
+);
 
 module.exports = router;

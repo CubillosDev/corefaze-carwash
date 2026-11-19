@@ -44,18 +44,19 @@ const COLUMNAS_PAGO =
 
 /**
  * Traduce un error de Postgres (vía supabase-js) a una de las clases de
- * utils/errores.js. Los códigos son los que registrar_pago_credito()
- * puede disparar (ver su migración, agregar_pagos_credito.sql): a
+ * utils/errores.js. Los códigos son los que registrar_pago_credito_con_medio()
+ * y, a través de ella, registrar_pago_credito() pueden disparar (ver
+ * agregar_condiciones_credito.sql y agregar_pagos_credito.sql): a
  * diferencia de otros services, aquí se reenvía el mensaje propio de la
  * función (ya en español y específico de cada regla) en vez de uno
  * genérico, porque la función los redactó pensando en eso (ver ADR 0005).
  *
- * 23514 (check_violation) agrupa dos tipos de fallo bajo el mismo código:
- * de formato (arreglo vacío o con ids repetidos, 400) y de regla de
- * negocio (orden de otro cliente, no es a crédito, no está entregada,
- * 409) — se distinguen por el texto del mensaje, igual que otros services
- * ya distinguen significados distintos de un mismo SQLSTATE por el índice
- * o restricción involucrada.
+ * 23514 (check_violation) agrupa varios tipos de fallo bajo el mismo
+ * código: de formato (arreglo vacío o con ids repetidos, 400) y de regla
+ * de negocio (orden de otro cliente, no es a crédito, no está entregada,
+ * medio inválido, vale no verificado — todos 409) — se distinguen por el
+ * texto del mensaje, igual que otros services ya distinguen significados
+ * distintos de un mismo SQLSTATE por el índice o restricción involucrada.
  */
 // vale (ordenes_lavado <- vales_credito) y detalle (pagos_credito <-
 // detalles_pago_credito) son relaciones 1:1: según cómo las resuelva
@@ -279,12 +280,20 @@ const listarPagos = async ({
 
 /**
  * Registra el pago completo de un conjunto de órdenes a crédito del mismo
- * cliente, vía la función RPC registrar_pago_credito (todo o nada, ver su
- * migración): bloquea las órdenes indicadas y valida que el arreglo no
- * esté vacío ni repita ids, que todas existan, sean del cliente, a
- * crédito, estén entregadas y sin pago previo. Si cualquier validación
- * falla, no se paga nada. El valor total (suma de valor) lo calcula la
- * propia función, no este service.
+ * cliente, vía la función RPC registrar_pago_credito_con_medio (todo o
+ * nada, ver agregar_condiciones_credito.sql): exige que todas las órdenes
+ * indicadas tengan su vale verificado, guarda el medio del pago y delega en
+ * registrar_pago_credito (ADR 0005) el resto de las validaciones: que el
+ * arreglo no esté vacío ni repita ids, que todas las órdenes existan, sean
+ * del cliente, a crédito, estén entregadas y sin pago previo. Si cualquier
+ * validación falla, no se paga nada. El valor total (suma de valor) lo
+ * calcula la propia función, no este service.
+ *
+ * Siempre se exige medio y vale verificado (R12, hallazgo de seguridad): no
+ * existe una ruta que pague sin ellos — registrar_pago_credito() sigue sin
+ * revocar de PUBLIC/anon/authenticated por sí sola porque
+ * registrar_pago_credito_con_medio() la invoca internamente, pero este
+ * service ya no la llama nunca directamente.
  *
  * clienteId se valida primero contra clientes (404 claro si no existe):
  * la función RPC en sí no lo valida por separado, solo que las órdenes
@@ -292,36 +301,51 @@ const listarPagos = async ({
  * inexistente terminaría en el 409 de "las órdenes deben pertenecer al
  * cliente indicado", un mensaje menos claro que el 404 real.
  *
+ * ordenIds también se valida que EXISTAN antes de llamar al RPC, por el
+ * mismo motivo (404 claro, no un 409 confuso): registrar_pago_credito_con_medio()
+ * revisa el vale verificado de CADA orden antes de delegar en
+ * registrar_pago_credito() (que es quien normalmente daría el 404 de "no
+ * existe"), y un id que no corresponde a ninguna orden tampoco tiene fila
+ * en vales_credito, así que ese LEFT JOIN lo trata igual que "sin vale
+ * verificado" (409) en vez de "no existe" (404).
+ *
  * No se exige credito_habilitado=true en el cliente al pagar (decisión):
  * una orden con medio_pago='credito' solo pudo crearse cuando el cliente
  * SÍ lo tenía (ver resolverClienteCredito en ordenesLavado.service.js); si
  * luego se le deshabilita el crédito, su deuda existente sigue siendo
  * cobrable — y la función RPC tampoco lo exige.
  *
- * @param {{ clienteId: number, ordenIds: number[] }} datos
+ * @param {{ clienteId: number, ordenIds: number[], medio: string }} datos
  * @param {number} usuarioId quién registra el pago (se envía como p_usuario_id y también lo lee registrar_auditoria())
  * @returns {Promise<object>} el pago creado, con sus órdenes
  * @throws {NoEncontrado} si el cliente no existe, o alguna orden indicada no existe
- * @throws {Conflicto} si alguna orden no es del cliente, no es a crédito, no está entregada, o ya tiene pago
+ * @throws {Conflicto} si alguna orden no es del cliente, no es a crédito, no está entregada, ya tiene
+ *   pago, o no tiene su vale verificado
  * @throws {SolicitudInvalida} si el arreglo de órdenes viene vacío o con ids repetidos
  */
 const registrarPagoCredito = async ({ clienteId, ordenIds, medio }, usuarioId) => {
   await clientesService.obtenerClienteOFallar(clienteId);
 
-  // Con medio (ADR 0007), el pago exige vales verificados y guarda cómo se
-  // pagó. Sin medio se conserva el contrato original de SCRUM-160.
-  const { data: pagoId, error } = medio
-    ? await crearClienteConUsuario(usuarioId).rpc('registrar_pago_credito_con_medio', {
-        p_cliente_id: clienteId,
-        p_orden_ids: ordenIds,
-        p_usuario_id: usuarioId,
-        p_medio: medio,
-      })
-    : await crearClienteConUsuario(usuarioId).rpc('registrar_pago_credito', {
-        p_cliente_id: clienteId,
-        p_orden_ids: ordenIds,
-        p_usuario_id: usuarioId,
-      });
+  const { data: ordenesExistentes, error: errorExistencia } = await supabase
+    .from('ordenes_lavado')
+    .select('id')
+    .in('id', ordenIds);
+  if (errorExistencia) {
+    throw new Error(`No se pudo verificar las órdenes: ${errorExistencia.message}`);
+  }
+  if (ordenesExistentes.length !== new Set(ordenIds).size) {
+    throw new NoEncontrado('Alguna de las órdenes indicadas no existe');
+  }
+
+  const { data: pagoId, error } = await crearClienteConUsuario(usuarioId).rpc(
+    'registrar_pago_credito_con_medio',
+    {
+      p_cliente_id: clienteId,
+      p_orden_ids: ordenIds,
+      p_usuario_id: usuarioId,
+      p_medio: medio,
+    },
+  );
 
   if (error) {
     throw traducirErrorPostgres(error);
@@ -357,7 +381,9 @@ const listarOrdenesCreditoDeCliente = async (clienteId, { tipo = 'pendientes' } 
       .eq('cliente_id', clienteId)
       .eq('medio_pago', MEDIOS_PAGO.CREDITO)
       .neq('estado', ESTADOS_ORDEN.CANCELADA);
-    return (pagadas ? consulta.not('pago_credito_id', 'is', null) : consulta.is('pago_credito_id', null))
+    return (
+      pagadas ? consulta.not('pago_credito_id', 'is', null) : consulta.is('pago_credito_id', null)
+    )
       .order('fecha', { ascending: false })
       .order('turno', { ascending: false })
       .range(desde, hasta);
@@ -375,7 +401,11 @@ const listarOrdenesCreditoDeCliente = async (clienteId, { tipo = 'pendientes' } 
  * Cupo, día de corte y contacto de una empresa. Solo una empresa los tiene
  * (clientes_condiciones_credito_check).
  */
-const actualizarCondiciones = async (clienteId, { cupoCredito = null, diaCorte = null, contacto = null }, usuarioId) => {
+const actualizarCondiciones = async (
+  clienteId,
+  { cupoCredito = null, diaCorte = null, contacto = null },
+  usuarioId,
+) => {
   const cliente = await clientesService.obtenerClienteOFallar(clienteId);
   if (cliente.tipo !== 'empresa') {
     throw new Conflicto('Solo una empresa tiene condiciones de crédito');
@@ -406,7 +436,11 @@ const COLUMNAS_VALE =
   'vehiculo:vehiculos(placa), servicio:servicios(nombre))';
 
 const leerVale = async (filtro, valor) => {
-  const { data, error } = await supabase.from('vales_credito').select(COLUMNAS_VALE).eq(filtro, valor).maybeSingle();
+  const { data, error } = await supabase
+    .from('vales_credito')
+    .select(COLUMNAS_VALE)
+    .eq(filtro, valor)
+    .maybeSingle();
   if (error) {
     throw new Error(`No se pudo consultar el vale: ${error.message}`);
   }

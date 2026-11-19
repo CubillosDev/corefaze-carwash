@@ -33,9 +33,8 @@ const validarRegistrarPago = [
     .withMessage('Cada id de orden debe ser un entero positivo')
     .toInt(),
   body('medio')
-    .optional({ values: 'null' })
     .isIn(MEDIOS_PAGO_CREDITO)
-    .withMessage(`medio debe ser uno de: ${MEDIOS_PAGO_CREDITO.join(', ')}`),
+    .withMessage(`medio es obligatorio y debe ser uno de: ${MEDIOS_PAGO_CREDITO.join(', ')}`),
 ];
 
 /** GET /api/credito/pagos: todos los filtros/paginación son opcionales. */
@@ -69,7 +68,10 @@ const numeroVale = (campo) =>
 
 /** GET /api/credito/clientes/:id/ordenes */
 const validarOrdenesDeCliente = [
-  query('tipo').optional().isIn(['pendientes', 'pagadas']).withMessage('tipo debe ser pendientes o pagadas'),
+  query('tipo')
+    .optional()
+    .isIn(['pendientes', 'pagadas'])
+    .withMessage('tipo debe ser pendientes o pagadas'),
 ];
 
 /** PATCH /api/credito/clientes/:id/condiciones: cada campo puede quedar vacío (null). */

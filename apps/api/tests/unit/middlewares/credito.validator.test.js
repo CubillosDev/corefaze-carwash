@@ -22,16 +22,29 @@ const ejecutarValidacionesDeQuery = async (validaciones, query) => {
 
 describe('credito.validator', () => {
   describe('validarRegistrarPago', () => {
-    it('pasa con clienteId y un arreglo de ordenIds válido', async () => {
+    it('pasa con clienteId, un arreglo de ordenIds y medio válidos', async () => {
       const resultado = await ejecutarValidaciones(validarRegistrarPago, {
         clienteId: 1,
         ordenIds: [10, 11],
+        medio: 'transferencia',
+      });
+      expect(resultado.isEmpty()).toBe(true);
+    });
+
+    it.each(['transferencia', 'cheque', 'efectivo'])('acepta medio=%s', async (medio) => {
+      const resultado = await ejecutarValidaciones(validarRegistrarPago, {
+        clienteId: 1,
+        ordenIds: [10],
+        medio,
       });
       expect(resultado.isEmpty()).toBe(true);
     });
 
     it('rechaza sin clienteId', async () => {
-      const resultado = await ejecutarValidaciones(validarRegistrarPago, { ordenIds: [10] });
+      const resultado = await ejecutarValidaciones(validarRegistrarPago, {
+        ordenIds: [10],
+        medio: 'transferencia',
+      });
       expect(resultado.isEmpty()).toBe(false);
       expect(resultado.array().some((error) => error.path === 'clienteId')).toBe(true);
     });
@@ -40,6 +53,7 @@ describe('credito.validator', () => {
       const resultado = await ejecutarValidaciones(validarRegistrarPago, {
         clienteId: 0,
         ordenIds: [10],
+        medio: 'transferencia',
       });
       expect(resultado.isEmpty()).toBe(false);
     });
@@ -48,13 +62,17 @@ describe('credito.validator', () => {
       const resultado = await ejecutarValidaciones(validarRegistrarPago, {
         clienteId: 1,
         ordenIds: [],
+        medio: 'transferencia',
       });
       expect(resultado.isEmpty()).toBe(false);
-      expect(resultado.array()[0].path).toBe('ordenIds');
+      expect(resultado.array().some((error) => error.path === 'ordenIds')).toBe(true);
     });
 
     it('rechaza cuando falta ordenIds', async () => {
-      const resultado = await ejecutarValidaciones(validarRegistrarPago, { clienteId: 1 });
+      const resultado = await ejecutarValidaciones(validarRegistrarPago, {
+        clienteId: 1,
+        medio: 'transferencia',
+      });
       expect(resultado.isEmpty()).toBe(false);
     });
 
@@ -62,6 +80,7 @@ describe('credito.validator', () => {
       const resultado = await ejecutarValidaciones(validarRegistrarPago, {
         clienteId: 1,
         ordenIds: [10, 10],
+        medio: 'transferencia',
       });
       expect(resultado.isEmpty()).toBe(false);
       expect(resultado.array().some((error) => error.path === 'ordenIds')).toBe(true);
@@ -71,9 +90,29 @@ describe('credito.validator', () => {
       const resultado = await ejecutarValidaciones(validarRegistrarPago, {
         clienteId: 1,
         ordenIds: [10, 0],
+        medio: 'transferencia',
       });
       expect(resultado.isEmpty()).toBe(false);
       expect(resultado.array().some((error) => error.path === 'ordenIds[1]')).toBe(true);
+    });
+
+    it('rechaza cuando falta medio', async () => {
+      const resultado = await ejecutarValidaciones(validarRegistrarPago, {
+        clienteId: 1,
+        ordenIds: [10],
+      });
+      expect(resultado.isEmpty()).toBe(false);
+      expect(resultado.array().some((error) => error.path === 'medio')).toBe(true);
+    });
+
+    it('rechaza un medio que no es transferencia, cheque ni efectivo', async () => {
+      const resultado = await ejecutarValidaciones(validarRegistrarPago, {
+        clienteId: 1,
+        ordenIds: [10],
+        medio: 'nequi',
+      });
+      expect(resultado.isEmpty()).toBe(false);
+      expect(resultado.array().some((error) => error.path === 'medio')).toBe(true);
     });
   });
 
