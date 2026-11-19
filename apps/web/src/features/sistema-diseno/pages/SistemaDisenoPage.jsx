@@ -5,6 +5,8 @@ import { Boton } from '@/components/ui/Boton';
 import { CampoSeleccion } from '@/components/ui/CampoSeleccion';
 import { CampoTexto } from '@/components/ui/CampoTexto';
 import { IconoMenu } from '@/components/ui/iconos/IconoMenu';
+import { IconoOjo } from '@/components/ui/iconos/IconoOjo';
+import { MarcaCorefaze } from '@/components/ui/MarcaCorefaze';
 import { Modal } from '@/components/ui/Modal';
 import { Paginacion } from '@/components/ui/Paginacion';
 import { Tabla } from '@/components/ui/Tabla';
@@ -100,6 +102,8 @@ const GRUPOS_DE_COLOR = [
 ];
 
 const ESCALA_TIPOGRAFICA = [
+  { clase: 'text-portada', uso: 'Titular de la pantalla de ingreso' },
+  { clase: 'text-portada-movil', uso: 'Titular de la pantalla de ingreso en móvil' },
   { clase: 'text-kpi', uso: 'Valor de los indicadores del tablero' },
   { clase: 'text-indicador', uso: 'Cifras de tarjetas' },
   { clase: 'text-titulo', uso: 'Título de página' },
@@ -156,6 +160,8 @@ const ANIMACIONES = [
   { variable: '--animate-entrar-modal', uso: 'Entrada de la ventana modal' },
   { variable: '--animate-entrar-lateral', uso: 'Entrada del panel de detalle' },
   { variable: '--animate-girar', uso: 'Indicador de carga' },
+  { variable: '--animate-flotar', uso: 'Piezas de la escena de ingreso' },
+  { variable: '--animate-brillo', uso: 'Halo de la escena de ingreso' },
 ];
 
 /** La utilidad de texto coincide con su variable: 'text-etiqueta uppercase' -> '--text-etiqueta'. */
@@ -383,6 +389,7 @@ export function SistemaDisenoPage() {
             <Boton tamano="pequeno">Pequeño</Boton>
             <Boton tamano="mediano">Mediano</Boton>
             <Boton tamano="grande">Grande</Boton>
+            <Boton tamano="alto">Alto</Boton>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -428,6 +435,39 @@ export function SistemaDisenoPage() {
           />
           <CampoTexto etiqueta="Observaciones" placeholder="Opcional" />
           <CampoTexto etiqueta="Código interno" defaultValue="CW-0001" disabled />
+          <CampoTexto
+            etiqueta="Correo (tamaño grande)"
+            tamano="grande"
+            placeholder="nombre@empresa.com"
+            ayuda="Tamaño grande, 44 px: formularios de una sola columna, como el ingreso."
+          />
+          <CampoTexto
+            etiqueta="Contraseña (con acción)"
+            type="password"
+            tamano="grande"
+            defaultValue="clave-de-ejemplo"
+            ayuda="La acción es un botón pequeño dentro del campo, a la derecha."
+            accion={
+              <span className="inline-flex size-9 items-center justify-center text-neutro-500">
+                <IconoOjo className="size-4.5" />
+              </span>
+            }
+          />
+        </div>
+      </SeccionDelCatalogo>
+
+      <SeccionDelCatalogo
+        titulo="Marca de Corefaze"
+        descripcion="El cubo isométrico del logo en vectores, con el color del texto: sirve donde el logo completo (blanco) no cabe o va sobre un fondo claro."
+      >
+        <div className="flex flex-wrap items-center gap-4">
+          <span className="inline-flex size-11 items-center justify-center rounded-bloque bg-linear-to-br from-primario-500 to-primario-800 shadow-boton-primario">
+            <MarcaCorefaze className="size-5.5 text-white" />
+          </span>
+          <MarcaCorefaze className="size-8 text-primario" titulo="Corefaze" />
+          <span className="inline-flex size-11 items-center justify-center rounded-bloque bg-marco">
+            <MarcaCorefaze className="size-5.5 text-white" />
+          </span>
         </div>
       </SeccionDelCatalogo>
 

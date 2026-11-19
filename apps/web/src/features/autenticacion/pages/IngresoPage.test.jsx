@@ -54,6 +54,21 @@ describe('IngresoPage', () => {
     expect(screen.getByRole('button', { name: 'Ingresar' })).toBeEnabled();
   });
 
+  it('muestra y vuelve a ocultar la contraseña', async () => {
+    const usuarioEvento = userEvent.setup();
+    renderizar();
+    const campo = screen.getByLabelText(/^contraseña/i);
+    const alternar = screen.getByRole('button', { name: 'Mostrar contraseña' });
+
+    expect(alternar).toHaveAttribute('aria-pressed', 'false');
+    await usuarioEvento.click(alternar);
+    expect(campo).toHaveAttribute('type', 'text');
+    expect(alternar).toHaveAttribute('aria-pressed', 'true');
+
+    await usuarioEvento.click(alternar);
+    expect(campo).toHaveAttribute('type', 'password');
+  });
+
   it('valida el formulario sin llamar a la API', async () => {
     const usuarioEvento = userEvent.setup();
     renderizar();

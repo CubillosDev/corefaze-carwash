@@ -25,6 +25,8 @@ import { IconoFlechaDerecha } from '@/components/ui/iconos/IconoFlechaDerecha';
 import { IconoFlechaIzquierda } from '@/components/ui/iconos/IconoFlechaIzquierda';
 import { IconoJornadas } from '@/components/ui/iconos/IconoJornadas';
 import { IconoMas } from '@/components/ui/iconos/IconoMas';
+import { IconoOjo } from '@/components/ui/iconos/IconoOjo';
+import { IconoOjoTachado } from '@/components/ui/iconos/IconoOjoTachado';
 import { IconoOrdenes } from '@/components/ui/iconos/IconoOrdenes';
 import { IconoPerfil } from '@/components/ui/iconos/IconoPerfil';
 import { IconoPuntos } from '@/components/ui/iconos/IconoPuntos';
@@ -56,6 +58,8 @@ const ICONOS = [
   ['IconoBuscar', IconoBuscar],
   ['IconoMas', IconoMas],
   ['IconoVisto', IconoVisto],
+  ['IconoOjo', IconoOjo],
+  ['IconoOjoTachado', IconoOjoTachado],
   ['IconoCelular', IconoCelular],
   ['IconoPuntos', IconoPuntos],
   ['IconoFlechaIzquierda', IconoFlechaIzquierda],

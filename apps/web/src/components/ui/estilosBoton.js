@@ -48,6 +48,8 @@ const ESTILOS_POR_TAMANO = {
   pequeno: 'h-8 rounded-control px-3 text-detalle',
   mediano: 'h-8.5 rounded-control px-3.5 text-control',
   grande: 'h-9 rounded-control px-4 text-control',
+  // Acompaña a los campos grandes (44 px), como en el ingreso.
+  alto: 'h-11 rounded-control px-5 text-cuerpo',
   // Solo un icono: exige aria-label.
   icono: 'size-8.5 rounded-full',
 };
@@ -57,7 +59,7 @@ const ESTILOS_POR_TAMANO = {
  *
  * @param {object} opciones
  * @param {'primario'|'secundario'|'peligro'|'fantasma'|'marco'} [opciones.variante]
- * @param {'pequeno'|'mediano'|'grande'|'icono'} [opciones.tamano]
+ * @param {'pequeno'|'mediano'|'grande'|'alto'|'icono'} [opciones.tamano]
  * @param {string} [opciones.className]
  * @returns {string}
  */

@@ -13,7 +13,7 @@ import { IconoCargando } from '@/components/ui/iconos/IconoCargando';
  *
  * @param {object} props
  * @param {'primario'|'secundario'|'peligro'|'fantasma'|'marco'} [props.variante]
- * @param {'pequeno'|'mediano'|'grande'|'icono'} [props.tamano] 32, 34 y 36 px.
+ * @param {'pequeno'|'mediano'|'grande'|'alto'|'icono'} [props.tamano] 32, 34, 36 y 44 px.
  * @param {boolean} [props.cargando]
  * @param {boolean} [props.disabled]
  * @param {string} [props.className] Clases extra de posicionamiento o ancho.

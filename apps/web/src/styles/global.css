@@ -155,6 +155,16 @@
   --text-kpi: 23px;
   --text-kpi--font-weight: 600;
   --text-kpi--letter-spacing: -0.02em;
+  /* Titular de la pantalla de ingreso (no está en el diseño: se diseñó con
+     su misma escala, más grande, para la portada). */
+  --text-portada: 40px;
+  --text-portada--font-weight: 600;
+  --text-portada--letter-spacing: -0.03em;
+  --text-portada--line-height: 1.08;
+  --text-portada-movil: 27px;
+  --text-portada-movil--font-weight: 600;
+  --text-portada-movil--letter-spacing: -0.025em;
+  --text-portada-movil--line-height: 1.12;
 
   /* --- Radios --------------------------------------------------------------- */
   --radius-placa: 6px;
@@ -207,6 +217,27 @@
   --animate-entrar-modal: entrar-modal 260ms var(--ease-suave);
   --animate-entrar-lateral: entrar-lateral 260ms var(--ease-suave);
   --animate-girar: girar 0.8s linear infinite;
+  /* Escena de la pantalla de ingreso: piezas que flotan y un halo que respira. */
+  --animate-flotar: flotar 7s var(--ease-suave) infinite alternate;
+  --animate-brillo: brillo 6s ease-in-out infinite alternate;
+
+  @keyframes flotar {
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(-12px);
+    }
+  }
+
+  @keyframes brillo {
+    from {
+      opacity: 0.45;
+    }
+    to {
+      opacity: 0.85;
+    }
+  }
 
   @keyframes entrar-lateral {
     from {
