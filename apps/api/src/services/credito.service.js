@@ -290,10 +290,11 @@ const listarPagos = async ({
  * calcula la propia función, no este service.
  *
  * Siempre se exige medio y vale verificado (R12, hallazgo de seguridad): no
- * existe una ruta que pague sin ellos — registrar_pago_credito() sigue sin
- * revocar de PUBLIC/anon/authenticated por sí sola porque
- * registrar_pago_credito_con_medio() la invoca internamente, pero este
- * service ya no la llama nunca directamente.
+ * existe una ruta que pague sin ellos — registrar_pago_credito() solo la
+ * ejecuta service_role (revocada de PUBLIC/anon/authenticated desde
+ * agregar_pagos_credito.sql), y este service ya no la llama nunca
+ * directamente: siempre pasa por registrar_pago_credito_con_medio(), que la
+ * invoca internamente después de exigir el vale verificado.
  *
  * clienteId se valida primero contra clientes (404 claro si no existe):
  * la función RPC en sí no lo valida por separado, solo que las órdenes
