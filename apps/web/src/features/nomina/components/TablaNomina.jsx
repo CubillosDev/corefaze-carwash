@@ -28,10 +28,10 @@ function Detalle({ fila, descuentos, puedeRegistrar, alRegistrar, cerrada }) {
         <div className="mt-2 flex flex-col">
           <Linea etiqueta={`Producido (${plural(fila.servicios, 'servicio', 'servicios')})`} valor={formatoMoneda(fila.producido)} />
           <Linea etiqueta="Comisión" valor={formatoMoneda(fila.comision)} />
-          <Linea etiqueta="Préstamos" valor={negativo(fila.prestamos)} rojo={fila.prestamos > 0} />
-          <Linea etiqueta="Jabón" valor={negativo(fila.jabon)} rojo={fila.jabon > 0} />
-          <Linea etiqueta="Multas" valor={negativo(fila.multas)} rojo={fila.multas > 0} />
-          <Linea etiqueta="Saldo anterior" valor={negativo(fila.cxc)} rojo={fila.cxc > 0} />
+          <Linea etiqueta="Préstamos" valor={negativo(fila.descuentos.prestamo)} rojo={fila.descuentos.prestamo > 0} />
+          <Linea etiqueta="Jabón" valor={negativo(fila.descuentos.jabon)} rojo={fila.descuentos.jabon > 0} />
+          <Linea etiqueta="Multas" valor={negativo(fila.descuentos.multa)} rojo={fila.descuentos.multa > 0} />
+          <Linea etiqueta="Saldo anterior" valor={negativo(fila.descuentos.cxc)} rojo={fila.descuentos.cxc > 0} />
           <Linea etiqueta={cerrada ? 'Pagado' : 'Neto a pagar'} valor={formatoMoneda(fila.neto)} fuerte />
         </div>
         {fila.saldoPendiente > 0 ? (
@@ -137,8 +137,8 @@ export function TablaNomina({ filas, descuentos, totales, cerrada, puedeRegistra
                       <span className="text-right text-neutro-650 tabular-nums">{fila.servicios}</span>
                       <span className="text-right text-neutro-650 tabular-nums">{formatoMoneda(fila.producido)}</span>
                       <span className="text-right font-semibold tabular-nums">{formatoMoneda(fila.comision)}</span>
-                      <span className={`text-right tabular-nums ${fila.descuentos ? 'text-error' : 'text-neutro-375'}`}>
-                        {negativo(fila.descuentos)}
+                      <span className={`text-right tabular-nums ${fila.descuentosTotal ? 'text-error' : 'text-neutro-375'}`}>
+                        {negativo(fila.descuentosTotal)}
                       </span>
                       <span className="text-right text-titulo-tarjeta font-bold tabular-nums">{formatoMoneda(fila.neto)}</span>
                       <IconoFlechaAbajo

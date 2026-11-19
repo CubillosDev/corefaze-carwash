@@ -13,7 +13,7 @@ import { RegistrarDescuento } from '@/features/nomina/components/RegistrarDescue
 import { TablaNomina } from '@/features/nomina/components/TablaNomina';
 import { useNomina } from '@/features/nomina/hooks/useNomina';
 import { useAviso } from '@/hooks/useAviso';
-import { formatoFecha, formatoFechaLarga } from '@/utils/formatoFecha';
+import { fechaEnBogota, formatoFecha, formatoFechaLarga } from '@/utils/formatoFecha';
 import { formatoMoneda } from '@/utils/formatoMoneda';
 import { plural } from '@/utils/plural';
 
@@ -43,7 +43,8 @@ export function NominaPage() {
   const [error, setError] = useState('');
 
   const quincena = nomina.datos?.quincena;
-  const cerrada = Boolean(quincena?.liquidacion);
+  const liquidacion = nomina.datos?.liquidacion;
+  const cerrada = Boolean(quincena?.liquidada);
   const actual = nomina.periodo === 'actual';
 
   function abrir(nombre, datos = null) {
@@ -68,8 +69,8 @@ export function NominaPage() {
 
   const descripcion = quincena
     ? cerrada
-      ? `Del ${formatoFecha(quincena.periodo.inicio)} al ${formatoFecha(quincena.periodo.fin)} · liquidada el ${formatoFecha(quincena.liquidacion.liquidadoEn.slice(0, 10))}`
-      : `Del ${formatoFecha(quincena.periodo.inicio)} al ${formatoFecha(quincena.periodo.fin)} · se paga el ${formatoFechaLarga(`${quincena.periodo.fin}T12:00:00Z`).toLowerCase()}`
+      ? `Del ${formatoFecha(quincena.inicio)} al ${formatoFecha(quincena.fin)} · liquidada${liquidacion ? ` el ${formatoFecha(fechaEnBogota(liquidacion.liquidadoEn))}` : ''}`
+      : `Del ${formatoFecha(quincena.inicio)} al ${formatoFecha(quincena.fin)} · se paga el ${formatoFechaLarga(`${quincena.fin}T12:00:00Z`).toLowerCase()}`
     : 'Quincenas del 1 al 15 y del 16 a fin de mes';
 
   return (
@@ -102,7 +103,7 @@ export function NominaPage() {
               <Boton
                 className="shadow-boton-primario"
                 disabled={!quincena.puedeLiquidar}
-                title={quincena.puedeLiquidar ? undefined : `Se puede liquidar desde el ${formatoFecha(quincena.periodo.fin)}`}
+                title={quincena.puedeLiquidar ? undefined : `Se puede liquidar desde el ${formatoFecha(quincena.fin)}`}
                 onClick={() => abrir('liquidar')}
               >
                 Liquidar quincena
@@ -128,7 +129,7 @@ export function NominaPage() {
             <Indicador
               etiqueta="Descuentos"
               valor={quincena.totales.descuentos ? `−${formatoMoneda(quincena.totales.descuentos)}` : formatoMoneda(0)}
-              apoyo={cerrada ? 'Aplicados en el pago' : `Se descuentan el ${formatoFecha(quincena.periodo.fin)}`}
+              apoyo={cerrada ? 'Aplicados en el pago' : `Se descuentan el ${formatoFecha(quincena.fin)}`}
               rojo={quincena.totales.descuentos > 0}
             />
             <Indicador
@@ -145,7 +146,7 @@ export function NominaPage() {
 
           <TablaNomina
             filas={quincena.colaboradores}
-            descuentos={quincena.descuentos}
+            descuentos={quincena.descuentosDelPeriodo}
             totales={quincena.totales}
             cerrada={cerrada}
             puedeRegistrar={actual && !cerrada}
@@ -161,7 +162,7 @@ export function NominaPage() {
           enviando={enviando}
           error={error}
           alCerrar={() => setVentana(null)}
-          alGuardar={(descuento) => ejecutar(() => registrarDescuento(descuento), 'Descuento registrado')}
+          alGuardar={(descuento) => ejecutar(() => registrarDescuento({ ...descuento, fecha: fechaEnBogota() }), 'Descuento registrado')}
         />
       ) : null}
 
@@ -174,7 +175,7 @@ export function NominaPage() {
         alCancelar={() => setVentana(null)}
         alConfirmar={() =>
           ejecutar(
-            () => liquidarQuincena({ inicio: quincena.periodo.inicio, fin: quincena.periodo.fin }),
+            () => liquidarQuincena({ inicio: quincena.inicio, fin: quincena.fin }),
             'Quincena liquidada',
           )
         }

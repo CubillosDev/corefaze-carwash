@@ -1,34 +1,32 @@
 import { useCallback, useState } from 'react';
 
 import { listarColaboradores } from '@/features/colaboradores';
-import { obtenerQuincena } from '@/features/nomina/api/nomina.api';
+import { obtenerLiquidacion, obtenerResumenQuincena } from '@/features/nomina/api/nomina.api';
 import { useCarga } from '@/hooks/useCarga';
-import { sumarDias } from '@/utils/aritmeticaFechas';
+import { fechaEnBogota } from '@/utils/formatoFecha';
+import { quincenaAnterior, quincenaDe } from '@/utils/quincena';
 
 /**
- * Nómina de la quincena actual o de la anterior (el selector del diseño) y
- * los colaboradores para registrar descuentos. La anterior es la que
- * contiene el día previo al inicio de la actual.
+ * Nómina de la quincena actual o de la anterior (el selector del diseño), la
+ * liquidación si ya se pagó y los colaboradores para registrar descuentos.
  */
 export function useNomina() {
   const [periodo, setPeriodo] = useState('actual');
-  const [inicioActual, setInicioActual] = useState(null);
-  const fecha = periodo === 'anterior' && inicioActual ? sumarDias(inicioActual, -1) : null;
+  const actual = quincenaDe(fechaEnBogota());
+  const { inicio, fin } = periodo === 'anterior' ? quincenaAnterior(actual) : actual;
 
   const cargar = useCallback(
     async (signal) => {
       const [quincena, colaboradores] = await Promise.all([
-        obtenerQuincena(fecha, { signal }),
+        obtenerResumenQuincena({ inicio, fin }, { signal }),
         listarColaboradores({ signal }),
       ]);
-      if (!fecha) {
-        setInicioActual(quincena.periodo.inicio);
-      }
-      return { quincena, colaboradores };
+      const liquidacion = quincena.liquidacionId ? await obtenerLiquidacion(quincena.liquidacionId, { signal }) : null;
+      return { quincena, liquidacion, colaboradores };
     },
-    [fecha],
+    [inicio, fin],
   );
   const carga = useCarga(cargar);
 
-  return { ...carga, periodo, elegirPeriodo: setPeriodo, hayAnterior: inicioActual !== null };
+  return { ...carga, periodo, elegirPeriodo: setPeriodo };
 }

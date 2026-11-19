@@ -8,30 +8,53 @@ import { httpCliente } from '@/lib/httpCliente';
  * @property {number} servicios
  * @property {number} producido
  * @property {number} comision
- * @property {number} prestamos
- * @property {number} jabon
- * @property {number} multas
- * @property {number} cxc Saldo de la quincena anterior.
- * @property {number} descuentos
+ * @property {{ prestamo: number, jabon: number, multa: number, cxc: number }} descuentos
+ *   cxc es el saldo que viene de la quincena anterior.
+ * @property {number} descuentosTotal
  * @property {number} neto
  * @property {number} saldoPendiente Pasa como cxc a la quincena siguiente.
  */
 
 /**
- * GET /api/nomina/quincena: la quincena que contiene la fecha (por defecto, hoy).
- *
- * @param {string|null} fecha YYYY-MM-DD
- * @param {{ signal?: AbortSignal }} [opciones]
+ * @typedef {object} ResumenQuincena
+ * @property {string} inicio
+ * @property {string} fin
+ * @property {boolean} liquidada
+ * @property {number|null} liquidacionId
+ * @property {boolean} puedeLiquidar La quincena terminó y no se ha liquidado.
+ * @property {{ servicios: number, producido: number, comision: number, descuentos: number, neto: number, saldoPendiente: number }} totales
+ * @property {FilaNomina[]} colaboradores
+ * @property {object[]} descuentosDelPeriodo
  */
-export async function obtenerQuincena(fecha, { signal } = {}) {
-  const cuerpo = await httpCliente.obtener('nomina/quincena', { consulta: fecha ? { fecha } : {}, signal });
-  return cuerpo.quincena;
+
+/**
+ * GET /api/nomina/quincenas/resumen: inicio y fin deben ser exactamente los
+ * de una quincena (1–15 o 16–fin de mes).
+ *
+ * @param {{ inicio: string, fin: string }} periodo
+ * @param {{ signal?: AbortSignal }} [opciones]
+ * @returns {Promise<ResumenQuincena>}
+ */
+export function obtenerResumenQuincena({ inicio, fin }, { signal } = {}) {
+  return httpCliente.obtener('nomina/quincenas/resumen', { consulta: { inicio, fin }, signal });
 }
 
 /**
- * POST /api/nomina/descuentos: préstamo, jabón o multa con la fecha de hoy.
+ * GET /api/nomina/liquidaciones/:id
  *
- * @param {{ colaboradorId: number, tipo: 'prestamo'|'jabon'|'multa', valor: number, observacion: string|null }} descuento
+ * @param {number} id
+ * @param {{ signal?: AbortSignal }} [opciones]
+ */
+export async function obtenerLiquidacion(id, { signal } = {}) {
+  const cuerpo = await httpCliente.obtener(`nomina/liquidaciones/${id}`, { signal });
+  return cuerpo.liquidacion;
+}
+
+/**
+ * POST /api/nomina/descuentos: préstamo, jabón o multa en una fecha de una
+ * quincena sin liquidar.
+ *
+ * @param {{ colaboradorId: number, tipo: 'prestamo'|'jabon'|'multa', valor: number, fecha: string, observacion: string|null }} descuento
  */
 export async function registrarDescuento(descuento) {
   const cuerpo = await httpCliente.crear('nomina/descuentos', descuento);
@@ -39,11 +62,11 @@ export async function registrarDescuento(descuento) {
 }
 
 /**
- * POST /api/nomina/liquidaciones: liquida una quincena terminada.
+ * POST /api/nomina/quincenas/liquidar: liquida una quincena terminada.
  *
  * @param {{ inicio: string, fin: string }} periodo
  */
 export async function liquidarQuincena(periodo) {
-  const cuerpo = await httpCliente.crear('nomina/liquidaciones', periodo);
+  const cuerpo = await httpCliente.crear('nomina/quincenas/liquidar', periodo);
   return cuerpo.liquidacion;
 }
