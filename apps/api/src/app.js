@@ -20,6 +20,11 @@ const rutasOrdenesLavado = require('./routes/ordenesLavado.routes');
 const rutasJornadas = require('./routes/jornadas.routes');
 const rutasParametros = require('./routes/parametros.routes');
 const rutasCredito = require('./routes/credito.routes');
+const rutasCaja = require('./routes/caja.routes');
+const rutasReportes = require('./routes/reportes.routes');
+const rutasNomina = require('./routes/nomina.routes');
+const rutasInventario = require('./routes/inventario.routes');
+const rutasJornadaQr = require('./routes/jornadaQr.routes');
 
 const LIMITE_CUERPO = '10kb';
 
@@ -66,9 +71,15 @@ const crearApp = ({ apiKeys, origenPermitido } = env) => {
   app.use('/api/colaboradores', rutasColaboradores);
   app.use('/api/servicios', rutasServicios);
   app.use('/api/ordenes-lavado', rutasOrdenesLavado);
+  // Antes de /api/jornadas: /qr no debe caer en las rutas /:id de jornadas.
+  app.use('/api/jornadas/qr', rutasJornadaQr);
   app.use('/api/jornadas', rutasJornadas);
   app.use('/api/parametros', rutasParametros);
   app.use('/api/credito', rutasCredito);
+  app.use('/api/caja', rutasCaja);
+  app.use('/api/reportes', rutasReportes);
+  app.use('/api/nomina', rutasNomina);
+  app.use('/api/inventario', rutasInventario);
 
   app.use(rutaNoEncontrada);
   app.use(manejarErrores);

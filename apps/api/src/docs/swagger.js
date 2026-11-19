@@ -58,6 +58,22 @@ const definicion = {
       name: 'Crédito',
       description: 'Crédito empresarial: saldo pendiente, órdenes pagables y registro de pagos',
     },
+    {
+      name: 'Caja',
+      description: 'Apertura, cobros, egresos y cierre con arqueo de la caja de cada jornada',
+    },
+    {
+      name: 'Reportes',
+      description: 'Ventas por día, mix de servicios, colaboradores e ingresos por hora',
+    },
+    {
+      name: 'Nómina',
+      description: 'Quincena en curso, descuentos de colaboradores y liquidación',
+    },
+    {
+      name: 'Inventario',
+      description: 'Insumos del lavadero, su stock y sus movimientos',
+    },
   ],
   components: {
     securitySchemes: {
