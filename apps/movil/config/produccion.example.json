@@ -1,0 +1,4 @@
+{
+  "API_URL": "https://URL-DE-LA-API-DE-PRODUCCION/api",
+  "API_KEY": "la API_KEY_MOVIL del entorno de producción"
+}

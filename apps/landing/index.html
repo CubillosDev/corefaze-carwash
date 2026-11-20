@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="es-CO">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Corefaze · Software de gestión para lavaderos de vehículos</title>
+    <meta
+      name="description"
+      content="Recibe vehículos escaneando la placa, controla el patio en tiempo real y cuadra la caja sin esfuerzo. Todo tu lavadero en un solo sistema."
+    />
+    <meta name="theme-color" content="#ffffff" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="es_CO" />
+    <meta property="og:title" content="Corefaze · Pon en orden tu lavadero" />
+    <meta
+      property="og:description"
+      content="Recepción por placa, patio en vivo, caja, clientes, inventario y reportes en un solo sistema."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script>
+      try {
+        if (localStorage.getItem('corefaze-landing-theme') === 'dark') document.documentElement.dataset.tema = 'oscuro';
+      } catch {
+        /* Sin almacenamiento: tema claro. */
+      }
+    </script>
+  </head>
+  <body>
+    <a class="saltar" href="#contenido">Saltar al contenido</a>
+
+    <header class="nav" data-nav>
+      <a href="#top" class="nav__logo" aria-label="Corefaze, ir al inicio">
+        <img class="logo logo--oscuro" src="/src/assets/images/logo-corefaze-oscuro.webp" alt="" width="420" height="85" />
+        <img class="logo logo--claro" src="/src/assets/images/logo-corefaze-claro.webp" alt="" width="420" height="85" />
+      </a>
+      <nav class="nav__enlaces" aria-label="Principal">
+        <a href="#flujo">Producto</a>
+        <a href="#modulos">Módulos</a>
+        <a href="#app">App móvil</a>
+        <a href="#precios">Planes</a>
+        <a href="#faq">Preguntas</a>
+      </nav>
+      <div class="nav__acciones">
+        <button type="button" class="tema" data-tema-boton aria-label="Cambiar tema" title="Cambiar a tema oscuro">
+          <span class="tema__perilla"></span>
+          <svg class="tema__sol" width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"></path>
+          </svg>
+          <svg class="tema__luna" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path>
+          </svg>
+        </button>
+        <a href="%VITE_PANEL_URL%" class="nav__ingreso">Iniciar sesión</a>
+        <a href="#demo" class="boton boton--primario boton--nav">Agenda una demo</a>
+        <button
+          type="button"
+          class="nav__menu"
+          data-menu-boton
+          aria-label="Abrir menú"
+          aria-expanded="false"
+          aria-controls="menu-movil"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+            <path class="nav__menu-abrir" d="M4 8h16M4 16h16"></path>
+            <path class="nav__menu-cerrar" d="M6 6l12 12M18 6 6 18"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+    <nav id="menu-movil" class="menu-movil" aria-label="Menú" hidden>
+      <a href="#flujo">Producto<span>01</span></a>
+      <a href="#modulos">Módulos<span>02</span></a>
+      <a href="#app">App móvil<span>03</span></a>
+      <a href="#precios">Planes<span>04</span></a>
+      <a href="#faq">Preguntas<span>05</span></a>
+    </nav>
+
+    <main id="contenido">
+      <section id="top" class="hero" data-hero-seccion>
+        <div class="hero__degradado"></div>
+        <div class="hero__rejilla"></div>
+        <div class="hero__mancha hero__mancha--a"></div>
+        <div class="hero__mancha hero__mancha--b"></div>
+
+        <div class="hero__texto">
+          <a href="#app" class="hero__aviso" data-hero>
+            <span class="hero__aviso-nuevo">Próximamente</span>
+            <span class="hero__aviso-separador"></span>
+            Escáner de placa con autocompletado
+            <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+          </a>
+          <h1 class="hero__titulo" data-hero>
+            Pon en orden<br />tu
+            <span class="sr-only">lavadero.</span>
+            <span class="hero__palabra-caja" data-palabra-caja aria-hidden="true"
+              ><span class="hero__palabra" data-palabra>lavadero.</span></span
+            >
+          </h1>
+          <p class="hero__bajada" data-hero>
+            Recibe vehículos escaneando la placa, controla el patio en tiempo real y cuadra la caja sin esfuerzo. Todo tu
+            lavadero en un solo sistema.
+          </p>
+          <div class="hero__ctas" data-hero>
+            <a href="#demo" class="boton boton--primario boton--grande">
+              Agenda una demo
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+            </a>
+            <a href="#flujo" class="boton boton--vidrio boton--grande">Ver cómo funciona</a>
+          </div>
+        </div>
+
+        <div class="hero__escena" data-hero>
+          <div class="hero__inclinacion" data-inclinacion>
+            <div class="hero__resplandor"></div>
+            <div class="navegador navegador--hero">
+              <div class="navegador__barra">
+                <span class="navegador__luces"><i></i><i></i><i></i></span>
+                <span class="navegador__url">
+                  <svg width="11" height="11" viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="5" y="11" width="14" height="10" rx="2"></rect>
+                    <path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+                  </svg>
+                  app.corefaze.com/carwash
+                </span>
+                <span class="navegador__espacio"></span>
+              </div>
+              <div class="navegador__pantalla" data-hero-pantalla>
+                <img
+                  class="captura captura--activa"
+                  data-captura="inicio"
+                  src="/src/assets/images/capturas/inicio-1440.webp"
+                  srcset="/src/assets/images/capturas/inicio-720.webp 720w, /src/assets/images/capturas/inicio-1440.webp 1440w"
+                  sizes="(min-width: 1220px) 1180px, 100vw"
+                  width="1440"
+                  height="860"
+                  alt="Tablero de inicio de Corefaze con los ingresos del día, el patio en vivo y las alertas"
+                  fetchpriority="high"
+                />
+                <img
+                  class="captura"
+                  data-captura="ordenes"
+                  src="/src/assets/images/capturas/ordenes-1440.webp"
+                  srcset="/src/assets/images/capturas/ordenes-720.webp 720w, /src/assets/images/capturas/ordenes-1440.webp 1440w"
+                  sizes="(min-width: 1220px) 1180px, 100vw"
+                  width="1440"
+                  height="860"
+                  alt=""
+                  loading="lazy"
+                />
+                <div class="hero__aviso-patio" data-aviso-patio hidden>
+                  <span class="icono-check"><svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span>
+                  WMV366 ingresó al patio
+                </div>
+              </div>
+            </div>
+
+            <div class="telefono-hero" aria-hidden="true">
+              <div class="telefono-hero__pantalla" data-telefono data-fase="0">
+                <div class="telefono-hero__isla"></div>
+                <div class="telefono-hero__camara">
+                  <div class="telefono-hero__fondo"></div>
+                  <div class="telefono-hero__titulo">Escanear placa</div>
+                  <div class="telefono-hero__visor">
+                    <div class="telefono-hero__marco"></div>
+                    <div class="placa placa--telefono"><span>WMV 366</span></div>
+                    <div class="telefono-hero__escaner"></div>
+                  </div>
+                  <div class="telefono-hero__pista" data-telefono-pista>Centra la placa en el recuadro</div>
+                  <div class="telefono-hero__hoja" data-telefono-hoja>
+                    <div class="telefono-hero__detectada">Placa detectada · 98%</div>
+                    <div class="telefono-hero__placa">WMV366</div>
+                    <div class="telefono-hero__autocompletando">Autocompletando datos…</div>
+                  </div>
+                </div>
+                <div class="telefono-hero__formulario">
+                  <div class="telefono-hero__cabecera">
+                    <span>Nuevo ingreso</span>
+                    <span class="telefono-hero__chip">WMV366</span>
+                  </div>
+                  <div class="telefono-hero__cuerpo">
+                    <div class="telefono-hero__tarjeta">
+                      <div class="telefono-hero__tarjeta-titulo">
+                        <span>Datos del vehículo</span>
+                        <span class="telefono-hero__ok"><svg width="9" height="9" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span>
+                      </div>
+                      <div class="telefono-hero__fila" data-fila><span>Marca</span><b>Mazda</b></div>
+                      <div class="telefono-hero__fila" data-fila><span>Línea</span><b>3 Grand Touring</b></div>
+                      <div class="telefono-hero__fila" data-fila><span>Modelo</span><b>2021</b></div>
+                      <div class="telefono-hero__fila" data-fila><span>Tipo</span><b>Automóvil</b></div>
+                      <div class="telefono-hero__fila" data-fila><span>SOAT</span><b>Vigente</b></div>
+                    </div>
+                    <div class="telefono-hero__servicio" data-fila>
+                      <span class="telefono-hero__numero">10</span>
+                      <span class="telefono-hero__nombre">Lavado Premium</span>
+                      <b>$48.000</b>
+                    </div>
+                    <div class="telefono-hero__boton" data-telefono-boton>Ingresar al patio</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="hero__desvanecido"></div>
+        </div>
+      </section>
+
+      <section class="franja" aria-label="Tipos de lavadero">
+        <p class="franja__titulo" data-revelar>Diseñado para todo tipo de lavadero en Colombia</p>
+        <div class="franja__ventana" data-revelar>
+          <ul class="franja__pista">
+            <li>Autolavados</li>
+            <li>Centros de detailing</li>
+            <li>Lavaderos de motos</li>
+            <li>Servitecas</li>
+            <li>Lavaderos de barrio</li>
+            <li>Cadenas con varias sedes</li>
+            <li>Parqueaderos con lavado</li>
+            <li>Lavaderos de camionetas</li>
+            <li aria-hidden="true">Autolavados</li>
+            <li aria-hidden="true">Centros de detailing</li>
+            <li aria-hidden="true">Lavaderos de motos</li>
+            <li aria-hidden="true">Servitecas</li>
+            <li aria-hidden="true">Lavaderos de barrio</li>
+            <li aria-hidden="true">Cadenas con varias sedes</li>
+            <li aria-hidden="true">Parqueaderos con lavado</li>
+            <li aria-hidden="true">Lavaderos de camionetas</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="producto" class="seccion producto">
+        <div class="contenedor">
+          <div class="encabezado encabezado--centro" data-revelar>
+            <p class="encabezado__antetitulo">Por qué Corefaze</p>
+            <h2 class="encabezado__titulo">Menos cuaderno. Más control.</h2>
+            <p class="encabezado__bajada">
+              Lo que hoy se resuelve con papel, WhatsApp y memoria se convierte en un proceso claro para todo tu equipo.
+            </p>
+          </div>
+          <div class="producto__tarjetas">
+            <article class="beneficio" data-revelar>
+              <div class="beneficio__escena">
+                <div class="beneficio__mini beneficio__mini--placa">
+                  <div class="placa placa--beneficio"><span>WMV 366</span><i class="placa__escaner"></i></div>
+                  <div class="beneficio__chips">
+                    <span class="chip">Mazda 3 · 2021</span>
+                    <span class="chip chip--azul">SOAT vigente</span>
+                  </div>
+                </div>
+              </div>
+              <div class="beneficio__texto">
+                <h3>Recibe en segundos <span class="proximamente">Próximamente</span></h3>
+                <p>Escanea la placa y los datos del vehículo se autocompletan. Sin anotar nada a mano.</p>
+              </div>
+            </article>
+            <article class="beneficio" data-revelar>
+              <div class="beneficio__escena">
+                <div class="beneficio__mini beneficio__mini--patio">
+                  <div class="beneficio__fila-titulo"><b>Patio en vivo</b><span>9 vehículos</span></div>
+                  <div class="patio-fila"><span>Recibido</span><i><b data-crecer style="--ancho: 40%; --opacidad: 0.45"></b></i><b>2</b></div>
+                  <div class="patio-fila"><span>Alistamiento</span><i><b data-crecer style="--ancho: 22%; --opacidad: 0.58"></b></i><b>1</b></div>
+                  <div class="patio-fila"><span>Proceso exterior</span><i><b data-crecer style="--ancho: 64%; --opacidad: 0.71"></b></i><b>3</b></div>
+                  <div class="patio-fila"><span>Proceso interior</span><i><b data-crecer style="--ancho: 26%; --opacidad: 0.84"></b></i><b>1</b></div>
+                  <div class="patio-fila"><span>Terminado</span><i><b data-crecer style="--ancho: 44%; --opacidad: 0.97"></b></i><b>2</b></div>
+                </div>
+              </div>
+              <div class="beneficio__texto">
+                <h3>Controla el patio</h3>
+                <p>Cada vehículo con su fase, su operador y su tiempo. Sabes qué pasa sin salir de la oficina.</p>
+              </div>
+            </article>
+            <article class="beneficio" data-revelar>
+              <div class="beneficio__escena">
+                <div class="beneficio__mini beneficio__mini--caja">
+                  <div class="beneficio__fila-titulo beneficio__fila-titulo--centro">
+                    <span>Cierre de hoy</span><span class="insignia-azul">Cuadrado</span>
+                  </div>
+                  <div class="beneficio__total">$1.245.000</div>
+                  <div class="beneficio__mezcla">
+                    <b data-crecer style="--ancho: 44%; --color: var(--azul-profundo)"></b>
+                    <b data-crecer style="--ancho: 38%; --color: var(--azul)"></b>
+                    <b data-crecer style="--ancho: 18%; --color: #8db4f5"></b>
+                  </div>
+                  <div class="beneficio__leyenda"><span>Efectivo</span><span>Tarjeta</span><span>Transf.</span></div>
+                </div>
+              </div>
+              <div class="beneficio__texto">
+                <h3>Cuadra la caja sin estrés</h3>
+                <p>Cada cobro queda registrado por método de pago. Al cierre, los números coinciden.</p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="flujo" class="seccion flujo">
+        <div class="contenedor">
+          <div class="flujo__encabezado" data-revelar>
+            <div class="flujo__titulos">
+              <p class="encabezado__antetitulo">Cómo funciona</p>
+              <h2 class="encabezado__titulo">Del ingreso a la entrega, en un solo flujo.</h2>
+            </div>
+            <p class="flujo__bajada">
+              Cada vehículo pasa por las mismas cuatro etapas. Corefaze las conecta para que nada se pierda en el camino.
+            </p>
+          </div>
+          <div class="flujo__cuerpo">
+            <div class="flujo__pasos" data-flujo-pasos>
+              <button type="button" class="paso" data-paso="0" aria-expanded="true" aria-controls="escena-0" data-revelar>
+                <span class="paso__progreso"></span>
+                <span class="paso__icono"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M7 12h10"></path></svg></span>
+                <span>
+                  <span class="paso__titulo"><span class="paso__numero">01</span><span>Recepción</span></span>
+                  <span class="paso__desplegable"><span><span class="paso__descripcion">El administrador escanea la placa con el celular. Marca, línea, modelo y documentos se autocompletan y el precio se ajusta al tipo de vehículo.</span></span></span>
+                </span>
+              </button>
+              <button type="button" class="paso" data-paso="1" aria-expanded="false" aria-controls="escena-1" data-revelar>
+                <span class="paso__progreso"></span>
+                <span class="paso__icono"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5c3 3.6 5.6 6.8 5.6 10.1a5.6 5.6 0 0 1-11.2 0c0-3.3 2.6-6.5 5.6-10.1z"></path></svg></span>
+                <span>
+                  <span class="paso__titulo"><span class="paso__numero">02</span><span>Patio</span></span>
+                  <span class="paso__desplegable"><span><span class="paso__descripcion">El vehículo aparece en el tablero con su operador asignado. Cada cambio de fase se ve al instante en todas las pantallas.</span></span></span>
+                </span>
+              </button>
+              <button type="button" class="paso" data-paso="2" aria-expanded="false" aria-controls="escena-2" data-revelar>
+                <span class="paso__progreso"></span>
+                <span class="paso__icono"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6h17v12.5h-17zM3.5 10h17M7.5 14.5h3"></path></svg></span>
+                <span>
+                  <span class="paso__titulo"><span class="paso__numero">03</span><span>Caja y entrega</span></span>
+                  <span class="paso__desplegable"><span><span class="paso__descripcion">Al terminar pasa solo a caja. Se cobra en efectivo, tarjeta o transferencia y el cliente recibe el aviso por WhatsApp.</span></span></span>
+                </span>
+              </button>
+              <button type="button" class="paso" data-paso="3" aria-expanded="false" aria-controls="escena-3" data-revelar>
+                <span class="paso__progreso"></span>
+                <span class="paso__icono"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V13M10 20V8M15 20v-5M20 20V5"></path></svg></span>
+                <span>
+                  <span class="paso__titulo"><span class="paso__numero">04</span><span>Reportes</span></span>
+                  <span class="paso__desplegable"><span><span class="paso__descripcion">Cada servicio alimenta tus reportes: ingresos por sede, servicios más vendidos y rendimiento por operador.</span></span></span>
+                </span>
+              </button>
+            </div>
+
+            <div class="flujo__escenario" data-revelar>
+              <div class="flujo__puntos"></div>
+              <div class="flujo__brillo"></div>
+
+              <div class="satelite satelite--arriba-izq" data-satelite="0">
+                <div class="satelite__tarjeta">
+                  <span class="satelite__icono"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16V12l2-5h10l2 5v4M3.5 16h17v3h-17zM7.5 12h9"></path></svg></span>
+                  <span><b>Tipo detectado <span class="proximamente">Próximamente</span></b><small>Automóvil · tarifa aplicada</small></span>
+                </div>
+              </div>
+              <div class="satelite satelite--abajo-der" data-satelite="0">
+                <div class="satelite__tarjeta">
+                  <span class="satelite__icono"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"></path></svg></span>
+                  <span><b>Cliente habitual</b><small>14 visitas · Lavado Premium</small></span>
+                </div>
+              </div>
+              <div class="satelite satelite--arriba-der" data-satelite="1" hidden>
+                <div class="satelite__tarjeta">
+                  <span class="satelite__icono"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2.5 19c.8-2.8 2.9-4.3 5.5-4.3s4.7 1.5 5.5 4.3M13.5 15c.7-.2 1.6-.3 2.5-.3 2.6 0 4.7 1.5 5.5 4.3"></path></svg></span>
+                  <span><b>Operador 400</b><small>Asignado a KJT812</small></span>
+                </div>
+              </div>
+              <div class="satelite satelite--abajo-izq" data-satelite="1" hidden>
+                <div class="satelite__tarjeta">
+                  <span class="satelite__icono"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5c3 3.6 5.6 6.8 5.6 10.1a5.6 5.6 0 0 1-11.2 0c0-3.3 2.6-6.5 5.6-10.1z"></path></svg></span>
+                  <span><b>En patio</b><small>8 vehículos · ~22 min</small></span>
+                </div>
+              </div>
+              <div class="satelite satelite--arriba-izq" data-satelite="2" hidden>
+                <div class="satelite__tarjeta">
+                  <span class="satelite__icono"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 19.5 5.6 16A8 8 0 1 1 8.4 18.6z"></path></svg></span>
+                  <span><b>WhatsApp enviado <span class="proximamente">Próximamente</span></b><small>FRT205 listo para recoger</small></span>
+                </div>
+              </div>
+              <div class="satelite satelite--abajo-der" data-satelite="2" hidden>
+                <div class="satelite__tarjeta">
+                  <span class="satelite__icono"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6h17v12.5h-17zM12 15.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path></svg></span>
+                  <span><b>Tarjeta</b><small>$62.000 · aprobado</small></span>
+                </div>
+              </div>
+              <div class="satelite satelite--arriba-der" data-satelite="3" hidden>
+                <div class="satelite__tarjeta">
+                  <span class="satelite__icono"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V13M10 20V8M15 20v-5M20 20V5"></path></svg></span>
+                  <span><b>+8,4%</b><small>vs. semana anterior</small></span>
+                </div>
+              </div>
+              <div class="satelite satelite--abajo-izq" data-satelite="3" hidden>
+                <div class="satelite__tarjeta">
+                  <span class="satelite__icono"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"></path></svg></span>
+                  <span><b>Más vendido</b><small>Lavado Premium · 31%</small></span>
+                </div>
+              </div>
+
+              <div class="flujo__escena" data-escena-contenedor>
+                <div id="escena-0" class="escena" data-escena="0">
+                  <div class="escena__cabecera"><b>Nuevo ingreso</b><span class="escena__etiquetas"><span class="proximamente">Próximamente</span><span class="etiqueta-verde">Autocompletado</span></span></div>
+                  <div class="placa placa--escena">
+                    <span>WMV 366</span>
+                    <small>MEDELLÍN</small>
+                    <i class="placa__escaner placa__escaner--escena"></i>
+                  </div>
+                  <div class="escena__datos">
+                    <div class="dato" data-mini><span>Marca</span><b>Mazda</b></div>
+                    <div class="dato" data-mini><span>Línea</span><b>3 Grand Touring</b></div>
+                    <div class="dato" data-mini><span>Modelo</span><b>2021</b></div>
+                    <div class="dato" data-mini><span>Tipo</span><b>Automóvil</b></div>
+                  </div>
+                  <div class="escena__chips">
+                    <span class="etiqueta-verde etiqueta-verde--punto">SOAT vigente</span>
+                    <span class="etiqueta-verde etiqueta-verde--punto">RTM vigente</span>
+                  </div>
+                </div>
+
+                <div id="escena-1" class="escena escena--patio" data-escena="1" hidden>
+                  <div class="escena__cabecera escena__cabecera--patio"><b>Patio en vivo</b><span>8 vehículos</span></div>
+                  <div class="tablero">
+                    <div class="tablero__columna" style="--color: #e59a0b; --avance: 20%">
+                      <div class="tablero__nombre"><i></i>Recibido</div>
+                      <div class="tablero__tarjeta"><b>GHT441</b><span>Chevrolet Onix</span><i><s></s></i></div>
+                    </div>
+                    <div class="tablero__columna" style="--color: #8b5cf6; --avance: 40%">
+                      <div class="tablero__nombre"><i></i>Alistamiento</div>
+                      <div class="tablero__tarjeta"><b>PQR118</b><span>Kia Picanto</span><i><s></s></i></div>
+                    </div>
+                    <div class="tablero__columna" style="--color: var(--azul); --avance: 60%">
+                      <div class="tablero__nombre"><i></i>Exterior</div>
+                      <div class="tablero__tarjeta"><b>HZX507</b><span>Mazda CX-5</span><i><s></s></i></div>
+                      <div class="tablero__tarjeta"><b>LMN903</b><span>Ford Escape</span><i><s></s></i></div>
+                    </div>
+                    <div class="tablero__columna" style="--color: var(--verde); --avance: 100%">
+                      <div class="tablero__nombre"><i></i>Terminado</div>
+                      <div class="tablero__tarjeta"><b>FRT205</b><span>Toyota Hilux</span><i><s></s></i></div>
+                      <div class="tablero__tarjeta"><b>BCD772</b><span>Nissan Kicks</span><i><s></s></i></div>
+                    </div>
+                    <div class="tablero__movil" data-movil>
+                      <b>KJT812</b><span>Renault Duster</span><small>OP 400</small>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="escena-2" class="escena" data-escena="2" hidden>
+                  <div class="escena__cabecera"><b>Caja</b><span class="escena__nota">Sede Maldonado</span></div>
+                  <div class="cobro">
+                    <span class="cobro__placa">FRT205</span>
+                    <span class="cobro__detalle"><b>Toyota Hilux</b><span>Super Exclusivo II · Platón</span></span>
+                    <span class="cobro__valor">$62.000</span>
+                  </div>
+                  <div class="escena__etiqueta">Método de pago</div>
+                  <div class="metodos">
+                    <div class="metodo" data-mini>Efectivo</div>
+                    <div class="metodo metodo--activo" data-mini>Tarjeta</div>
+                    <div class="metodo" data-mini>Transferencia</div>
+                  </div>
+                  <div class="cobro__registrado" data-pagado>
+                    <span class="icono-check icono-check--verde"><svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span>
+                    Cobro registrado · Cliente notificado por WhatsApp
+                    <span class="proximamente">Próximamente</span>
+                  </div>
+                </div>
+
+                <div id="escena-3" class="escena" data-escena="3" hidden>
+                  <div class="escena__cabecera"><b>Reporte semanal</b><span class="escena__etiquetas"><span class="proximamente">Próximamente</span><span class="escena__nota">3 sedes</span></span></div>
+                  <div class="escena__kpis">
+                    <div class="dato" data-mini><span>Ingresos</span><b>$12,6M</b></div>
+                    <div class="dato" data-mini><span>Servicios</span><b>214</b></div>
+                    <div class="dato" data-mini><span>Ticket prom.</span><b>$58.900</b></div>
+                  </div>
+                  <div class="barras">
+                    <div><i data-barra style="--alto: 81px"></i></div>
+                    <div><i data-barra style="--alto: 73px"></i></div>
+                    <div><i data-barra style="--alto: 90px"></i></div>
+                    <div><i data-barra style="--alto: 80px"></i></div>
+                    <div><i data-barra style="--alto: 113px"></i></div>
+                    <div><i data-barra class="barras__pico" style="--alto: 145px"></i></div>
+                    <div><i data-barra style="--alto: 68px"></i></div>
+                  </div>
+                  <div class="barras__dias"><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="modulos" class="seccion seccion--gris modulos">
+        <div class="contenedor contenedor--ancho">
+          <div class="encabezado encabezado--centro encabezado--modulos" data-revelar>
+            <p class="encabezado__antetitulo">Módulos</p>
+            <h2 class="encabezado__titulo">Seis módulos. Un solo sistema.</h2>
+            <p class="encabezado__bajada">Así se ve la aplicación real. Elige un módulo para recorrerla.</p>
+          </div>
+          <div class="modulos__pestanas-caja" data-revelar>
+            <div class="modulos__pestanas" role="tablist" aria-label="Módulos de Corefaze" data-modulos-pestanas>
+              <button type="button" role="tab" id="pestana-dashboard" aria-selected="true" aria-controls="panel-modulo" data-modulo="dashboard">
+                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6.5v6.5H4zM13.5 4H20v6.5h-6.5zM4 13.5h6.5V20H4zM13.5 13.5H20V20h-6.5z"></path></svg>Dashboard
+              </button>
+              <button type="button" role="tab" id="pestana-servicios" aria-selected="false" aria-controls="panel-modulo" tabindex="-1" data-modulo="servicios">
+                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5c3 3.6 5.6 6.8 5.6 10.1a5.6 5.6 0 0 1-11.2 0c0-3.3 2.6-6.5 5.6-10.1z"></path></svg>Servicios
+              </button>
+              <button type="button" role="tab" id="pestana-caja" aria-selected="false" aria-controls="panel-modulo" tabindex="-1" data-modulo="caja">
+                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6h17v12.5h-17zM3.5 10h17M7.5 14.5h3"></path></svg>Caja
+              </button>
+              <button type="button" role="tab" id="pestana-clientes" aria-selected="false" aria-controls="panel-modulo" tabindex="-1" data-modulo="clientes">
+                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 12a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6zM3.8 19c.9-3 3.1-4.6 5.7-4.6s4.8 1.6 5.7 4.6M15.6 5.6a3.2 3.2 0 0 1 0 5.9M17.6 14.7c1.4.6 2.4 2 2.9 4.3"></path></svg>Clientes
+              </button>
+              <button type="button" role="tab" id="pestana-inventario" aria-selected="false" aria-controls="panel-modulo" tabindex="-1" data-modulo="inventario">
+                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 20 7.8v8.4L12 20.5 4 16.2V7.8zM4 7.8 12 12l8-4.2M12 12v8.5"></path></svg>Inventario
+              </button>
+              <button type="button" role="tab" id="pestana-reportes" aria-selected="false" aria-controls="panel-modulo" tabindex="-1" data-modulo="reportes">
+                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V13M10 20V8M15 20v-5M20 20V5"></path></svg>Reportes
+              </button>
+            </div>
+          </div>
+          <div id="panel-modulo" class="modulos__cuerpo" role="tabpanel" aria-labelledby="pestana-dashboard" data-modulos-panel>
+            <div class="modulos__texto" data-revelar data-modulo-texto>
+              <p class="modulos__contador" data-modulo-contador>01 de 6</p>
+              <h3 class="modulos__titulo" data-modulo-titulo>Tu lavadero en una sola pantalla</h3>
+              <p class="modulos__descripcion" data-modulo-descripcion>
+                Ingresos del día frente a ayer, meta diaria, patio en vivo, equipo y las alertas que requieren tu atención.
+              </p>
+              <ul class="lista-check" data-modulo-vinetas>
+                <li>Meta del día y ritmo por hora</li>
+                <li>Alertas de demoras, cobros y stock</li>
+                <li>Estado de cada operador en tiempo real</li>
+              </ul>
+            </div>
+            <div class="navegador navegador--modulo" data-revelar>
+              <div class="navegador__barra navegador__barra--modulo">
+                <span class="navegador__luces navegador__luces--chicas"><i></i><i></i><i></i></span>
+                <span class="navegador__etiqueta" data-modulo-etiqueta>Dashboard</span>
+              </div>
+              <div class="navegador__pantalla">
+                <img
+                  class="captura captura--activa"
+                  data-modulo-captura
+                  src="/src/assets/images/capturas/inicio-1440.webp"
+                  srcset="/src/assets/images/capturas/inicio-720.webp 720w, /src/assets/images/capturas/inicio-1440.webp 1440w"
+                  sizes="(min-width: 1000px) 760px, 100vw"
+                  width="1440"
+                  height="860"
+                  alt="Módulo Dashboard de Corefaze"
+                  loading="lazy"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="app" class="seccion app">
+        <div class="app__panel" data-revelar>
+          <div class="app__puntos"></div>
+          <div class="app__cuerpo">
+            <div>
+              <p class="app__insignia">App móvil para administradores</p>
+              <h2 class="encabezado__titulo app__titulo">Apunta a la placa. Corefaze hace el resto.</h2>
+              <p class="app__bajada">
+                El administrador recibe el vehículo desde su celular: escanea la placa, los datos del vehículo se
+                autocompletan y el tipo de vehículo define el precio.
+              </p>
+              <div class="descarga">
+                <div class="descarga__qr">
+                  <svg viewBox="0 0 29 29" width="100%" height="100%" shape-rendering="crispEdges" aria-hidden="true">
+                    <path data-qr fill="#0a1020"></path>
+                  </svg>
+                  <span class="descarga__qr-centro"><svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"></path></svg></span>
+                </div>
+                <div class="descarga__texto">
+                  <div>
+                    <p class="descarga__titulo">Descarga la app</p>
+                    <p class="descarga__nota">Escanea el código con tu celular</p>
+                  </div>
+                  <div class="descarga__tiendas">
+                    <span class="tienda">
+                      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.4 12.6c0-2.4 2-3.6 2.1-3.7-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.9-1.1-2.9-4.2zM13.9 5.3c.7-.9 1.2-2.1 1.1-3.3-1 0-2.3.7-3 1.6-.7.8-1.2 2-1.1 3.2 1.2.1 2.3-.6 3-1.5z"></path></svg>
+                      <span><small>Descárgala en</small><b>App Store</b></span>
+                    </span>
+                    <span class="tienda">
+                      <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 2.3 13.4 12l-9.8 9.7c-.4-.2-.6-.6-.6-1.1V3.4c0-.5.2-.9.6-1.1z" fill="#34A853"></path><path d="m16.8 8.6-3.4 3.4-9.8-9.7c.2-.1.5-.2.8-.1.2 0 .4.1.6.2l11.8 6.2z" fill="#4285F4"></path><path d="m16.8 15.4-11.8 6.2c-.2.1-.4.2-.6.2-.3 0-.6 0-.8-.1l9.8-9.7 3.4 3.4z" fill="#EA4335"></path><path d="M20.4 13.3 16.8 15.4 13.4 12l3.4-3.4 3.6 2.1c.5.3.8.8.8 1.3s-.3 1-.8 1.3z" fill="#FBBC04"></path></svg>
+                      <span><small>Disponible en</small><b>Google Play</b></span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <ul class="app__funciones">
+                <li>
+                  <span class="app__funcion-icono"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M7 12h10"></path></svg></span>
+                  <span><b>Escáner de placa <span class="proximamente">Próximamente</span></b><small>Lectura con la cámara, con opción manual.</small></span>
+                </li>
+                <li>
+                  <span class="app__funcion-icono"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5"></path></svg></span>
+                  <span><b>Autocompletado <span class="proximamente">Próximamente</span></b><small>Marca, línea, modelo y documentos al instante.</small></span>
+                </li>
+                <li>
+                  <span class="app__funcion-icono"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16V12l2-5h10l2 5v4M3.5 16h17v3h-17zM7.5 12h9"></path></svg></span>
+                  <span><b>Tipo de vehículo</b><small>Define la tarifa automáticamente.</small></span>
+                </li>
+                <li>
+                  <span class="app__funcion-icono"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"></path></svg></span>
+                  <span><b>Cliente habitual</b><small>Visitas y servicio de siempre, preseleccionado.</small></span>
+                </li>
+              </ul>
+            </div>
+            <div class="app__telefono-caja">
+              <div class="app__telefono">
+                <img
+                  src="/src/assets/images/capturas/movil-644.webp"
+                  width="644"
+                  height="1400"
+                  alt="App de recepción de Corefaze en el celular, con la jornada y los vehículos que entraron hoy"
+                  loading="lazy"
+                />
+              </div>
+              <p class="app__telefono-nota">App de recepción · Android</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="seccion colombia">
+        <div class="contenedor">
+          <div class="encabezado" data-revelar>
+            <p class="encabezado__antetitulo">Pensado para Colombia</p>
+            <h2 class="encabezado__titulo">Hecho a la medida de cómo trabaja un lavadero.</h2>
+          </div>
+          <div class="colombia__rejilla">
+            <article class="caracteristica caracteristica--sedes" data-revelar>
+              <span class="caracteristica__icono"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"></path><circle cx="12" cy="9.5" r="2.5"></circle></svg></span>
+              <h3>Todas tus sedes, una sola vista <span class="proximamente">Próximamente</span></h3>
+              <p>Cambia de sede desde la cabecera y compara ingresos, patio y equipo sin pedir reportes por WhatsApp.</p>
+              <div class="sedes">
+                <div class="sede"><div class="sede__fila"><span><i></i>Sede Maldonado</span><b>$4,8M</b></div><div class="sede__barra"><b data-crecer style="--ancho: 100%"></b></div></div>
+                <div class="sede"><div class="sede__fila"><span><i></i>Sede Patriotas</span><b>$4,1M</b></div><div class="sede__barra"><b data-crecer style="--ancho: 85%"></b></div></div>
+                <div class="sede"><div class="sede__fila"><span><i></i>Sede Vía Oriental</span><b>$3,7M</b></div><div class="sede__barra"><b data-crecer style="--ancho: 77%"></b></div></div>
+              </div>
+            </article>
+            <article class="caracteristica caracteristica--enlace" data-revelar>
+              <span class="caracteristica__icono"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2.5 19c.8-2.8 2.9-4.3 5.5-4.3s4.7 1.5 5.5 4.3M13.5 15c.7-.2 1.6-.3 2.5-.3 2.6 0 4.7 1.5 5.5 4.3"></path></svg></span>
+              <h3>Operadores por código</h3>
+              <p>Cada servicio queda asignado al 400, 415 o 422. Sabes quién hizo qué y cuánto produce.</p>
+            </article>
+            <article class="caracteristica caracteristica--enlace" data-revelar>
+              <span class="caracteristica__icono"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12.5 12 4h8v8l-8.5 8.5zM16 8h.01"></path></svg></span>
+              <h3>Precios por tipo de vehículo</h3>
+              <p>Automóvil, camioneta, platón o 7 puestos: la tarifa correcta, siempre.</p>
+            </article>
+            <article class="caracteristica caracteristica--enlace" data-revelar>
+              <span class="caracteristica__icono"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 18a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18.5 18a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM5.5 15h5l3-5h3l2 5M13 6h3"></path></svg></span>
+              <h3>Motos por cilindraje</h3>
+              <p>Planes separados para motos hasta y desde 150 cc.</p>
+            </article>
+            <article class="caracteristica caracteristica--enlace" data-revelar>
+              <span class="caracteristica__icono"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 19.5 5.6 16A8 8 0 1 1 8.4 18.6z"></path></svg></span>
+              <h3>Aviso por WhatsApp <span class="proximamente">Próximamente</span></h3>
+              <p>Tu cliente sabe cuándo recoger su vehículo, sin llamadas.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="precios" class="seccion seccion--gris precios">
+        <div class="contenedor">
+          <div class="encabezado encabezado--centro" data-revelar>
+            <p class="encabezado__antetitulo">Planes</p>
+            <h2 class="encabezado__titulo">Un plan para cada lavadero.</h2>
+            <p class="encabezado__bajada encabezado__bajada--planes">Sin permanencia. Cambia de plan cuando abras una nueva sede.</p>
+          </div>
+          <div class="facturacion-caja" data-revelar>
+            <div class="facturacion" role="group" aria-label="Facturación" data-facturacion data-periodo="mensual">
+              <span class="facturacion__pildora"></span>
+              <button type="button" class="facturacion__opcion facturacion__opcion--mensual" aria-pressed="true" data-periodo-opcion="mensual">Mensual</button>
+              <button type="button" class="facturacion__opcion facturacion__opcion--anual" aria-pressed="false" data-periodo-opcion="anual">
+                Anual<span class="facturacion__descuento">−15%</span>
+              </button>
+            </div>
+          </div>
+          <div class="planes">
+            <article class="plan" data-revelar>
+              <h3 class="plan__nombre">Esencial</h3>
+              <p class="plan__para">Para un lavadero con una sede</p>
+              <p class="plan__precio"><span data-precio data-mensual="149000">$149.000</span><span class="plan__periodo">/ mes</span></p>
+              <p class="plan__nota" data-nota-anual></p>
+              <a href="#demo" class="plan__cta">Empezar con Esencial</a>
+              <hr class="plan__divisor" />
+              <ul class="plan__items">
+                <li>1 sede · hasta 3 usuarios</li>
+                <li>Servicios, Caja y Clientes</li>
+                <li>App móvil de recepción</li>
+                <li>Escáner de placa <span class="proximamente">Próximamente</span></li>
+                <li>Soporte por WhatsApp</li>
+              </ul>
+            </article>
+            <article class="plan plan--destacado" data-revelar>
+              <span class="plan__recomendado">Recomendado</span>
+              <h3 class="plan__nombre">Profesional</h3>
+              <p class="plan__para">Para lavaderos en crecimiento</p>
+              <p class="plan__precio"><span data-precio data-mensual="279000">$279.000</span><span class="plan__periodo">/ mes</span></p>
+              <p class="plan__nota" data-nota-anual></p>
+              <a href="#demo" class="plan__cta">Agenda una demo</a>
+              <hr class="plan__divisor" />
+              <ul class="plan__items">
+                <li>Hasta 3 sedes · usuarios ilimitados</li>
+                <li>Todo lo de Esencial</li>
+                <li>Inventario con alertas</li>
+                <li>Reportes por sede y operador</li>
+                <li>Autocompletado de datos del vehículo <span class="proximamente">Próximamente</span></li>
+                <li>Dashboard multisede <span class="proximamente">Próximamente</span></li>
+              </ul>
+            </article>
+            <article class="plan" data-revelar>
+              <h3 class="plan__nombre">Empresarial</h3>
+              <p class="plan__para">Para cadenas con 4 sedes o más</p>
+              <p class="plan__precio plan__precio--medida"><span>A tu medida</span></p>
+              <p class="plan__nota">Cotización según número de sedes</p>
+              <a href="#demo" class="plan__cta">Hablar con ventas</a>
+              <hr class="plan__divisor" />
+              <ul class="plan__items">
+                <li>Sedes ilimitadas</li>
+                <li>Todo lo de Profesional</li>
+                <li>Integraciones a medida</li>
+                <li>Acompañamiento en la implementación</li>
+                <li>Gerente de cuenta dedicado</li>
+              </ul>
+            </article>
+          </div>
+          <p class="precios__nota" data-revelar>Precios en pesos colombianos, IVA no incluido.</p>
+        </div>
+      </section>
+
+      <section id="faq" class="seccion faq">
+        <div class="contenedor faq__rejilla">
+          <div data-revelar>
+            <p class="encabezado__antetitulo">Preguntas frecuentes</p>
+            <h2 class="encabezado__titulo faq__titulo">Lo que nos preguntan antes de empezar.</h2>
+            <p class="faq__bajada">¿Otra duda? Escríbenos y te respondemos el mismo día.</p>
+          </div>
+          <div class="faq__lista" data-faq>
+            <div class="pregunta" data-revelar>
+              <h3><button type="button" class="pregunta__boton" aria-expanded="true" aria-controls="respuesta-1">¿Tengo que instalar algo?<span class="pregunta__icono"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></button></h3>
+              <div id="respuesta-1" class="pregunta__respuesta"><div><p>No. Corefaze funciona en el navegador de cualquier computador o tablet, y la app de recepción en el celular del administrador. Solo necesitas internet.</p></div></div>
+            </div>
+            <div class="pregunta" data-revelar>
+              <h3><button type="button" class="pregunta__boton" aria-expanded="false" aria-controls="respuesta-2"><span>¿Cómo se autocompletan los datos del vehículo? <span class="proximamente">Próximamente</span></span><span class="pregunta__icono"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></button></h3>
+              <div id="respuesta-2" class="pregunta__respuesta" inert><div><p>Al escanear la placa, Corefaze completa marca, línea, modelo y tipo de vehículo. Puedes revisar o corregir cualquier dato antes de guardar el ingreso.</p></div></div>
+            </div>
+            <div class="pregunta" data-revelar>
+              <h3><button type="button" class="pregunta__boton" aria-expanded="false" aria-controls="respuesta-3">¿Puedo configurar mis propios servicios y precios?<span class="pregunta__icono"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></button></h3>
+              <div id="respuesta-3" class="pregunta__respuesta" inert><div><p>Sí. Cargas tu catálogo con precios por tipo de vehículo (automóvil, camioneta, platón o 7 puestos) y las motos por cilindraje. Los cambios se aplican en todas tus sedes.</p></div></div>
+            </div>
+            <div class="pregunta" data-revelar>
+              <h3><button type="button" class="pregunta__boton" aria-expanded="false" aria-controls="respuesta-4"><span>¿Sirve si tengo varias sedes? <span class="proximamente">Próximamente</span></span><span class="pregunta__icono"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></button></h3>
+              <div id="respuesta-4" class="pregunta__respuesta" inert><div><p>Sí. Cambias de sede desde la cabecera y ves ingresos, patio, caja e inventario de cada una, o comparas todas en reportes.</p></div></div>
+            </div>
+            <div class="pregunta" data-revelar>
+              <h3><button type="button" class="pregunta__boton" aria-expanded="false" aria-controls="respuesta-5">¿Cuánto tarda la implementación?<span class="pregunta__icono"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></button></h3>
+              <div id="respuesta-5" class="pregunta__respuesta" inert><div><p>Normalmente tu lavadero queda funcionando el mismo día: cargamos contigo los servicios, precios, operadores e insumos, y capacitamos a tu equipo.</p></div></div>
+            </div>
+            <div class="pregunta" data-revelar>
+              <h3><button type="button" class="pregunta__boton" aria-expanded="false" aria-controls="respuesta-6">¿Hay cláusula de permanencia?<span class="pregunta__icono"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></button></h3>
+              <div id="respuesta-6" class="pregunta__respuesta" inert><div><p>No. El plan mensual se cancela cuando quieras. El plan anual tiene 15% de descuento.</p></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="demo" class="demo">
+        <div class="demo__panel" data-revelar>
+          <div class="demo__brillo"></div>
+          <div class="demo__cuerpo">
+            <div>
+              <img class="demo__logo" src="/src/assets/images/logo-corefaze-claro.webp" alt="Corefaze" width="420" height="85" loading="lazy" />
+              <h2 class="demo__titulo">Mira tu lavadero funcionando en Corefaze.</h2>
+              <p class="demo__bajada">
+                En una videollamada de 20 minutos cargamos tus servicios y precios reales y te mostramos cómo quedaría tu
+                operación.
+              </p>
+              <ul class="demo__puntos">
+                <li>Con tus servicios y precios reales</li>
+                <li>Para dueños y administradores</li>
+                <li>Sin costo y sin compromiso</li>
+              </ul>
+            </div>
+            <div class="solicitud">
+              <form class="solicitud__formulario" data-solicitud novalidate>
+                <h3 class="solicitud__titulo">Agenda tu demo</h3>
+                <p class="solicitud__nota">Te contactamos por WhatsApp en menos de 24 horas.</p>
+                <div class="solicitud__campos">
+                  <label class="campo">Tu nombre<input name="nombre" type="text" autocomplete="name" placeholder="Ej. Carolina Restrepo" maxlength="80" /></label>
+                  <label class="campo">Nombre del lavadero<input name="lavadero" type="text" autocomplete="organization" placeholder="Ej. CarWash" maxlength="80" /></label>
+                  <label class="campo">Ciudad<input name="ciudad" type="text" autocomplete="address-level2" placeholder="Ej. Medellín" maxlength="60" /></label>
+                  <label class="campo">WhatsApp<input name="whatsapp" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="300 000 0000" maxlength="20" /></label>
+                </div>
+                <fieldset class="solicitud__sedes">
+                  <legend>¿Cuántas sedes tienes?</legend>
+                  <div class="solicitud__opciones">
+                    <label class="opcion"><input type="radio" name="sedes" value="1" checked /><span>1 sede</span></label>
+                    <label class="opcion"><input type="radio" name="sedes" value="2-3" /><span>2 a 3</span></label>
+                    <label class="opcion"><input type="radio" name="sedes" value="4+" /><span>4 o más</span></label>
+                  </div>
+                </fieldset>
+                <p class="solicitud__error" data-solicitud-error role="alert"></p>
+                <p class="solicitud__aviso" data-solicitud-aviso role="status"></p>
+                <button type="submit" class="boton boton--primario boton--formulario">Quiero mi demo</button>
+                <p class="solicitud__pie">Sin costo y sin compromiso.</p>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="pie">
+      <div class="pie__rejilla">
+        <div>
+          <img class="logo logo--oscuro logo--pie" src="/src/assets/images/logo-corefaze-oscuro.webp" alt="Corefaze" width="420" height="85" loading="lazy" />
+          <img class="logo logo--claro logo--pie" src="/src/assets/images/logo-corefaze-claro.webp" alt="Corefaze" width="420" height="85" loading="lazy" />
+          <p class="pie__lema">Software de gestión para lavaderos de vehículos.</p>
+        </div>
+        <nav aria-labelledby="pie-producto">
+          <p id="pie-producto" class="pie__titulo">PRODUCTO</p>
+          <ul class="pie__lista">
+            <li><a href="#modulos">Módulos</a></li>
+            <li><a href="#app">App móvil</a></li>
+            <li><a href="#precios">Planes</a></li>
+            <li><span>Novedades</span></li>
+          </ul>
+        </nav>
+        <div>
+          <p class="pie__titulo">EMPRESA</p>
+          <ul class="pie__lista">
+            <li><span>Nosotros</span></li>
+            <li><span>Clientes</span></li>
+            <li><span>Trabaja con nosotros</span></li>
+          </ul>
+        </div>
+        <div>
+          <p class="pie__titulo">SOPORTE</p>
+          <ul class="pie__lista">
+            <li><a href="#faq">Centro de ayuda</a></li>
+            <li><a href="#demo">WhatsApp</a></li>
+            <li><span>Términos y privacidad</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="pie__base">
+        <span>© 2026 Corefaze. Todos los derechos reservados.</span>
+        <span>Hecho en Colombia</span>
+      </div>
+    </footer>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

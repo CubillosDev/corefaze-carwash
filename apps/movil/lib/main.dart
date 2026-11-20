@@ -36,7 +36,7 @@ class _SinConfiguracion extends StatelessWidget {
             padding: const EdgeInsets.all(24),
             child: Text(
               'Falta configurar ${faltantes.join(' y ')}.\n'
-              'Compila con --dart-define-from-file=config/desarrollo.json.',
+              'Compila con --dart-define-from-file=config/<entorno>.json (desarrollo, pruebas o produccion).',
               textAlign: TextAlign.center,
               style: estilo(14, color: Colores.blanco, altura: 1.5),
             ),
