@@ -18,6 +18,10 @@ void main() {
     expect(serviciosConLavadoMotor, contrato['serviciosConLavadoMotor']);
   });
 
+  test('las transiciones de estado de la orden coinciden con el contrato', () {
+    expect(transicionesOrden, contrato['transicionesOrden']);
+  });
+
   test('los patrones de placa y los límites coinciden con el contrato', () {
     final patrones = contrato['patronesPlaca'] as Map<String, dynamic>;
     final limites = contrato['limites'] as Map<String, dynamic>;

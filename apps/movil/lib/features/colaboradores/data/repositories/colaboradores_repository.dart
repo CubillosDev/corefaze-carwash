@@ -7,10 +7,12 @@ class ColaboradoresRepository {
 
   final ApiCliente _api;
 
-  /// GET /api/colaboradores: solo los activos (R2), por código.
-  Future<List<Colaborador>> listarActivos() async {
-    final cuerpo = await _api.obtener('colaboradores');
-    return leerLista(cuerpo, 'colaboradores').map(Colaborador.desdeJson).where((c) => c.activo).toList()
-      ..sort((a, b) => a.codigo.compareTo(b.codigo));
-  }
+  /// GET /api/colaboradores: todos, también los inactivos (para mostrar quién
+  /// atendió una orden).
+  Future<List<Colaborador>> listar() async =>
+      leerLista(await _api.obtener('colaboradores'), 'colaboradores').map(Colaborador.desdeJson).toList();
+
+  /// Solo los activos (R2), por código: los que pueden recibir órdenes.
+  Future<List<Colaborador>> listarActivos() async =>
+      (await listar()).where((c) => c.activo).toList()..sort((a, b) => a.codigo.compareTo(b.codigo));
 }
