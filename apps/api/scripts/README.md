@@ -11,16 +11,18 @@ código de la API. Nunca los corras contra producción: `seed-demo.js` se niega 
 
 ## Qué carga
 
-- 150 clientes, de los cuales 10 son empresas con crédito.
-- 220 vehículos, de los cuales 40 son motos.
+- 190 clientes, de los cuales 14 son empresas con crédito.
+- 270 vehículos, de los cuales 50 son motos.
 - 30 días de jornadas cerradas con sus órdenes.
-- La jornada de hoy abierta, con 32 órdenes.
+- La jornada de hoy abierta, con 40 órdenes.
 - La caja de hoy abierta con base de $ 150.000, dos egresos y parte de lo terminado ya cobrado. Lo que
   quedó en el patio de días anteriores se termina y se cobra hoy.
 - Crédito: cupo, día de corte y contacto de cada empresa; vales en casi todos sus servicios
   entregados (verificados los de más de una semana) y pagos de lo verificado en cuatro empresas.
-- 12 insumos con su movimiento inicial; dos quedan por debajo del mínimo.
-- 5 descuentos de nómina en la quincena en curso.
+- 17 insumos con su movimiento inicial; cuatro quedan por debajo del mínimo.
+- 8 descuentos de nómina en la quincena en curso.
+- 5 cuentas de prueba: 3 solicitudes de acceso pendientes, un administrador y un soporte. Su contraseña es
+  aleatoria y no se guarda: llenan la pantalla de Usuarios, no sirven para ingresar.
 
 ## Antes de cargar
 
@@ -45,8 +47,9 @@ node --env-file=<ruta-al-archivo> scripts/seed-demo.js
 ```
 
 - **Es idempotente:** si lo corres otra vez, no duplica clientes (por correo), vehículos (por placa),
-  jornadas (por fecha), órdenes de hoy, cobros de hoy, vales, pagos, insumos (por nombre) ni
-  descuentos. Usa una semilla fija, así que siempre genera los mismos datos.
+  jornadas (por fecha), órdenes de hoy, cobros de hoy, vales, pagos, insumos (por nombre), descuentos
+  ni cuentas de prueba (por correo). Si se agregan datos a sus listas, una nueva corrida completa solo lo
+  que falta. Usa una semilla fija, así que siempre genera los mismos datos.
 - **Qué entra por la API:** los clientes, los vehículos, la jornada de hoy y sus órdenes, la caja,
   el crédito, el inventario y los descuentos. Así el servidor aplica las reglas R1–R10 y calcula el
   valor.
