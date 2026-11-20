@@ -1,6 +1,7 @@
 export const CAMPOS_OBLIGATORIOS = ['nombre', 'lavadero', 'ciudad', 'whatsapp'];
 
 const DIGITOS_MINIMOS_WHATSAPP = 10;
+const SEDES = { 1: '1 sede', '2-3': '2 a 3 sedes', '4+': '4 o más sedes' };
 
 /**
  * @typedef {object} SolicitudDemo
@@ -29,9 +30,24 @@ export function camposInvalidos(solicitud) {
 }
 
 /**
- * @param {string} nombre
- * @returns {string} La primera palabra del nombre: "Carolina Restrepo" → "Carolina".
+ * Enlace mailto: con la solicitud armada, para que la persona la envíe desde
+ * su propio correo.
+ *
+ * @param {string} correo Dirección de contacto del negocio.
+ * @param {SolicitudDemo} solicitud
+ * @returns {string}
  */
-export function primerNombre(nombre) {
-  return nombre.trim().split(/\s+/)[0] ?? '';
+export function enlaceSolicitudPorCorreo(correo, solicitud) {
+  const lavadero = solicitud.lavadero.trim();
+  const cuerpo = [
+    'Hola, quiero agendar una demo de Corefaze.',
+    '',
+    `Nombre: ${solicitud.nombre.trim()}`,
+    `Lavadero: ${lavadero}`,
+    `Ciudad: ${solicitud.ciudad.trim()}`,
+    `WhatsApp: ${solicitud.whatsapp.trim()}`,
+    `Sedes: ${SEDES[solicitud.sedes] ?? solicitud.sedes}`,
+  ].join('\n');
+  const asunto = `Solicitud de demo · ${lavadero}`;
+  return `mailto:${correo}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
 }

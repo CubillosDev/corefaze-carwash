@@ -551,50 +551,19 @@
   text-align: center;
 }
 
-.solicitud__listo {
-  padding: 30px 10px;
-  text-align: center;
-  outline: none;
+.solicitud__aviso {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #e7effd;
+  color: var(--azul-profundo);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
 }
 
-.solicitud__check {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 72px;
-  height: 72px;
-  margin: 0 auto;
-  border-radius: 999px;
-  background: var(--verde);
-  color: #ffffff;
-  box-shadow: 0 0 0 10px rgb(22 163 74 / 14%);
-  --trazo: 2.8;
-}
-
-.solicitud__saludo {
-  margin-top: 22px;
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.solicitud__mensaje {
-  margin-top: 8px;
-  color: #5c6170;
-  font-size: 15px;
-  line-height: 1.5;
-}
-
-.solicitud__otra {
-  height: 44px;
-  margin-top: 22px;
-  padding: 0 18px;
-  border: 1px solid #e6e8ec;
-  border-radius: 999px;
-  background: #ffffff;
-  color: var(--medianoche);
-  font-size: 14px;
-  font-weight: 600;
+.solicitud__aviso:empty {
+  display: none;
 }
 
 .pie {

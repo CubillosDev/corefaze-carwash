@@ -1,21 +1,20 @@
-import { enviarSolicitudDemo } from '@/api/solicitudDemo';
-import { animar, CURVA } from '@/utils/movimiento';
-import { CAMPOS_OBLIGATORIOS, camposInvalidos, primerNombre } from '@/utils/solicitudDemo';
+import { enviarSolicitudDemo, hayDestinoDeSolicitudes } from '@/api/solicitudDemo';
+import { CAMPOS_OBLIGATORIOS, camposInvalidos } from '@/utils/solicitudDemo';
 
 const MENSAJE_INCOMPLETO = 'Completa los campos marcados para continuar.';
-const MENSAJE_FALLO = 'No pudimos enviar tu solicitud. Inténtalo de nuevo.';
+const MENSAJE_SIN_DESTINO = 'Formulario de demostración: aún no envía solicitudes.';
+const MENSAJE_CORREO = 'Abrimos tu correo con la solicitud lista. Envíala para que te contactemos.';
 
 /**
- * Formulario "Agenda tu demo": valida, marca los campos que faltan (y los
- * vuelve a revisar mientras se corrigen) y muestra la confirmación.
+ * Formulario "Agenda tu demo": valida y marca los campos que faltan (y los
+ * vuelve a revisar mientras se corrigen). Si hay correo de contacto, abre el
+ * correo de la persona con la solicitud armada; si no, lo dice. Nunca muestra
+ * una confirmación de algo que no se envió.
  */
 export function iniciarSolicitud() {
   const formulario = document.querySelector('[data-solicitud]');
   const error = document.querySelector('[data-solicitud-error]');
-  const listo = document.querySelector('[data-solicitud-listo]');
-  const saludo = document.querySelector('[data-solicitud-saludo]');
-  const mensaje = document.querySelector('[data-solicitud-mensaje]');
-  const enviar = formulario.querySelector('[type="submit"]');
+  const aviso = document.querySelector('[data-solicitud-aviso]');
   let intentado = false;
 
   const leer = () => Object.fromEntries(new FormData(formulario));
@@ -28,47 +27,26 @@ export function iniciarSolicitud() {
   };
 
   formulario.addEventListener('input', () => {
+    aviso.textContent = '';
     if (intentado) marcar(camposInvalidos(leer()));
   });
 
-  formulario.addEventListener('submit', async (evento) => {
+  formulario.addEventListener('submit', (evento) => {
     evento.preventDefault();
     const solicitud = leer();
     const invalidos = camposInvalidos(solicitud);
     intentado = true;
     marcar(invalidos);
+    aviso.textContent = '';
     if (invalidos.length) {
       formulario.elements[invalidos[0]].focus();
       return;
     }
-
-    enviar.disabled = true;
-    try {
-      await enviarSolicitudDemo(solicitud);
-    } catch {
-      error.textContent = MENSAJE_FALLO;
+    if (!hayDestinoDeSolicitudes()) {
+      aviso.textContent = MENSAJE_SIN_DESTINO;
       return;
-    } finally {
-      enviar.disabled = false;
     }
-
-    saludo.textContent = `¡Listo, ${primerNombre(solicitud.nombre)}!`;
-    mensaje.textContent = `Te escribiremos al WhatsApp ${solicitud.whatsapp.trim()} para agendar la demo de ${solicitud.lavadero.trim()}.`;
-    formulario.hidden = true;
-    listo.hidden = false;
-    listo.focus();
-    animar(listo, [{ opacity: 0, transform: 'scale(0.94)' }, { opacity: 1, transform: 'none' }], {
-      duration: 450,
-      easing: CURVA,
-    });
-  });
-
-  document.querySelector('[data-solicitud-otra]').addEventListener('click', () => {
-    formulario.reset();
-    intentado = false;
-    marcar([]);
-    listo.hidden = true;
-    formulario.hidden = false;
-    formulario.elements.nombre.focus();
+    enviarSolicitudDemo(solicitud);
+    aviso.textContent = MENSAJE_CORREO;
   });
 }
