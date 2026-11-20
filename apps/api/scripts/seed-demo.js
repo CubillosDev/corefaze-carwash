@@ -480,7 +480,7 @@ async function cargarHistoria(supabase, azar, contexto, usuarioId, hoy) {
   return creadas;
 }
 
-async function cargarHoy(api, azar, contexto) {
+async function cargarHoy(api, supabase, azar, contexto) {
   const jornadas = (await api.pedir('GET', '/jornadas')).jornadas;
   const hoy = hoyEnBogota();
   for (const abierta of jornadas.filter((j) => j.estado === 'abierta' && j.fecha !== hoy)) {
@@ -494,9 +494,15 @@ async function cargarHoy(api, azar, contexto) {
     return 0;
   }
   const { ordenes } = await api.pedir('GET', `/ordenes-lavado?jornadaId=${jornada.id}`);
-  const ocupados = new Set(
-    ordenes.filter((o) => !['entregada', 'cancelada'].includes(o.estado)).map((o) => o.vehiculoId),
-  );
+  // R6 vale entre jornadas: una orden que quedó abierta otro día también ocupa el vehículo.
+  const { data: abiertas, error } = await supabase
+    .from('ordenes_lavado')
+    .select('vehiculo_id')
+    .not('estado', 'in', '(entregada,cancelada)');
+  if (error) {
+    throw new Error(`órdenes abiertas: ${error.message}`);
+  }
+  const ocupados = new Set(abiertas.map((o) => o.vehiculo_id));
   let turno = ordenes.reduce((max, o) => Math.max(max, o.turno), 0);
   const faltan = ORDENES_HOY - ordenes.filter((o) => o.observaciones?.startsWith(MARCA)).length;
   for (let i = 0; i < faltan; i += 1) {
@@ -863,7 +869,7 @@ async function main() {
   const hoy = hoyEnBogota();
   const jornadasPasadas = await cargarHistoria(supabase, azar, contexto, usuario.id, hoy);
   const cajaAnteriorCerrada = sinHoy ? false : await cerrarCajaAnterior(api, hoy);
-  const ordenesHoy = sinHoy ? 0 : await cargarHoy(api, azar, contexto);
+  const ordenesHoy = sinHoy ? 0 : await cargarHoy(api, supabase, azar, contexto);
   // Números de vale ya usados: crédito los recoge antes de que la caja cobre con vales nuevos.
   const valesUsados = new Set();
   const credito = await cargarCredito(
