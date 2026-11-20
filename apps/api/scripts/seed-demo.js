@@ -37,6 +37,21 @@ const VEHICULOS = 220;
 const MOTOS = 40;
 const ORDENES_HOY = 32;
 
+/**
+ * Los datos de demostración nunca entran a producción: el script se niega a
+ * correr con ENTORNO=produccion o NODE_ENV=production, antes de leer
+ * credenciales o tocar la red.
+ */
+function negarseEnProduccion() {
+  if (process.env.ENTORNO === 'produccion' || process.env.NODE_ENV === 'production') {
+    process.stderr.write(
+      'seed-demo no corre en producción (ENTORNO=produccion o NODE_ENV=production): ' +
+        'los datos de demostración solo van en desarrollo y pruebas.\n',
+    );
+    process.exit(1);
+  }
+}
+
 const requerida = (nombre) => {
   if (!process.env[nombre]) {
     throw new Error(`Falta la variable ${nombre}`);
@@ -818,6 +833,7 @@ async function main() {
   process.stdout.write(`${JSON.stringify(resumen, null, 2)}\n`);
 }
 
+negarseEnProduccion();
 main().catch((error) => {
   process.stderr.write(`No se completó la carga: ${error.message}\n`);
   process.exitCode = 1;
