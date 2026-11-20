@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:corefaze_movil/app/dependencias.dart';
+import 'package:corefaze_movil/core/constants/dominio.dart';
 import 'package:corefaze_movil/features/autenticacion/data/repositories/almacen_sesion.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -8,9 +9,15 @@ import 'package:http/testing.dart';
 /// API de Corefaze en memoria para las pruebas: responde las rutas que usa la
 /// app con datos ficticios y guarda cada solicitud para revisarla.
 class ApiFalsa {
-  ApiFalsa({this.jornadaAbierta = true});
+  ApiFalsa({this.jornadaAbierta = true, this.rol = 'administrador'});
 
   bool jornadaAbierta;
+
+  /// Rol de quien ingresa.
+  final String rol;
+
+  /// Si es true, los cambios de estado responden 409 (otro equipo ya la movió).
+  bool rechazarCambiosDeEstado = false;
   final solicitudes = <http.Request>[];
 
   /// Turnos que responden 409 la primera vez (otro equipo los tomó).
@@ -106,7 +113,7 @@ class ApiFalsa {
       ('POST', 'auth/login') =>
         cuerpo['password'] == 'clave-correcta'
             ? _json(200, {
-                'usuario': {'id': 1, 'nombre': 'Ana Prueba', 'email': cuerpo['email'], 'rol': 'administrador'},
+                'usuario': {'id': 1, 'nombre': 'Ana Prueba', 'email': cuerpo['email'], 'rol': rol},
                 'token': 'token.de.prueba',
               })
             : _json(401, {'mensaje': 'Credenciales inválidas'}),
@@ -142,6 +149,10 @@ class ApiFalsa {
         ],
       }),
       ('POST', 'ordenes-lavado') => _registrarOrden(cuerpo),
+      ('PATCH', final ruta) when RegExp(r'^ordenes-lavado/\d+/estado$').hasMatch(ruta) => _cambiarEstado(
+        int.parse(ruta.split('/')[1]),
+        cuerpo,
+      ),
       ('GET', final ruta) when ruta.startsWith('clientes/') => _json(200, {
         'cliente': clientes.firstWhere((c) => '${c['id']}' == ruta.split('/').last),
       }),
@@ -180,6 +191,24 @@ class ApiFalsa {
     };
     ordenes.add(nueva);
     return _json(201, {'orden': nueva});
+  }
+
+  /// Las mismas reglas de la API: transiciones del contrato (R9), orden
+  /// cerrada (R10), motivo obligatorio y anular solo para administración.
+  http.Response _cambiarEstado(int id, Map<String, dynamic> datos) {
+    final orden = ordenes.firstWhere((o) => o['id'] == id);
+    final destino = datos['estado'] as String;
+    if (destino == EstadosOrden.cancelada && rol == Roles.soporte) {
+      return _json(403, {'mensaje': 'Solo superadmin o administrador pueden anular una orden'});
+    }
+    if (destino == EstadosOrden.cancelada && (datos['motivo'] as String? ?? '').isEmpty) {
+      return _json(400, {'mensaje': 'El motivo es obligatorio para cancelar una orden'});
+    }
+    if (rechazarCambiosDeEstado || !transicionesOrden[orden['estado']]!.contains(destino)) {
+      return _json(409, {'mensaje': 'No se puede pasar de ${orden['estado']} a $destino'});
+    }
+    orden['estado'] = destino;
+    return _json(200, {'orden': orden});
   }
 
   static http.Response _json(int estado, Object cuerpo) =>

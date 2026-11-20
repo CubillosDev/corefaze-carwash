@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/dependencias.dart';
 import '../../../../app/router.dart';
 import '../../../../app/tema.dart';
+import '../../../../core/constants/dominio.dart';
 import '../../../../core/constants/etiquetas.dart';
 import '../../../../core/utils/formato_fecha.dart';
 import '../../../../core/widgets/boton_primario.dart';
@@ -10,12 +11,14 @@ import '../../../../core/widgets/piezas.dart';
 import '../../../autenticacion/presentation/widgets/encabezado_marca.dart';
 import '../../../jornadas/presentation/screens/escanear_qr_screen.dart';
 import '../controllers/ordenes_lavado_controller.dart';
+import '../widgets/detalle_orden_hoja.dart';
 import '../widgets/tarjeta_orden.dart';
 import 'placa_screen.dart';
 
 /// "Recepción" del diseño: estado de la jornada, la acción de registrar un
 /// ingreso y lo que entró hoy. Sin jornada abierta, la acción es abrirla con
-/// el QR del panel.
+/// el QR del panel. Cada orden del día se abre para ver su detalle y cambiar
+/// su fase.
 class OrdenesLavadoScreen extends StatefulWidget {
   const OrdenesLavadoScreen({super.key});
 
@@ -46,6 +49,18 @@ class _OrdenesLavadoScreenState extends State<OrdenesLavadoScreen> {
     await irA<void>(context, PlacaScreen(jornada: jornada));
     if (mounted) {
       await _controlador.cargar(silencioso: true);
+    }
+  }
+
+  Future<void> _abrirOrden(IngresoDelDia ingreso) async {
+    final mensaje = await mostrarDetalleOrden(
+      context,
+      ingreso: ingreso,
+      rol: Dependencias.leer(context).sesion.usuario!.rol,
+      alCambiar: (destino, {motivo}) => _controlador.cambiarEstado(ingreso, destino, motivo: motivo),
+    );
+    if (mensaje != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensaje)));
     }
   }
 
@@ -128,7 +143,9 @@ class _OrdenesLavadoScreenState extends State<OrdenesLavadoScreen> {
                   ),
                 ),
                 Expanded(
-                  child: HojaClara(child: _Ingresos(controlador: _controlador)),
+                  child: HojaClara(
+                    child: _Ingresos(controlador: _controlador, alAbrir: _abrirOrden),
+                  ),
                 ),
               ],
             ),
@@ -140,9 +157,10 @@ class _OrdenesLavadoScreenState extends State<OrdenesLavadoScreen> {
 }
 
 class _Ingresos extends StatelessWidget {
-  const _Ingresos({required this.controlador});
+  const _Ingresos({required this.controlador, required this.alAbrir});
 
   final OrdenesLavadoController controlador;
+  final ValueChanged<IngresoDelDia> alAbrir;
 
   @override
   Widget build(BuildContext context) {
@@ -169,6 +187,21 @@ class _Ingresos extends StatelessWidget {
               ],
             ),
           ),
+          if (controlador.situacion == Situacion.listo && controlador.ingresos.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ControlSegmentado<String?>(
+                opciones: [
+                  (null, 'Todas'),
+                  for (final fase in EstadosOrden.fasesDelPatio)
+                    (fase, '${etiquetaEstadoOrden(fase)} ${controlador.cuantosEn(fase)}'),
+                ],
+                valor: controlador.filtro,
+                alCambiar: controlador.filtrar,
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           ...switch (controlador.situacion) {
             Situacion.cargando => [
@@ -189,9 +222,13 @@ class _Ingresos extends StatelessWidget {
                     : 'Todavía no hay ingresos en esta jornada.',
               ),
             ],
+            Situacion.listo when controlador.visibles.isEmpty => [const _Vacio('No hay órdenes en esta fase.')],
             Situacion.listo => [
-              for (final ingreso in controlador.ingresos)
-                Padding(padding: const EdgeInsets.only(bottom: 8), child: TarjetaOrden(ingreso)),
+              for (final ingreso in controlador.visibles)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: TarjetaOrden(ingreso, alTocar: () => alAbrir(ingreso)),
+                ),
             ],
           },
         ],
