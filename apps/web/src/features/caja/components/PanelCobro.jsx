@@ -49,6 +49,7 @@ function CobroRegistrado({ cobro, hayMas, alSiguiente, alImprimir }) {
  *
  * @param {object} props
  * @param {boolean} props.cajaAbierta
+ * @param {string} [props.motivoCerrada] Qué hacer mientras la caja está cerrada.
  * @param {boolean} props.hayPorCobrar
  * @param {object|null} props.orden La orden elegida.
  * @param {object|null} props.cobroHecho El último cobro registrado.
@@ -62,6 +63,7 @@ function CobroRegistrado({ cobro, hayMas, alSiguiente, alImprimir }) {
  */
 export function PanelCobro({
   cajaAbierta,
+  motivoCerrada = 'Ábrela para volver a registrar cobros.',
   hayPorCobrar,
   orden,
   cobroHecho,
@@ -79,7 +81,7 @@ export function PanelCobro({
       <CobroRegistrado cobro={cobroHecho} hayMas={hayPorCobrar} alSiguiente={alSiguiente} alImprimir={alImprimir} />
     );
   } else if (!cajaAbierta) {
-    contenido = <SinSeleccion titulo="La caja está cerrada" descripcion="Ábrela para volver a registrar cobros." />;
+    contenido = <SinSeleccion titulo="La caja está cerrada" descripcion={motivoCerrada} />;
   } else if (!orden) {
     contenido = hayPorCobrar ? (
       <SinSeleccion

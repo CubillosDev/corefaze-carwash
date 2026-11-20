@@ -24,7 +24,7 @@ import { PanelCobro } from '@/features/caja/components/PanelCobro';
 import { useCaja } from '@/features/caja/hooks/useCaja';
 import { useAviso } from '@/hooks/useAviso';
 import { useImpresion } from '@/hooks/useImpresion';
-import { formatoHora } from '@/utils/formatoFecha';
+import { formatoFecha, formatoHora } from '@/utils/formatoFecha';
 import { formatoMoneda } from '@/utils/formatoMoneda';
 
 function estadoDeLaCaja(caja) {
@@ -41,6 +41,10 @@ function estadoDeLaCaja(caja) {
  * comprobante, los movimientos del día, egresos y cierre con arqueo. El
  * cobro entrega la orden (terminada -> entregada). Todas las cifras son del
  * servidor. Se puede llegar con ?orden=ID desde el tablero para cobrarla.
+ *
+ * Si quedó abierta la caja de otra jornada (cajaAnterior), solo puede haber
+ * una abierta: se avisa y se ofrece cerrarla con su arqueo antes de abrir la
+ * de hoy.
  */
 export function CajaPage() {
   const { usuario } = useSesion();
@@ -58,6 +62,7 @@ export function CajaPage() {
   const listos = datos?.porCobrar ?? [];
   const elegida = listos.find((orden) => orden.id === elegidaId) ?? null;
   const estado = estadoDeLaCaja(datos?.caja);
+  const anterior = datos?.cajaAnterior ?? null;
 
   function abrirVentana(nombre) {
     caja.limpiarError();
@@ -106,7 +111,12 @@ export function CajaPage() {
                   Cerrar caja
                 </Boton>
               ) : null}
-              {!datos.caja && datos.jornada.estado === 'abierta' ? (
+              {anterior ? (
+                <Boton className="shadow-boton-primario" onClick={() => abrirVentana('cierre-anterior')}>
+                  Cerrar caja anterior
+                </Boton>
+              ) : null}
+              {!anterior && !datos.caja && datos.jornada.estado === 'abierta' ? (
                 <Boton className="shadow-boton-primario" onClick={() => abrirVentana('apertura')}>
                   Abrir caja
                 </Boton>
@@ -124,6 +134,12 @@ export function CajaPage() {
           ) : null
         }
       />
+
+      {anterior ? (
+        <Alerta tipo="advertencia" titulo={`La caja del ${formatoFecha(anterior.fecha)} sigue abierta`} className="mt-3">
+          Solo puede haber una caja abierta. Ciérrala con su arqueo para abrir la caja de hoy y volver a cobrar.
+        </Alerta>
+      ) : null}
 
       {caja.error && !ventana && !elegida ? (
         <Alerta tipo="error" className="mt-3" alCerrar={caja.limpiarError}>
@@ -184,6 +200,9 @@ export function CajaPage() {
             <div className="order-2 amplio:flex amplio:min-h-0 amplio:items-start">
               <PanelCobro
                 cajaAbierta={abierta}
+                motivoCerrada={
+                  anterior ? `Primero cierra la caja del ${formatoFecha(anterior.fecha)}; luego abre la de hoy.` : undefined
+                }
                 hayPorCobrar={listos.length > 0}
                 orden={elegida}
                 cobroHecho={cobroHecho}
@@ -215,6 +234,17 @@ export function CajaPage() {
           enviando={caja.enviando}
           error={caja.error}
           alConfirmar={(contado) => confirmar(caja.cerrar, contado, 'Caja cerrada')}
+          alCerrar={() => setVentana(null)}
+        />
+      ) : null}
+      {ventana === 'cierre-anterior' && anterior ? (
+        <CierreCaja
+          titulo={`Cierre de la caja del ${formatoFecha(anterior.fecha)}`}
+          baseInicial={anterior.baseInicial}
+          totales={anterior.totales}
+          enviando={caja.enviando}
+          error={caja.error}
+          alConfirmar={(contado) => confirmar(caja.cerrar, contado, 'Caja anterior cerrada')}
           alCerrar={() => setVentana(null)}
         />
       ) : null}
