@@ -1,8 +1,8 @@
 # Corefaze CarWash · App móvil de recepción
 
-App Flutter para registrar los vehículos que llegan al lavadero desde el celular. Sigue el diseño
-"Recepción Móvil" y trabaja contra la API de Corefaze (`apps/api`), con las mismas reglas del panel
-web.
+App Flutter para registrar los vehículos que llegan al lavadero desde el celular y mover sus órdenes
+por las fases del patio. Sigue el diseño "Recepción Móvil" y trabaja contra la API de Corefaze
+(`apps/api`), con las mismas reglas del panel web.
 
 ## Qué hace
 
@@ -17,6 +17,14 @@ web.
 6. **Nuevo ingreso**: vehículo y dueño (si la placa es nueva), tipo, servicio por número, colaborador,
    pago previsto y estado de recepción (avisos y nota).
 7. **Confirmación** con el turno y el valor que calculó el servidor.
+8. **Órdenes del día**: filtro por fase (Registrada, En proceso, Terminada). Al tocar una orden se
+   abre su detalle (turno, colaborador, pago previsto, valor, hora y observaciones) con sus cambios
+   de fase:
+   - avanzar a la fase siguiente;
+   - devolverla una fase (ADR 0010);
+   - cancelarla con su motivo, solo superadmin y administrador.
+
+   La entrega no se hace aquí: se registra al cobrar en la caja del panel (ADR 0007).
 
 ## Reglas que respeta
 
@@ -27,6 +35,8 @@ web.
 - El crédito solo aparece si el dueño es una empresa activa con crédito (R8).
 - El turno es único por fecha (R5): si otro equipo lo tomó a la vez, pide el siguiente.
 - Soporte consulta, pero no registra clientes ni vehículos nuevos.
+- Los cambios de fase siguen `transicionesOrden` del contrato y solo entran por `PATCH /estado` (R9).
+  Una orden entregada o cancelada ya no cambia (R10). Soporte cambia la fase, pero no cancela.
 
 ## Diferencias con el diseño (decididas con el equipo)
 
@@ -39,6 +49,7 @@ web.
 | Sede en la cabecera | Estado de la jornada | Un solo lavadero |
 | Sin medio de pago | "Pago previsto" (se confirma en caja) | La API lo exige al registrar |
 | Sin ingreso ni QR | Ingreso y apertura con QR | Sin ellos la app no se conecta al sistema |
+| "Ingresados hoy" solo muestra la fase | Filtro por fase; cada orden se abre para cambiar su fase | Decisión del dueño del producto: desde el celular también se gestionan las órdenes |
 
 ## Configuración por entorno
 
