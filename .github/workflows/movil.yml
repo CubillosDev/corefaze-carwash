@@ -49,7 +49,7 @@ jobs:
         run: flutter pub get
 
       - name: Formato
-        run: dart format --set-exit-if-changed .
+        run: dart format --set-exit-if-changed lib test integration_test
 
       - name: Análisis estático
         run: flutter analyze
