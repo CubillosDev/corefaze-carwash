@@ -4,7 +4,7 @@ import { Punto } from '@/components/ui/Punto';
 import { etiquetaEstadoOrden, tonoEstadoOrden } from '@/constants/etiquetas';
 import { TarjetaOrden } from '@/features/ordenes-lavado/components/TarjetaOrden';
 import { useArrastreOrdenes } from '@/features/ordenes-lavado/hooks/useArrastreOrdenes';
-import { accionAlSoltar, FASES_DEL_TABLERO, motivoMovimientoNoPermitido } from '@/utils/estadosOrden';
+import { accionAlSoltar, esRetroceso, FASES_DEL_TABLERO, motivoMovimientoNoPermitido } from '@/utils/estadosOrden';
 import { plural } from '@/utils/plural';
 
 /**
@@ -16,9 +16,10 @@ import { plural } from '@/utils/plural';
  * alarga. En pantallas angostas las columnas se desplazan en horizontal (80 %
  * del ancho cada una), como en el diseño.
  *
- * En escritorio las tarjetas se arrastran a la fase siguiente (o a Entregada,
- * que lleva a cobrar en caja): las columnas permitidas se marcan, las demás se
- * atenúan y la columna de destino muestra dónde aterriza la tarjeta.
+ * En escritorio las tarjetas se arrastran a la fase siguiente, a la anterior
+ * (por ahora, ADR 0010) o a Entregada, que lleva a cobrar en caja: las
+ * columnas permitidas se marcan, las demás se atenúan y la columna de destino
+ * muestra dónde aterriza la tarjeta.
  *
  * @param {object} props
  * @param {object[]} props.ordenes
@@ -69,7 +70,11 @@ export function TableroOrdenes({ ordenes, datosDe, puedeAnular, ordenOcupada, al
                   className="flex shrink-0 animate-aparecer items-center justify-center rounded-menu border-2 border-dashed border-primario/40 bg-white/70 text-meta font-semibold text-primario"
                   style={{ height: arrastre.alto }}
                 >
-                  {arrastre.accion === 'cobrar' ? 'Soltar para cobrar en caja' : 'Soltar aquí'}
+                  {arrastre.accion === 'cobrar'
+                    ? 'Soltar para cobrar en caja'
+                    : esRetroceso(arrastre.origen, estado)
+                      ? 'Devolver aquí'
+                      : 'Soltar aquí'}
                 </div>
               ) : null}
               {tarjetas.map((orden) => (

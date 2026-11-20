@@ -6,7 +6,7 @@ import { Punto } from '@/components/ui/Punto';
 import { etiquetaEstadoOrden, tonoEstadoOrden } from '@/constants/etiquetas';
 import { useTeclaEscape } from '@/hooks/useTeclaEscape';
 import { ESTADOS_ORDEN } from '@/constants/dominio';
-import { siguientesEstados } from '@/utils/estadosOrden';
+import { esRetroceso, siguientesEstados } from '@/utils/estadosOrden';
 
 const ALTO_ENCABEZADO_MENU = 40;
 const ALTO_OPCION = 30;
@@ -148,7 +148,9 @@ export function MenuMoverOrden({
               className="flex h-7.5 w-full items-center gap-2 rounded-opcion px-2 text-left text-detalle text-neutro-900 transition-colors duration-150 hover:bg-neutro-75 focus-visible:bg-neutro-75"
             >
               <Punto tono={tonoEstadoOrden(siguiente)} />
-              <span className="flex-1">{etiquetaEstadoOrden(siguiente)}</span>
+              <span className="flex-1">
+                {esRetroceso(estado, siguiente) ? `Devolver a ${etiquetaEstadoOrden(siguiente)}` : etiquetaEstadoOrden(siguiente)}
+              </span>
             </button>
             ),
           )}

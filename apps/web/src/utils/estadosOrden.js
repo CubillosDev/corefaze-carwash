@@ -29,9 +29,10 @@ export function siguientesEstados(estado, puedeAnular) {
 
 /**
  * Qué pasa al soltar una orden en la columna de otro estado del tablero:
- * "cambiar" si es su fase siguiente, "cobrar" si es Entregada (la entrega se
- * registra al cobrar en caja, ADR 0007) y null si no es un movimiento
- * permitido. La cancelación no se hace arrastrando: pide un motivo.
+ * "cambiar" si es una transición del contrato (la fase siguiente o, por ahora,
+ * la anterior: ADR 0010), "cobrar" si es Entregada (la entrega se registra al
+ * cobrar en caja, ADR 0007) y null si no es un movimiento permitido. La
+ * cancelación no se hace arrastrando: pide un motivo.
  *
  * @param {string} estado
  * @param {string|null} destino
@@ -45,17 +46,35 @@ export function accionAlSoltar(estado, destino) {
 }
 
 /**
+ * Si pasar de un estado a otro es devolver la orden a una fase anterior.
+ *
+ * @param {string} estado
+ * @param {string} destino
+ * @returns {boolean}
+ */
+export function esRetroceso(estado, destino) {
+  const desde = FASES_DEL_TABLERO.indexOf(estado);
+  const hacia = FASES_DEL_TABLERO.indexOf(destino);
+  return desde >= 0 && hacia >= 0 && hacia < desde;
+}
+
+/**
  * Por qué una orden no se puede soltar en otra columna.
  *
  * @param {string} estado
- * @returns {string} Por ejemplo, "Registrada solo avanza a En proceso".
+ * @returns {string} Por ejemplo, "En proceso solo puede pasar a Terminada o volver a Registrada".
  */
 export function motivoMovimientoNoPermitido(estado) {
-  const [siguiente] = (TRANSICIONES_ORDEN[estado] ?? []).filter((destino) => destino !== ESTADOS_ORDEN.CANCELADA);
-  if (!siguiente) {
+  const destinos = (TRANSICIONES_ORDEN[estado] ?? []).filter((destino) => destino !== ESTADOS_ORDEN.CANCELADA);
+  const avance = destinos.find((destino) => !esRetroceso(estado, destino));
+  const retroceso = destinos.find((destino) => esRetroceso(estado, destino));
+  if (!avance && !retroceso) {
     return `Una orden ${etiquetaEstadoOrden(estado).toLowerCase()} ya no cambia de fase`;
   }
-  return `${etiquetaEstadoOrden(estado)} solo avanza a ${etiquetaEstadoOrden(siguiente)}`;
+  const partes = [];
+  if (avance) partes.push(`pasar a ${etiquetaEstadoOrden(avance)}`);
+  if (retroceso) partes.push(`volver a ${etiquetaEstadoOrden(retroceso)}`);
+  return `${etiquetaEstadoOrden(estado)} solo puede ${partes.join(' o ')}`;
 }
 
 /**

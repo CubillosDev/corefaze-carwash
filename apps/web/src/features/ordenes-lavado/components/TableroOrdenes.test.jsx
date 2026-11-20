@@ -60,8 +60,14 @@ describe('TableroOrdenes: arrastrar y soltar', () => {
   it('no salta fases y explica por qué', async () => {
     const props = renderizar([orden(1, 'registrada')]);
     arrastrar('AAA 100', 'Terminada');
-    await waitFor(() => expect(props.alAvisar).toHaveBeenCalledWith('Registrada solo avanza a En proceso'));
+    await waitFor(() => expect(props.alAvisar).toHaveBeenCalledWith('Registrada solo puede pasar a En proceso'));
     expect(props.alCambiarEstado).not.toHaveBeenCalled();
+  });
+
+  it('devuelve una orden a la fase anterior', async () => {
+    const props = renderizar([orden(3, 'en_proceso')]);
+    arrastrar('AAA 300', 'Registrada');
+    await waitFor(() => expect(props.alCambiarEstado).toHaveBeenCalledWith(props.ordenes[0], 'registrada'));
   });
 
   it('soltar una orden terminada en Entregada lleva a cobrarla en caja', async () => {

@@ -40,8 +40,9 @@ function crearCopia(tarjeta, rect) {
 
 /**
  * Arrastrar y soltar las tarjetas del tablero entre fases, con el mouse o un
- * lápiz (en pantallas táctiles se usa el menú "⋯"). Solo deja soltar en la
- * fase siguiente, o en Entregada para cobrar en caja (accionAlSoltar): la
+ * lápiz (en pantallas táctiles se usa el menú "⋯"). Solo deja soltar donde
+ * lo permite el contrato (accionAlSoltar: la fase siguiente, la anterior, o
+ * Entregada para cobrar en caja): la
  * tarjeta se levanta, sigue al puntero inclinándose con la velocidad, aterriza
  * en su nueva columna o vuelve a su lugar si el destino no es válido. Escape
  * cancela. Un arrastre nunca dispara el clic que abre el detalle.
