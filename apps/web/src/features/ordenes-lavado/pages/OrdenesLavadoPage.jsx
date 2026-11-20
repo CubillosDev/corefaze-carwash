@@ -1,5 +1,5 @@
 import { Suspense, useState } from 'react';
-import { Link, Outlet } from 'react-router';
+import { Link, Outlet, useNavigate } from 'react-router';
 
 import { Aviso } from '@/components/ui/Aviso';
 import { Boton } from '@/components/ui/Boton';
@@ -49,6 +49,7 @@ export function OrdenesLavadoPage() {
   const datos = useOrdenesLavado();
   const { usuario } = useSesion();
   const { aviso, mostrarAviso } = useAviso();
+  const navegar = useNavigate();
   const [vista, setVista] = useState('tablero');
   const [categoria, setCategoria] = useState(TODAS);
   const [pagina, setPagina] = useState(0);
@@ -140,6 +141,9 @@ export function OrdenesLavadoPage() {
         <>
           <div className="mt-4.5 flex flex-wrap items-center justify-between gap-3">
             <GrupoFiltros etiqueta="Filtrar por categoría" opciones={filtros} valor={categoria} alCambiar={elegirCategoria} />
+            {vista === 'tablero' ? (
+              <span className="hidden text-meta text-neutro-450 escritorio:inline">Arrastra una tarjeta para cambiar su fase</span>
+            ) : null}
             <SelectorCompacto
               etiqueta="Jornada"
               valor={datos.jornada.id}
@@ -163,6 +167,8 @@ export function OrdenesLavadoPage() {
               puedeAnular={puedeAnular}
               ordenOcupada={cambio.ordenOcupada}
               alCambiarEstado={cambiarEstado}
+              alCobrar={(orden) => navegar(`${RUTAS.CAJA}?orden=${orden.id}`)}
+              alAvisar={(mensaje) => mostrarAviso(mensaje, 'error')}
             />
           ) : (
             <Tarjeta relleno="ninguno" className="mt-3.5 overflow-hidden">

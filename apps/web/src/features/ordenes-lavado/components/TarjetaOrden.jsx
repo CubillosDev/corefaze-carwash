@@ -20,7 +20,8 @@ const RELLENO_POR_TONO = {
 
 /**
  * Tarjeta de una orden en el tablero: placa, vehículo, servicio, colaborador y
- * turno. Toda la tarjeta abre el detalle; el botón "⋯" cambia el estado.
+ * turno. Toda la tarjeta abre el detalle; el botón "⋯" cambia el estado y,
+ * en escritorio, también se puede arrastrar a otra fase.
  *
  * @param {object} props
  * @param {import('@/features/ordenes-lavado/api/ordenesLavado.api').OrdenLavado} props.orden
@@ -30,8 +31,22 @@ const RELLENO_POR_TONO = {
  * @param {boolean} props.puedeAnular
  * @param {boolean} props.ocupada Mientras se guarda un cambio de esta orden.
  * @param {(estado: string) => void} props.alCambiarEstado
+ * @param {boolean} [props.arrastrando] Se está arrastrando: queda su lugar marcado.
+ * @param {boolean} [props.aterrizando] Acaba de llegar a esta fase.
+ * @param {(evento: PointerEvent) => void} [props.alPresionar] Inicio de un posible arrastre.
  */
-export function TarjetaOrden({ orden, vehiculo, servicio, colaborador, puedeAnular, ocupada, alCambiarEstado }) {
+export function TarjetaOrden({
+  orden,
+  vehiculo,
+  servicio,
+  colaborador,
+  puedeAnular,
+  ocupada,
+  alCambiarEstado,
+  arrastrando = false,
+  aterrizando = false,
+  alPresionar,
+}) {
   const [menuAbierto, setMenuAbierto] = useState(false);
   const placa = vehiculo?.placa ?? '';
   const tono = tonoEstadoOrden(orden.estado);
@@ -39,14 +54,16 @@ export function TarjetaOrden({ orden, vehiculo, servicio, colaborador, puedeAnul
 
   return (
     <article
+      onPointerDown={alPresionar}
       className={`relative rounded-menu border border-neutro-200 bg-white px-3 pt-2.75 pb-3 shadow-tarjeta transition-[box-shadow,transform,opacity] duration-180 hover:-translate-y-px hover:shadow-tarjeta-hover ${
         menuAbierto ? 'z-30' : ''
-      } ${ocupada ? 'opacity-60' : ''}`}
+      } ${ocupada ? 'opacity-60' : ''} ${arrastrando ? 'opacity-40' : ''} ${aterrizando ? 'animate-aterrizar' : ''}`}
     >
       <Link
         to={`${RUTAS.ORDENES_LAVADO}/${orden.id}`}
         aria-label={`Ver la orden de ${formatoPlaca(placa)}, turno ${orden.turno}`}
-        className="absolute inset-0 rounded-menu"
+        draggable={false}
+        className="absolute inset-0 rounded-menu escritorio:cursor-grab"
       />
 
       <div className="flex items-center gap-2">
