@@ -6,6 +6,7 @@ import '../features/autenticacion/presentation/screens/ingreso_screen.dart';
 import '../features/autenticacion/presentation/screens/pendiente_screen.dart';
 import '../features/ordenes_lavado/presentation/screens/ordenes_lavado_screen.dart';
 import 'dependencias.dart';
+import 'router.dart';
 import 'tema.dart';
 
 class CorefazeApp extends StatelessWidget {
@@ -24,6 +25,7 @@ class CorefazeApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: crearTema(),
           locale: const Locale('es', 'CO'),
+          navigatorObservers: [observadorDeRutas],
           home: const _PuertaDeSesion(),
         ),
       ),

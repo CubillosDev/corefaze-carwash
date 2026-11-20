@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../app/dependencias.dart';
@@ -18,7 +20,7 @@ import 'placa_screen.dart';
 /// "Recepción" del diseño: estado de la jornada, la acción de registrar un
 /// ingreso y lo que entró hoy. Sin jornada abierta, la acción es abrirla con
 /// el QR del panel. Cada orden del día se abre para ver su detalle y cambiar
-/// su fase.
+/// su fase. La lista se recarga cada vez que la recepción vuelve al frente.
 class OrdenesLavadoScreen extends StatefulWidget {
   const OrdenesLavadoScreen({super.key});
 
@@ -26,7 +28,7 @@ class OrdenesLavadoScreen extends StatefulWidget {
   State<OrdenesLavadoScreen> createState() => _OrdenesLavadoScreenState();
 }
 
-class _OrdenesLavadoScreenState extends State<OrdenesLavadoScreen> {
+class _OrdenesLavadoScreenState extends State<OrdenesLavadoScreen> with RouteAware {
   late final OrdenesLavadoController _controlador;
 
   @override
@@ -36,19 +38,31 @@ class _OrdenesLavadoScreenState extends State<OrdenesLavadoScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ruta = ModalRoute.of(context);
+    if (ruta != null) {
+      observadorDeRutas.subscribe(this, ruta);
+    }
+  }
+
+  @override
   void dispose() {
+    observadorDeRutas.unsubscribe(this);
     _controlador.dispose();
     super.dispose();
   }
 
-  Future<void> _registrarIngreso() async {
+  /// Al volver de un registro, del QR o del detalle de una orden.
+  @override
+  void didPopNext() {
+    unawaited(_controlador.cargar(silencioso: true));
+  }
+
+  void _registrarIngreso() {
     final jornada = _controlador.jornada;
-    if (jornada == null) {
-      return;
-    }
-    await irA<void>(context, PlacaScreen(jornada: jornada));
-    if (mounted) {
-      await _controlador.cargar(silencioso: true);
+    if (jornada != null) {
+      unawaited(irA<void>(context, PlacaScreen(jornada: jornada)));
     }
   }
 
@@ -70,7 +84,6 @@ class _OrdenesLavadoScreenState extends State<OrdenesLavadoScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Jornada abierta. Ya puedes registrar ingresos.')));
-      await _controlador.cargar();
     }
   }
 
