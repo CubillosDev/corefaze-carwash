@@ -106,9 +106,10 @@
   letter-spacing: -0.01em;
 }
 
+/* La tarjeta de descarga es blanca en los dos temas. */
 .descarga__nota {
   margin-top: 2px;
-  color: var(--tinta-2);
+  color: #4a5163;
   font-size: 13.5px;
 }
 
