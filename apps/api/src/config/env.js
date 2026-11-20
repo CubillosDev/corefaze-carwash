@@ -1,5 +1,9 @@
 const ENTORNOS = Object.freeze(['development', 'test', 'production']);
 const ENTORNO_POR_DEFECTO = 'development';
+// Entorno de despliegue (ENTORNO): distinto de NODE_ENV, que es el modo de
+// Node. La API de pruebas corre con NODE_ENV=production y ENTORNO=pruebas.
+const ENTORNOS_DESPLIEGUE = Object.freeze(['desarrollo', 'pruebas', 'produccion']);
+const ENTORNO_DESPLIEGUE_POR_DEFECTO = 'desarrollo';
 const PUERTO_POR_DEFECTO = '3000';
 const PUERTO_MINIMO = 1;
 const PUERTO_MAXIMO = 65535;
@@ -24,6 +28,18 @@ const leerEntorno = (variables, errores) => {
 
   if (!ENTORNOS.includes(entorno)) {
     errores.push(`NODE_ENV debe ser uno de: ${ENTORNOS.join(', ')} (recibido: "${entorno}")`);
+  }
+
+  return entorno;
+};
+
+const leerEntornoDespliegue = (variables, errores) => {
+  const entorno = variables.ENTORNO || ENTORNO_DESPLIEGUE_POR_DEFECTO;
+
+  if (!ENTORNOS_DESPLIEGUE.includes(entorno)) {
+    errores.push(
+      `ENTORNO debe ser uno de: ${ENTORNOS_DESPLIEGUE.join(', ')} (recibido: "${entorno}")`,
+    );
   }
 
   return entorno;
@@ -183,6 +199,7 @@ const cargarConfiguracion = (variables = process.env) => {
 
   const configuracion = {
     entorno: leerEntorno(variables, errores),
+    entornoDespliegue: leerEntornoDespliegue(variables, errores),
     puerto: leerPuerto(variables, errores),
     apiKeys: {
       postman: validarClaveApi('API_KEY_POSTMAN', variables, errores),

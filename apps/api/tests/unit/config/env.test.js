@@ -21,6 +21,7 @@ describe('cargarConfiguracion', () => {
     it('devuelve la configuración con los tipos correctos', () => {
       expect(cargarConfiguracion(variablesValidas)).toEqual({
         entorno: 'development',
+        entornoDespliegue: 'desarrollo',
         puerto: 3000,
         apiKeys: {
           postman: 'a'.repeat(32),
@@ -33,6 +34,15 @@ describe('cargarConfiguracion', () => {
         superadmin: null,
         supabase: { url: 'http://127.0.0.1:54321', serviceRoleKey: 'f'.repeat(32) },
       });
+    });
+
+    it('lee el entorno de despliegue (ENTORNO)', () => {
+      expect(cargarConfiguracion(conCambios({ ENTORNO: 'pruebas' })).entornoDespliegue).toBe(
+        'pruebas',
+      );
+      expect(cargarConfiguracion(conCambios({ ENTORNO: 'produccion' })).entornoDespliegue).toBe(
+        'produccion',
+      );
     });
 
     it('usa development y el puerto 3000 cuando no se definen', () => {
@@ -65,6 +75,7 @@ describe('cargarConfiguracion', () => {
   describe('con variables inválidas', () => {
     it.each([
       ['NODE_ENV desconocido', { NODE_ENV: 'produccion' }, /NODE_ENV/],
+      ['ENTORNO desconocido', { ENTORNO: 'production' }, /ENTORNO debe ser uno de/],
       ['PORT no numérico', { PORT: 'abc' }, /PORT/],
       ['PORT decimal', { PORT: '30.5' }, /PORT/],
       ['PORT en cero', { PORT: '0' }, /PORT/],

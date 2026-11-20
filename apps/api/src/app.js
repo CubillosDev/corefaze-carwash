@@ -34,10 +34,11 @@ const LIMITE_CUERPO = '10kb';
  * Recibir la configuración como parámetro permite probarla con Supertest,
  * sin abrir un puerto y con cualquier conjunto de llaves u origen.
  *
- * @param {{ apiKeys: { postman: string, admin: string, movil: string, web: string }, origenPermitido: string }} configuracion
+ * @param {{ apiKeys: { postman: string, admin: string, movil: string, web: string }, origenPermitido: string, entornoDespliegue?: string }} configuracion
  */
-const crearApp = ({ apiKeys, origenPermitido } = env) => {
+const crearApp = ({ apiKeys, origenPermitido, entornoDespliegue = 'desarrollo' } = env) => {
   const app = express();
+  app.locals.entornoDespliegue = entornoDespliegue;
 
   const servicioApiKeys = crearServicioApiKeys(construirRegistrosApiKeys(apiKeys));
   const validarApiKey = crearMiddlewareApiKey(servicioApiKeys);
