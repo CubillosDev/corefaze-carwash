@@ -633,3 +633,13 @@
     transform: translateY(64px);
   }
 }
+
+.escena__etiquetas {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.escena__etiquetas .proximamente {
+  margin-left: 0;
+}

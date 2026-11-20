@@ -412,3 +412,29 @@ svg[viewBox='0 0 24 24'] :is(path, circle, rect):not([fill]) {
     scroll-behavior: auto;
   }
 }
+
+/* Funciones anunciadas que el producto todavía no tiene. */
+.proximamente {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  margin-left: 4px;
+  padding: 0 8px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--superficie-2);
+  color: var(--tinta-2);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.app__panel .proximamente,
+.plan--destacado .proximamente {
+  border-color: rgb(255 255 255 / 30%);
+  background: rgb(255 255 255 / 16%);
+  color: #ffffff;
+}
