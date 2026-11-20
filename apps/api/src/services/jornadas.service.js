@@ -163,6 +163,21 @@ const cerrarJornada = async (id, cerradaPorId) => {
     throw new Conflicto('Solo se puede cerrar una jornada abierta');
   }
 
+  // Una jornada no se cierra con su caja abierta: la caja quedaría huérfana
+  // y, como solo puede haber una abierta, bloquearía la caja del día siguiente.
+  const { data: cajaAbierta, error: errorCaja } = await supabase
+    .from('cajas')
+    .select('id')
+    .eq('jornada_id', id)
+    .eq('estado', 'abierta')
+    .maybeSingle();
+  if (errorCaja) {
+    throw new Error(`No se pudo revisar la caja de la jornada: ${errorCaja.message}`);
+  }
+  if (cajaAbierta) {
+    throw new Conflicto('Cierra la caja de esta jornada antes de cerrarla');
+  }
+
   const { data, error } = await crearClienteConUsuario(cerradaPorId)
     .from('jornadas')
     .update({
