@@ -114,6 +114,23 @@ Antes de cada commit, corre en este orden:
 npm run format && npm run lint && npm test
 ```
 
+## Trazabilidad
+
+Cada petición a `/api` pasa por `src/middlewares/trazabilidad.middleware.js`:
+
+- **`X-Request-Id`** identifica la petición de punta a punta. Si el cliente envía uno válido (8 a 64 letras, números, `-` o `_`), se respeta; si no, se genera un UUID. Así un error del panel se puede buscar en los registros.
+- **`X-Response-Time`** dice cuánto tardó la API en responder, en milisegundos.
+- Los tiempos se acumulan **por patrón de ruta** (`GET /api/clientes/:id`), nunca por URL real, para no guardar identificadores ni datos personales. Hay un máximo de 100 rutas distintas; las demás se agrupan.
+
+| Endpoint | Rol | Qué hace |
+|---|---|---|
+| `GET /api/trazabilidad` | superadmin | Peticiones, promedio, mediana, p95, mínimo, máximo y errores 4xx/5xx por ruta |
+| `DELETE /api/trazabilidad` | superadmin | Reinicia las métricas |
+
+Las métricas viven en la memoria del proceso: se pierden al reiniciar la API.
+
+**Medición de tiempos.** `npm run trazabilidad` mide las funciones de seguridad (API Key, JWT, bcrypt) y la cadena de middlewares de la app real, sin base de datos. El resultado queda en `docs/trazabilidad/tiempos-servicios.md` y `.csv`. En GitHub Actions, el job **Trazabilidad** de `api.yml` lo publica en el resumen de cada corrida y lo guarda como artefacto.
+
 ## Estructura de carpetas
 
 src/
