@@ -41,7 +41,10 @@ const PUEDEN_REABRIR = autorizarRoles(ROLES_ENUM.SUPERADMIN);
  *       Por defecto la de la jornada abierta (o la última). Trae la caja, sus
  *       totales calculados en el servidor (cobrado, por medio, efectivo
  *       esperado, por cobrar), sus cobros y egresos, las órdenes terminadas
- *       por cobrar y las que siguen en el patio.
+ *       por cobrar y las que siguen en el patio. Si quedó abierta una caja
+ *       de otra jornada, la trae en `cajaAnterior` (su fecha y sus totales, con el
+ *       efectivo esperado) para cerrarla con POST /api/caja/cierre antes de abrir la
+ *       de la jornada actual; si no, `cajaAnterior` es null.
  *     parameters:
  *       - in: query
  *         name: jornadaId

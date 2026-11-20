@@ -1,4 +1,5 @@
 const {
+  supabase,
   conApiKey,
   conRol,
   conToken,
@@ -165,5 +166,59 @@ describe('Cobros, egresos y cierre', () => {
       recibido: 50000,
     });
     expect(respuesta.status).toBe(400);
+  });
+});
+
+describe('Caja que quedó abierta en otra jornada', () => {
+  it('no deja cerrar una jornada con su caja abierta', async () => {
+    await abrirJornada();
+    await conToken('post', '/api/caja/apertura').send({ baseInicial: 0 });
+    const { body } = await conToken('get', '/api/caja');
+
+    const cierre = await conToken('patch', `/api/jornadas/${body.jornada.id}/estado`).send({
+      estado: 'cerrada',
+    });
+    expect(cierre.status).toBe(409);
+    expect(cierre.body.mensaje).toBe('Cierra la caja de esta jornada antes de cerrarla');
+
+    await conToken('post', '/api/caja/cierre').send({ efectivoContado: 0 });
+    const despues = await conToken('patch', `/api/jornadas/${body.jornada.id}/estado`).send({
+      estado: 'cerrada',
+    });
+    expect(despues.status).toBe(200);
+  });
+
+  it('la muestra para cerrarla con su arqueo y así abrir la caja de hoy', async () => {
+    const fechaAnterior = await abrirJornada();
+    const anterior = await conToken('post', '/api/caja/apertura').send({ baseInicial: 50000 });
+    // Datos de antes de esta regla: la jornada se cerró sin cerrar su caja.
+    await supabase
+      .from('jornadas')
+      .update({ estado: 'cerrada', cerrada_en: new Date().toISOString() })
+      .eq('estado', 'abierta');
+    await abrirJornada();
+
+    const estado = await conToken('get', '/api/caja');
+    expect(estado.status).toBe(200);
+    expect(estado.body.caja).toBeNull();
+    expect(estado.body.cajaAnterior).toMatchObject({
+      id: anterior.body.caja.id,
+      estado: 'abierta',
+      fecha: fechaAnterior,
+    });
+    expect(estado.body.cajaAnterior.totales).toMatchObject({ cobrado: 0, efectivoEsperado: 50000 });
+
+    const bloqueada = await conToken('post', '/api/caja/apertura').send({ baseInicial: 0 });
+    expect(bloqueada.status).toBe(409);
+    expect(bloqueada.body.mensaje).toBe('Ya hay una caja abierta');
+
+    const cierre = await conToken('post', '/api/caja/cierre').send({ efectivoContado: 50000 });
+    expect(cierre.status).toBe(200);
+    expect(cierre.body.caja).toMatchObject({ id: anterior.body.caja.id, estado: 'cerrada' });
+
+    expect((await conToken('get', '/api/caja')).body.cajaAnterior).toBeNull();
+    expect((await conToken('post', '/api/caja/apertura').send({ baseInicial: 0 })).status).toBe(
+      201,
+    );
   });
 });
