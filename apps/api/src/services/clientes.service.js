@@ -3,6 +3,7 @@ const { aCamelCase } = require('../utils/mapearCampos');
 const { TIPOS_CLIENTE } = require('../constants/dominio');
 const { Conflicto, NoEncontrado } = require('../utils/errores');
 const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
+const { listarSinTope } = require('../utils/paginarPostgrest');
 
 // Nunca *: así nunca se filtran creado_en/actualizado_en mientras el
 // contrato HTTP no las incluya (ver supabase/README.md, "Contrato de
@@ -26,17 +27,28 @@ const traducirErrorPostgres = crearTraductorErroresPostgres({
 });
 
 /**
- * Lista todos los clientes.
+ * Lista los clientes; estado, tipo y documento (exacto) son filtros
+ * opcionales. Pagina por rangos (listarSinTope): sin filtros ya no se
+ * trunca en las 1.000 filas de max_rows (ADR 0011).
+ * @param {{ estado?: string, tipo?: string, documento?: string }} [filtros]
  * @returns {Promise<object[]>}
  */
-const listarClientes = async () => {
-  const { data, error } = await supabase.from('clientes').select(COLUMNAS);
+const listarClientes = async (filtros = {}) => {
+  const filas = await listarSinTope('clientes', (desde, hasta) => {
+    let consulta = supabase.from('clientes').select(COLUMNAS);
+    if (filtros.estado !== undefined) {
+      consulta = consulta.eq('estado', filtros.estado);
+    }
+    if (filtros.tipo !== undefined) {
+      consulta = consulta.eq('tipo', filtros.tipo);
+    }
+    if (filtros.documento !== undefined) {
+      consulta = consulta.eq('documento', filtros.documento);
+    }
+    return consulta.order('id', { ascending: true }).range(desde, hasta);
+  });
 
-  if (error) {
-    throw new Error(`No se pudo listar clientes: ${error.message}`);
-  }
-
-  return aCamelCase(data);
+  return aCamelCase(filas);
 };
 
 /**

@@ -11,6 +11,7 @@ const {
   validarCrear,
   validarActualizar,
   validarCambioDeEstado,
+  validarFiltroListar,
 } = require('../middlewares/colaboradores.validator');
 const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
 const { autenticarJWT } = require('../middlewares/auth.middleware');
@@ -88,19 +89,31 @@ const PUEDEN_GESTIONAR = autorizarRoles(ROLES_ENUM.SUPERADMIN, ROLES_ENUM.ADMINI
  *   get:
  *     tags: [Colaboradores]
  *     summary: Listar colaboradores
- *     description: Disponible para superadmin, administrador y soporte.
+ *     description: >
+ *       Disponible para superadmin, administrador y soporte. Sin parámetros devuelve todos
+ *       (paginando por dentro, sin el tope de 1.000 filas de PostgREST); con estado=activo,
+ *       solo los que pueden recibir órdenes (R2).
+ *     parameters:
+ *       - in: query
+ *         name: estado
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [activo, inactivo]
  *     security:
  *       - ApiKeyAuth: []
  *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Lista de colaboradores
+ *       400:
+ *         description: estado no es válido
  *       401:
  *         description: Usuario no autenticado
  *       403:
  *         description: Rol sin permiso para consultar colaboradores
  */
-router.get('/', autenticarJWT, PUEDEN_CONSULTAR, listar);
+router.get('/', autenticarJWT, PUEDEN_CONSULTAR, validarFiltroListar, validar, listar);
 
 /**
  * @swagger

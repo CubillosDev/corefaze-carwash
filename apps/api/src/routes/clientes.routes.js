@@ -6,7 +6,11 @@ const {
   actualizar,
   eliminar,
 } = require('../controllers/clientes.controller');
-const { validarCrear, validarActualizar } = require('../middlewares/clientes.validator');
+const {
+  validarCrear,
+  validarActualizar,
+  validarFiltroListar,
+} = require('../middlewares/clientes.validator');
 const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
 const { autenticarJWT } = require('../middlewares/auth.middleware');
 const { autorizarRoles } = require('../middlewares/roles.middleware');
@@ -80,18 +84,42 @@ const PUEDEN_GESTIONAR = autorizarRoles(ROLES_ENUM.SUPERADMIN, ROLES_ENUM.ADMINI
  *   get:
  *     tags: [Clientes]
  *     summary: Listar clientes
+ *     description: >
+ *       Sin parámetros devuelve todos los clientes (paginando por dentro, sin el tope de 1.000
+ *       filas de PostgREST). Los filtros son opcionales y se combinan.
+ *     parameters:
+ *       - in: query
+ *         name: estado
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [activo, inactivo]
+ *       - in: query
+ *         name: tipo
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [particular, empresa]
+ *       - in: query
+ *         name: documento
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Documento exacto (6 a 15 caracteres).
  *     security:
  *       - ApiKeyAuth: []
  *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Lista de clientes
+ *       400:
+ *         description: Algún filtro no es válido
  *       401:
  *         description: Usuario no autenticado
  *       403:
  *         description: Rol sin permiso para consultar clientes
  */
-router.get('/', autenticarJWT, PUEDEN_CONSULTAR, listar);
+router.get('/', autenticarJWT, PUEDEN_CONSULTAR, validarFiltroListar, validar, listar);
 
 /**
  * @swagger

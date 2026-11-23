@@ -9,8 +9,9 @@ const { Conflicto } = require('../utils/errores');
  */
 
 /** GET /api/colaboradores */
-const listar = async (_req, res) => {
-  const colaboradores = await colaboradoresService.listarColaboradores();
+const listar = async (req, res) => {
+  const { estado } = req.datos.consulta;
+  const colaboradores = await colaboradoresService.listarColaboradores({ estado });
   return res.status(200).json({ colaboradores });
 };
 

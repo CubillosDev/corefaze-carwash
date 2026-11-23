@@ -3,6 +3,7 @@ const { aCamelCase } = require('../utils/mapearCampos');
 const { SERVICIOS_CON_LAVADO_MOTOR } = require('../constants/dominio');
 const { Conflicto, NoEncontrado, SolicitudInvalida } = require('../utils/errores');
 const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
+const { listarSinTope } = require('../utils/paginarPostgrest');
 
 // Nunca *: así nunca se filtran creado_en/actualizado_en mientras el
 // contrato HTTP no las incluya. El alias de tarifas es el select anidado
@@ -78,20 +79,25 @@ const traducirErrorPostgres = crearTraductorErroresPostgres({
 });
 
 /**
- * Lista todos los servicios.
+ * Lista los servicios con sus tarifas por tipo de vehículo; activo es un
+ * filtro opcional (la recepción solo ofrece los activos, R3). Pagina por
+ * rangos (listarSinTope), sin el tope de 1.000 filas de max_rows (ADR 0011).
+ * @param {{ activo?: boolean }} [filtros]
  * @returns {Promise<object[]>}
  */
-const listarServicios = async () => {
-  const { data, error } = await supabase
-    .from('servicios')
-    .select(COLUMNAS)
-    .order('id', { foreignTable: 'tarifas_servicio', ascending: true });
+const listarServicios = async (filtros = {}) => {
+  const filas = await listarSinTope('servicios', (desde, hasta) => {
+    let consulta = supabase.from('servicios').select(COLUMNAS);
+    if (filtros.activo !== undefined) {
+      consulta = consulta.eq('activo', filtros.activo);
+    }
+    return consulta
+      .order('id', { ascending: true })
+      .order('id', { foreignTable: 'tarifas_servicio', ascending: true })
+      .range(desde, hasta);
+  });
 
-  if (error) {
-    throw new Error(`No se pudo listar servicios: ${error.message}`);
-  }
-
-  return aCamelCase(data);
+  return aCamelCase(filas);
 };
 
 /**

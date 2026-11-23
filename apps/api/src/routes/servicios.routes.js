@@ -6,7 +6,11 @@ const {
   actualizar,
   eliminar,
 } = require('../controllers/servicios.controller');
-const { validarCrear, validarActualizar } = require('../middlewares/servicios.validator');
+const {
+  validarCrear,
+  validarActualizar,
+  validarFiltroListar,
+} = require('../middlewares/servicios.validator');
 const { validar, validarIdDeUrl } = require('../middlewares/validar.middleware');
 const { autenticarJWT } = require('../middlewares/auth.middleware');
 const { autorizarRoles } = require('../middlewares/roles.middleware');
@@ -105,18 +109,30 @@ const PUEDEN_GESTIONAR = autorizarRoles(ROLES_ENUM.SUPERADMIN, ROLES_ENUM.ADMINI
  *   get:
  *     tags: [Servicios]
  *     summary: Listar servicios
+ *     description: >
+ *       Cada servicio trae sus tarifas por tipo de vehículo (R3). Sin parámetros devuelve
+ *       todos (paginando por dentro, sin el tope de 1.000 filas de PostgREST); con
+ *       activo=true, solo los que se pueden ofrecer en la recepción.
+ *     parameters:
+ *       - in: query
+ *         name: activo
+ *         required: false
+ *         schema:
+ *           type: boolean
  *     security:
  *       - ApiKeyAuth: []
  *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Lista de servicios
+ *       400:
+ *         description: activo no es true ni false
  *       401:
  *         description: Usuario no autenticado
  *       403:
  *         description: Rol sin permiso para consultar servicios
  */
-router.get('/', autenticarJWT, PUEDEN_CONSULTAR, listar);
+router.get('/', autenticarJWT, PUEDEN_CONSULTAR, validarFiltroListar, validar, listar);
 
 /**
  * @swagger

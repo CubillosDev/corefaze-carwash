@@ -122,6 +122,20 @@ const validarCambioDeEstado = [
   validarMotivo(),
 ];
 
+/** "a,b" o ["a", "b,c"] → ["a", "b", "c"], sin espacios, vacíos ni repetidos. */
+const aListaDeEstados = (valor) => [
+  ...new Set(
+    [valor]
+      .flat()
+      .flatMap((parte) => String(parte).split(','))
+      .map((estado) => estado.trim())
+      .filter((estado) => estado !== ''),
+  ),
+];
+
+const sonEstadosValidos = (estados) =>
+  estados.length > 0 && estados.every((estado) => Object.values(ESTADOS_ORDEN).includes(estado));
+
 /** GET /api/ordenes-lavado: todos los filtros son opcionales y combinables. */
 const validarFiltroListar = [
   query('fecha')
@@ -147,6 +161,18 @@ const validarFiltroListar = [
     .isInt({ min: 1 })
     .withMessage('jornadaId debe ser un entero positivo')
     .toInt(),
+  query('vehiculoId')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('vehiculoId debe ser un entero positivo')
+    .toInt(),
+  // Una o varias fases: ?estado=registrada, ?estado=registrada,en_proceso
+  // o ?estado=registrada&estado=en_proceso. Queda como arreglo sin repetidos.
+  query('estado')
+    .optional()
+    .customSanitizer(aListaDeEstados)
+    .custom(sonEstadosValidos)
+    .withMessage(`estado debe ser uno o varios de: ${Object.values(ESTADOS_ORDEN).join(', ')}`),
 ];
 
 module.exports = { validarCrear, validarEditar, validarCambioDeEstado, validarFiltroListar };

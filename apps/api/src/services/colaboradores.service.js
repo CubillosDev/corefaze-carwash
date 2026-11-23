@@ -3,6 +3,7 @@ const { aCamelCase } = require('../utils/mapearCampos');
 const { ESTADOS_ACTIVIDAD, DIAS_GRACIA_CODIGO_COLABORADOR } = require('../constants/dominio');
 const { Conflicto, NoEncontrado } = require('../utils/errores');
 const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
+const { listarSinTope } = require('../utils/paginarPostgrest');
 
 // Nunca *: así nunca se filtran creado_en/actualizado_en mientras el
 // contrato HTTP no las incluya (ver supabase/README.md, "Contrato de
@@ -87,17 +88,22 @@ const traducirErrorPostgres = crearTraductorErroresPostgres({
 });
 
 /**
- * Lista todos los colaboradores.
+ * Lista los colaboradores; estado es un filtro opcional (la recepción solo
+ * ofrece los activos, R2). Pagina por rangos (listarSinTope), sin el tope
+ * de 1.000 filas de max_rows (ADR 0011).
+ * @param {{ estado?: string }} [filtros]
  * @returns {Promise<object[]>}
  */
-const listarColaboradores = async () => {
-  const { data, error } = await supabase.from('colaboradores').select(COLUMNAS);
+const listarColaboradores = async (filtros = {}) => {
+  const filas = await listarSinTope('colaboradores', (desde, hasta) => {
+    let consulta = supabase.from('colaboradores').select(COLUMNAS);
+    if (filtros.estado !== undefined) {
+      consulta = consulta.eq('estado', filtros.estado);
+    }
+    return consulta.order('id', { ascending: true }).range(desde, hasta);
+  });
 
-  if (error) {
-    throw new Error(`No se pudo listar colaboradores: ${error.message}`);
-  }
-
-  return aCamelCase(data);
+  return aCamelCase(filas);
 };
 
 /**

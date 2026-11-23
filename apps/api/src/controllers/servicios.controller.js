@@ -9,8 +9,9 @@ const { Conflicto } = require('../utils/errores');
  */
 
 /** GET /api/servicios */
-const listar = async (_req, res) => {
-  const servicios = await serviciosService.listarServicios();
+const listar = async (req, res) => {
+  const { activo } = req.datos.consulta;
+  const servicios = await serviciosService.listarServicios({ activo });
   return res.status(200).json({ servicios });
 };
 

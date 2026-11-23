@@ -8,13 +8,17 @@ const ordenesLavadoService = require('../services/ordenesLavado.service');
 
 /** GET /api/ordenes-lavado */
 const listar = async (req, res) => {
-  const { fecha, colaboradorId, servicioId, medioPago, jornadaId } = req.datos.consulta;
+  const { fecha, colaboradorId, servicioId, medioPago, jornadaId, vehiculoId, estado } =
+    req.datos.consulta;
   const ordenes = await ordenesLavadoService.listarOrdenes({
     fecha,
     colaboradorId,
     servicioId,
     medioPago,
     jornadaId,
+    vehiculoId,
+    // El validador ya lo deja como arreglo de fases (una o varias).
+    estados: estado,
   });
   // Los totales se calculan SIEMPRE sobre este mismo arreglo filtrado,
   // para que coincidan exactamente con lo que el cliente ve en pantalla.

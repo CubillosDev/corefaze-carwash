@@ -20,8 +20,14 @@ const crearRespuesta = () => {
 
 // usuario: req.usuario ya existe siempre aquí (autenticarJWT corre antes
 // en la ruta real); servicios.controller.js lo usa para la auditoría.
-const crearPeticion = ({ cuerpo = {}, parametros = {}, usuario = { id: 1 } } = {}) => ({
-  datos: { cuerpo, parametros },
+// consulta: validar siempre deja req.datos.consulta, aunque venga vacía.
+const crearPeticion = ({
+  cuerpo = {},
+  parametros = {},
+  consulta = {},
+  usuario = { id: 1 },
+} = {}) => ({
+  datos: { cuerpo, parametros, consulta },
   usuario,
 });
 
@@ -35,6 +41,15 @@ describe('servicios.controller', () => {
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ servicios: [{ id: 1 }, { id: 2 }] });
+      expect(serviciosService.listarServicios).toHaveBeenCalledWith({ activo: undefined });
+    });
+
+    it('pasa al service los filtros de la consulta', async () => {
+      serviciosService.listarServicios.mockResolvedValue([]);
+
+      await listar(crearPeticion({ consulta: { activo: true } }), crearRespuesta(), jest.fn());
+
+      expect(serviciosService.listarServicios).toHaveBeenCalledWith({ activo: true });
     });
   });
 

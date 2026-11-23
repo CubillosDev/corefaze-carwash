@@ -21,8 +21,14 @@ const crearRespuesta = () => {
 
 // usuario: req.usuario ya existe siempre aquí (autenticarJWT corre antes
 // en la ruta real); colaboradores.controller.js lo usa para la auditoría.
-const crearPeticion = ({ cuerpo = {}, parametros = {}, usuario = { id: 1 } } = {}) => ({
-  datos: { cuerpo, parametros },
+// consulta: validar siempre deja req.datos.consulta, aunque venga vacía.
+const crearPeticion = ({
+  cuerpo = {},
+  parametros = {},
+  consulta = {},
+  usuario = { id: 1 },
+} = {}) => ({
+  datos: { cuerpo, parametros, consulta },
   usuario,
 });
 
@@ -36,6 +42,15 @@ describe('colaboradores.controller', () => {
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ colaboradores: [{ id: 1 }, { id: 2 }] });
+      expect(colaboradoresService.listarColaboradores).toHaveBeenCalledWith({ estado: undefined });
+    });
+
+    it('pasa al service los filtros de la consulta', async () => {
+      colaboradoresService.listarColaboradores.mockResolvedValue([]);
+
+      await listar(crearPeticion({ consulta: { estado: 'activo' } }), crearRespuesta(), jest.fn());
+
+      expect(colaboradoresService.listarColaboradores).toHaveBeenCalledWith({ estado: 'activo' });
     });
   });
 

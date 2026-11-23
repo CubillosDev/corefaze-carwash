@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const {
   listar,
+  actual,
   obtenerPorId,
   abrir,
   cambiarEstado,
@@ -124,6 +125,65 @@ const PUEDEN_GESTIONAR = autorizarRoles(
  *         description: Rol sin permiso para consultar jornadas
  */
 router.get('/', autenticarJWT, PUEDEN_CONSULTAR, validarFiltroListar, validar, listar);
+
+/**
+ * @swagger
+ * /api/jornadas/actual:
+ *   get:
+ *     tags: [Jornadas]
+ *     summary: La jornada de hoy (hora de Bogotá) con sus órdenes por fase
+ *     description: >
+ *       Para la app móvil (ADR 0011). jornada es null si hoy no se ha abierto. El conteo por
+ *       fase se calcula en SQL, sin traer las órdenes. Solo mira la fecha de hoy: una jornada
+ *       de otro día que siga abierta no aparece aquí.
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Jornada de hoy, o null
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 fecha:
+ *                   type: string
+ *                   format: date
+ *                   example: '2026-11-23'
+ *                 jornada:
+ *                   type: object
+ *                   nullable: true
+ *                   description: Misma forma de las jornadas de GET /api/jornadas (sin unidades, ventaTotal ni diferenciaCaja), más ordenesPorEstado.
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     fecha:
+ *                       type: string
+ *                       format: date
+ *                     estado:
+ *                       type: string
+ *                       enum: [abierta, cerrada]
+ *                     ordenesPorEstado:
+ *                       type: object
+ *                       properties:
+ *                         registrada:
+ *                           type: integer
+ *                         enProceso:
+ *                           type: integer
+ *                         terminada:
+ *                           type: integer
+ *                         entregada:
+ *                           type: integer
+ *                         cancelada:
+ *                           type: integer
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: Rol sin permiso para consultar jornadas
+ */
+// Antes de /:id: "actual" no debe caer en la validación de id numérico.
+router.get('/actual', autenticarJWT, PUEDEN_CONSULTAR, actual);
 
 /**
  * @swagger
