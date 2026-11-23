@@ -76,4 +76,12 @@ export default [
     files: ['**/*.test.{js,jsx}', 'tests/**/*.js', 'vite.config.js', 'eslint.config.js'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
   },
+
+  // Scripts de Node (pruebas de seguridad con Playwright): usan fetch, consola y
+  // código que se evalúa dentro de la página.
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: { globals: { ...globals.browser, ...globals.node } },
+    rules: { 'no-console': 'off', 'no-restricted-globals': 'off' },
+  },
 ];
