@@ -1,0 +1,15 @@
+dist/assets/reportes-BFulZhPV.js                                     6.95 kB │ gzip:   2.40 kB
+dist/assets/servicios-QE1XQg_o.js                                    8.11 kB │ gzip:   3.28 kB
+dist/assets/colaboradores-B-hNUf5U.js                                8.81 kB │ gzip:   3.49 kB
+dist/assets/usuarios-C1hv-JbD.js                                     9.37 kB │ gzip:   3.42 kB
+dist/assets/inventario-h9YFA3ax.js                                  10.85 kB │ gzip:   3.77 kB
+dist/assets/nomina-DWAsU2n3.js                                      14.31 kB │ gzip:   4.52 kB
+dist/assets/inicio-QE8QuZ4r.js                                      15.90 kB │ gzip:   5.75 kB
+dist/assets/Alerta-DqbPXmrD.js                                      17.75 kB │ gzip:   6.64 kB
+dist/assets/credito-jnfzog2Z.js                                     24.36 kB │ gzip:   7.46 kB
+dist/assets/caja-By0I19zC.js                                        32.83 kB │ gzip:   9.14 kB
+dist/assets/jornadas-CjZKdbBn.js                                    34.51 kB │ gzip:  12.32 kB
+dist/assets/ordenes-lavado-B4U0XbtV.js                              58.98 kB │ gzip:  17.54 kB
+dist/assets/index-AZ0cItUm.js                                      350.73 kB │ gzip: 110.66 kB
+
+[32m✓ built in 1.23s[39m
