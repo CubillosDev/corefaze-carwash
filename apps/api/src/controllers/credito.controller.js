@@ -40,13 +40,20 @@ const registrarPago = async (req, res) => {
 
 /** GET /api/credito/clientes/:id/ordenes */
 const listarOrdenesDeCliente = async (req, res) => {
-  const ordenes = await creditoService.listarOrdenesCreditoDeCliente(req.datos.parametros.id, req.datos.consulta);
+  const ordenes = await creditoService.listarOrdenesCreditoDeCliente(
+    req.datos.parametros.id,
+    req.datos.consulta,
+  );
   return res.status(200).json({ ordenes });
 };
 
 /** PATCH /api/credito/clientes/:id/condiciones */
 const actualizarCondiciones = async (req, res) => {
-  const cliente = await creditoService.actualizarCondiciones(req.datos.parametros.id, req.datos.cuerpo, req.usuario.id);
+  const cliente = await creditoService.actualizarCondiciones(
+    req.datos.parametros.id,
+    req.datos.cuerpo,
+    req.usuario.id,
+  );
   return res.status(200).json({ mensaje: 'Condiciones de crédito actualizadas', cliente });
 };
 
