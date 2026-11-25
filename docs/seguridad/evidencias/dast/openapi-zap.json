@@ -1,0 +1,4290 @@
+{
+ "openapi": "3.0.0",
+ "info": {
+  "title": "Car Wash API",
+  "version": "0.1.0",
+  "description": "API REST para la gestión de un lavadero de autos."
+ },
+ "tags": [
+  {
+   "name": "Salud",
+   "description": "Verificación del estado del servicio"
+  },
+  {
+   "name": "Clientes",
+   "description": "Gestión de particulares y empresas con convenio de crédito"
+  },
+  {
+   "name": "Seguridad",
+   "description": "Endpoints relacionados con autenticación y seguridad de la API"
+  },
+  {
+   "name": "Vehículos",
+   "description": "Gestión de vehículos atendidos y su relación con el cliente"
+  },
+  {
+   "name": "Autenticación",
+   "description": "Registro e inicio de sesión de usuarios"
+  },
+  {
+   "name": "Colaboradores",
+   "description": "Gestión de colaboradores del lavadero y su código de identificación"
+  },
+  {
+   "name": "Servicios",
+   "description": "Catálogo de tipos de lavado y sus tarifas por tipo de vehículo"
+  },
+  {
+   "name": "Órdenes de lavado",
+   "description": "Registro auditable de lavados: une clientes, vehículos, colaboradores y servicios"
+  },
+  {
+   "name": "Jornadas",
+   "description": "Apertura y cierre del día operativo del lavadero"
+  },
+  {
+   "name": "Parámetros de negocio",
+   "description": "Comisión vigente, costos fijos/variables y demás parámetros del lavadero"
+  },
+  {
+   "name": "Usuarios",
+   "description": "Administración de cuentas: listado, consulta y activación/desactivación"
+  },
+  {
+   "name": "Crédito",
+   "description": "Crédito empresarial: saldo pendiente, órdenes pagables y registro de pagos"
+  },
+  {
+   "name": "Caja",
+   "description": "Apertura, cobros, egresos y cierre con arqueo de la caja de cada jornada"
+  },
+  {
+   "name": "Reportes",
+   "description": "Ventas por día, mix de servicios, colaboradores e ingresos por hora"
+  },
+  {
+   "name": "Nómina",
+   "description": "Resumen de la quincena, descuentos y liquidación quincenal de comisiones de los colaboradores"
+  },
+  {
+   "name": "Inventario",
+   "description": "Insumos del lavadero, su stock y sus movimientos"
+  }
+ ],
+ "components": {
+  "securitySchemes": {
+   "ApiKeyAuth": {
+    "type": "apiKey",
+    "in": "header",
+    "name": "X-API-Key",
+    "description": "API Key requerida para consumir los endpoints protegidos."
+   },
+   "BearerAuth": {
+    "type": "http",
+    "scheme": "bearer",
+    "bearerFormat": "JWT",
+    "description": "JWT obtenido mediante el endpoint de login."
+   }
+  },
+  "schemas": {
+   "VehiculoCrear": {
+    "type": "object",
+    "required": [
+     "placa",
+     "tipoVehiculo",
+     "clienteId"
+    ],
+    "properties": {
+     "placa": {
+      "type": "string",
+      "description": "ABC123 (carro) o ABC12D (moto); se normaliza a mayúsculas.",
+      "example": "ABC123"
+     },
+     "tipoVehiculo": {
+      "type": "string",
+      "enum": [
+       "automovil",
+       "camioneta",
+       "platon_7_pasajeros",
+       "moto_hasta_150cc",
+       "moto_desde_150cc"
+      ],
+      "example": "automovil"
+     },
+     "marca": {
+      "type": "string",
+      "example": "Mazda"
+     },
+     "color": {
+      "type": "string",
+      "example": "Rojo"
+     },
+     "clienteId": {
+      "type": "integer",
+      "example": 1
+     }
+    }
+   },
+   "VehiculoActualizar": {
+    "type": "object",
+    "properties": {
+     "placa": {
+      "type": "string"
+     },
+     "tipoVehiculo": {
+      "type": "string",
+      "enum": [
+       "automovil",
+       "camioneta",
+       "platon_7_pasajeros",
+       "moto_hasta_150cc",
+       "moto_desde_150cc"
+      ]
+     },
+     "marca": {
+      "type": "string"
+     },
+     "color": {
+      "type": "string"
+     },
+     "clienteId": {
+      "type": "integer"
+     }
+    }
+   },
+   "Usuario": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "integer",
+      "example": 1
+     },
+     "nombre": {
+      "type": "string",
+      "example": "Juan Pérez"
+     },
+     "email": {
+      "type": "string",
+      "example": "juan.perez@lavadero.com"
+     },
+     "rol": {
+      "type": "string",
+      "enum": [
+       "superadmin",
+       "administrador",
+       "soporte",
+       "pendiente"
+      ],
+      "example": "administrador"
+     },
+     "activo": {
+      "type": "boolean",
+      "example": true
+     },
+     "creadoEn": {
+      "type": "string",
+      "format": "date-time"
+     }
+    }
+   },
+   "ServicioCrear": {
+    "type": "object",
+    "required": [
+     "numero",
+     "nombre",
+     "tarifas"
+    ],
+    "properties": {
+     "numero": {
+      "type": "integer",
+      "description": "Identificador de catálogo (distinto del id interno).",
+      "example": 1
+     },
+     "nombre": {
+      "type": "string",
+      "example": "Lavado básico"
+     },
+     "descripcion": {
+      "type": "string",
+      "example": "Lavado exterior con shampoo"
+     },
+     "categoria": {
+      "type": "string",
+      "example": "basico"
+     },
+     "tarifas": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+       "type": "object",
+       "required": [
+        "tipoVehiculo",
+        "valor"
+       ],
+       "properties": {
+        "tipoVehiculo": {
+         "type": "string",
+         "enum": [
+          "automovil",
+          "camioneta",
+          "platon_7_pasajeros",
+          "moto_hasta_150cc",
+          "moto_desde_150cc"
+         ],
+         "example": "automovil"
+        },
+        "valor": {
+         "type": "integer",
+         "example": 15000
+        }
+       }
+      },
+      "example": [
+       {
+        "tipoVehiculo": "automovil",
+        "valor": 15000
+       },
+       {
+        "tipoVehiculo": "camioneta",
+        "valor": 20000
+       }
+      ]
+     }
+    }
+   },
+   "ServicioActualizar": {
+    "type": "object",
+    "properties": {
+     "numero": {
+      "type": "integer",
+      "example": 1
+     },
+     "nombre": {
+      "type": "string",
+      "example": "Lavado premium"
+     },
+     "descripcion": {
+      "type": "string",
+      "example": "Incluye encerado"
+     },
+     "categoria": {
+      "type": "string",
+      "example": "premium"
+     },
+     "tarifas": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+       "type": "object",
+       "required": [
+        "tipoVehiculo",
+        "valor"
+       ],
+       "properties": {
+        "tipoVehiculo": {
+         "type": "string",
+         "enum": [
+          "automovil",
+          "camioneta",
+          "platon_7_pasajeros",
+          "moto_hasta_150cc",
+          "moto_desde_150cc"
+         ]
+        },
+        "valor": {
+         "type": "integer"
+        }
+       }
+      },
+      "example": [
+       {
+        "tipoVehiculo": "automovil",
+        "valor": 18000
+       }
+      ]
+     },
+     "activo": {
+      "type": "boolean",
+      "example": false
+     }
+    }
+   },
+   "ParametrosActualizar": {
+    "type": "object",
+    "properties": {
+     "nombreNegocio": {
+      "type": "string",
+      "example": "Car Wash"
+     },
+     "nit": {
+      "type": "string",
+      "example": "900123456"
+     },
+     "direccion": {
+      "type": "string",
+      "example": "Calle 10"
+     },
+     "telefono": {
+      "type": "string",
+      "example": "3001234567"
+     },
+     "porcentajeComision": {
+      "type": "number",
+      "example": 0.37
+     },
+     "comisionVigenteDesde": {
+      "type": "string",
+      "format": "date",
+      "example": "2026-01-01"
+     },
+     "descontarComisionDiaria": {
+      "type": "boolean",
+      "example": false
+     },
+     "costoArriendo": {
+      "type": "integer",
+      "example": 2000000
+     },
+     "costoLuz": {
+      "type": "integer",
+      "example": 300000
+     },
+     "costoAgua": {
+      "type": "integer",
+      "example": 200000
+     },
+     "costoNominaFija": {
+      "type": "integer",
+      "example": 5000000
+     },
+     "costoDepreciacion": {
+      "type": "integer",
+      "example": 150000
+     },
+     "costoInsumos": {
+      "type": "integer",
+      "example": 400000
+     },
+     "costoVariableLavado": {
+      "type": "integer",
+      "example": 8000
+     },
+     "precioPromedioReferencia": {
+      "type": "integer",
+      "example": 25000
+     },
+     "topePrestamoColaborador": {
+      "type": "integer",
+      "example": 100000
+     },
+     "diasOperacionMes": {
+      "type": "integer",
+      "example": 30
+     }
+    },
+    "description": "Todos los campos son opcionales: solo se actualiza lo que se envíe. \"id\" y \"actualizadoPor\" no forman parte del contrato: el servidor los controla por completo (id es siempre 1, actualizadoPor sale del usuario autenticado).\n"
+   },
+   "OrdenCrear": {
+    "type": "object",
+    "required": [
+     "turno",
+     "vehiculoId",
+     "servicioId",
+     "colaboradorId",
+     "medioPago"
+    ],
+    "properties": {
+     "turno": {
+      "type": "integer",
+      "example": 1
+     },
+     "vehiculoId": {
+      "type": "integer",
+      "example": 1
+     },
+     "servicioId": {
+      "type": "integer",
+      "example": 1
+     },
+     "colaboradorId": {
+      "type": "integer",
+      "example": 1
+     },
+     "medioPago": {
+      "type": "string",
+      "enum": [
+       "efectivo",
+       "nequi",
+       "daviplata",
+       "bancolombia",
+       "datafono",
+       "credito"
+      ],
+      "example": "efectivo"
+     },
+     "clienteId": {
+      "type": "integer",
+      "description": "Obligatorio solo si medioPago es \"credito\"; en cualquier otro caso se ignora.",
+      "example": 1
+     },
+     "autorizaMotor": {
+      "type": "boolean",
+      "description": "Obligatorio en true si el servicio exige autorización para lavado de motor.",
+      "example": false
+     },
+     "observaciones": {
+      "type": "string",
+      "example": "Rayón leve en la puerta derecha"
+     }
+    },
+    "description": "\"fecha\" no forma parte de este contrato: la fija la jornada abierta en el momento de crear la orden, nunca el cliente (si no hay ninguna jornada abierta, no se puede crear). \"valor\" y \"estado\" tampoco: el servidor siempre calcula el valor desde la tarifa del servicio y toda orden nueva nace en estado \"registrada\".\n"
+   },
+   "OrdenEditar": {
+    "type": "object",
+    "properties": {
+     "vehiculoId": {
+      "type": "integer",
+      "example": 2
+     },
+     "colaboradorId": {
+      "type": "integer",
+      "example": 2
+     },
+     "medioPago": {
+      "type": "string",
+      "enum": [
+       "efectivo",
+       "nequi",
+       "daviplata",
+       "bancolombia",
+       "datafono",
+       "credito"
+      ],
+      "example": "nequi"
+     },
+     "clienteId": {
+      "type": "integer",
+      "example": 1
+     },
+     "observaciones": {
+      "type": "string",
+      "example": "Cliente pidió encerado adicional"
+     }
+    },
+    "description": "Solo campos no financieros. \"servicioId\", \"valor\", \"estado\", \"fecha\" y \"jornadaId\" no son editables: si se envían, se ignoran. \"valor\" es inmutable desde la creación de la orden y nunca se recalcula al editar, aunque cambie la tarifa del servicio o el tipo de vehículo.\n"
+   },
+   "DescuentoColaboradorRegistrar": {
+    "type": "object",
+    "required": [
+     "colaboradorId",
+     "tipo",
+     "valor",
+     "fecha"
+    ],
+    "properties": {
+     "colaboradorId": {
+      "type": "integer",
+      "example": 1
+     },
+     "tipo": {
+      "type": "string",
+      "enum": [
+       "prestamo",
+       "jabon",
+       "multa",
+       "cxc"
+      ]
+     },
+     "valor": {
+      "type": "integer",
+      "example": 50000
+     },
+     "fecha": {
+      "type": "string",
+      "format": "date",
+      "example": "2026-01-10"
+     },
+     "observacion": {
+      "type": "string",
+      "example": "Préstamo para imprevisto familiar"
+     }
+    }
+   },
+   "QuincenaLiquidar": {
+    "type": "object",
+    "required": [
+     "inicio",
+     "fin"
+    ],
+    "properties": {
+     "inicio": {
+      "type": "string",
+      "format": "date",
+      "example": "2026-01-01"
+     },
+     "fin": {
+      "type": "string",
+      "format": "date",
+      "example": "2026-01-15"
+     }
+    }
+   },
+   "Jornada": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "integer",
+      "example": 1
+     },
+     "fecha": {
+      "type": "string",
+      "format": "date",
+      "description": "Única por jornada; siempre la fija el servidor al abrir.",
+      "example": "2026-01-10"
+     },
+     "estado": {
+      "type": "string",
+      "enum": [
+       "abierta",
+       "cerrada"
+      ],
+      "example": "abierta"
+     },
+     "abiertaEn": {
+      "type": "string",
+      "format": "date-time"
+     },
+     "abiertaPor": {
+      "type": "string",
+      "nullable": true,
+      "description": "Email del usuario autenticado que abrió la jornada (SCRUM-139).",
+      "example": "administrador@lavadero.com"
+     },
+     "cerradaEn": {
+      "type": "string",
+      "format": "date-time",
+      "nullable": true
+     },
+     "cerradaPor": {
+      "type": "string",
+      "nullable": true,
+      "description": "Email del usuario autenticado que cerró la jornada (SCRUM-139).",
+      "example": "administrador@lavadero.com"
+     },
+     "reaperturas": {
+      "type": "array",
+      "description": "Una entrada por cada vez que la jornada se reabre (auditoría mínima).",
+      "items": {
+       "type": "object",
+       "properties": {
+        "en": {
+         "type": "string",
+         "format": "date-time"
+        }
+       }
+      }
+     },
+     "unidades": {
+      "type": "integer",
+      "description": "Agregado derivado de las propias órdenes de la jornada (servicios no anulados). Nunca se guarda, se calcula al responder.",
+      "example": 12
+     },
+     "ventaTotal": {
+      "type": "integer",
+      "description": "Agregado derivado de las propias órdenes de la jornada (suma de valor de los servicios no anulados). Nunca se guarda, se calcula al responder.",
+      "example": 180000
+     },
+     "diferenciaCaja": {
+      "type": "integer",
+      "nullable": true,
+      "description": "Siempre null por ahora; depende del cierre de caja (arqueo), que todavía no existe en el proyecto.",
+      "example": null
+     }
+    }
+   },
+   "InsumoDatos": {
+    "type": "object",
+    "required": [
+     "nombre",
+     "categoria",
+     "unidad",
+     "stockMinimo"
+    ],
+    "properties": {
+     "nombre": {
+      "type": "string",
+      "example": "Shampoo pH neutro"
+     },
+     "categoria": {
+      "type": "string",
+      "example": "Lavado exterior"
+     },
+     "unidad": {
+      "type": "string",
+      "example": "litros"
+     },
+     "stockMinimo": {
+      "type": "integer",
+      "example": 10
+     },
+     "stockInicial": {
+      "type": "integer",
+      "example": 18,
+      "description": "Solo al crear; entra como primer movimiento"
+     }
+    }
+   },
+   "PagoCreditoRegistrar": {
+    "type": "object",
+    "required": [
+     "clienteId",
+     "ordenIds",
+     "medio"
+    ],
+    "properties": {
+     "clienteId": {
+      "type": "integer",
+      "example": 1
+     },
+     "ordenIds": {
+      "type": "array",
+      "items": {
+       "type": "integer"
+      },
+      "description": "Ids de las órdenes a crédito a pagar (todas del mismo cliente, entregadas, sin pago previo, con su vale verificado).\n",
+      "example": [
+       10,
+       11,
+       12
+      ]
+     },
+     "medio": {
+      "type": "string",
+      "enum": [
+       "transferencia",
+       "cheque",
+       "efectivo"
+      ],
+      "description": "Obligatorio. Cómo pagó la empresa; queda registrado en el pago.",
+      "example": "transferencia"
+     }
+    }
+   },
+   "ColaboradorCrear": {
+    "type": "object",
+    "required": [
+     "codigo",
+     "nombre",
+     "documento",
+     "telefono",
+     "porcentajeComision",
+     "tipoVinculacion"
+    ],
+    "properties": {
+     "codigo": {
+      "type": "integer",
+      "description": "Código numérico de exactamente 3 dígitos (100 a 999).",
+      "example": 401
+     },
+     "nombre": {
+      "type": "string",
+      "example": "Juan Pérez"
+     },
+     "documento": {
+      "type": "string",
+      "example": "1020304050"
+     },
+     "telefono": {
+      "type": "string",
+      "example": "3001234567"
+     },
+     "porcentajeComision": {
+      "type": "number",
+      "description": "Valor entre 0 y 1 (0.15 = 15%).",
+      "example": 0.15
+     },
+     "tipoVinculacion": {
+      "type": "string",
+      "enum": [
+       "fijo",
+       "ocasional"
+      ],
+      "example": "fijo"
+     }
+    }
+   },
+   "ColaboradorActualizar": {
+    "type": "object",
+    "properties": {
+     "codigo": {
+      "type": "integer",
+      "example": 402
+     },
+     "nombre": {
+      "type": "string",
+      "example": "Juan Pérez"
+     },
+     "documento": {
+      "type": "string",
+      "example": "1020304050"
+     },
+     "telefono": {
+      "type": "string",
+      "example": "3009999999"
+     },
+     "porcentajeComision": {
+      "type": "number",
+      "example": 0.2
+     },
+     "tipoVinculacion": {
+      "type": "string",
+      "enum": [
+       "fijo",
+       "ocasional"
+      ],
+      "example": "ocasional"
+     }
+    }
+   },
+   "ClienteCrear": {
+    "type": "object",
+    "required": [
+     "nombre",
+     "documento",
+     "tipo",
+     "telefono"
+    ],
+    "properties": {
+     "nombre": {
+      "type": "string",
+      "example": "Ana María Torres"
+     },
+     "documento": {
+      "type": "string",
+      "example": "1010101010"
+     },
+     "tipo": {
+      "type": "string",
+      "enum": [
+       "particular",
+       "empresa"
+      ],
+      "example": "particular"
+     },
+     "telefono": {
+      "type": "string",
+      "example": "3001234567"
+     },
+     "email": {
+      "type": "string",
+      "format": "email",
+      "example": "ana@correo.com"
+     },
+     "creditoHabilitado": {
+      "type": "boolean",
+      "description": "Solo puede ser true si tipo es \"empresa\"; el servidor lo fuerza a false para particulares.",
+      "example": false
+     }
+    }
+   },
+   "ClienteActualizar": {
+    "type": "object",
+    "properties": {
+     "nombre": {
+      "type": "string"
+     },
+     "documento": {
+      "type": "string"
+     },
+     "tipo": {
+      "type": "string",
+      "enum": [
+       "particular",
+       "empresa"
+      ]
+     },
+     "telefono": {
+      "type": "string"
+     },
+     "email": {
+      "type": "string",
+      "format": "email"
+     },
+     "creditoHabilitado": {
+      "type": "boolean"
+     },
+     "estado": {
+      "type": "string",
+      "enum": [
+       "activo",
+       "inactivo"
+      ]
+     }
+    }
+   },
+   "RegistroUsuario": {
+    "type": "object",
+    "required": [
+     "nombre",
+     "email",
+     "password"
+    ],
+    "properties": {
+     "nombre": {
+      "type": "string",
+      "example": "Colaborador Lavadero"
+     },
+     "email": {
+      "type": "string",
+      "format": "email",
+      "example": "colaborador@lavadero.com"
+     },
+     "password": {
+      "type": "string",
+      "format": "password",
+      "example": "ClaveSegura2026!"
+     }
+    }
+   },
+   "LoginUsuario": {
+    "type": "object",
+    "required": [
+     "email",
+     "password"
+    ],
+    "properties": {
+     "email": {
+      "type": "string",
+      "format": "email",
+      "example": "colaborador@lavadero.com"
+     },
+     "password": {
+      "type": "string",
+      "format": "password",
+      "example": "ClaveSegura2026!"
+     }
+    }
+   },
+   "AsignacionRol": {
+    "type": "object",
+    "required": [
+     "rol"
+    ],
+    "properties": {
+     "rol": {
+      "type": "string",
+      "enum": [
+       "superadmin",
+       "administrador",
+       "soporte",
+       "pendiente"
+      ],
+      "example": "administrador"
+     }
+    }
+   }
+  }
+ },
+ "security": [
+  {
+   "ApiKeyAuth": []
+  }
+ ],
+ "paths": {
+  "/api/vehiculos": {
+   "get": {
+    "tags": [
+     "Vehículos"
+    ],
+    "summary": "Listar vehículos",
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Lista de vehículos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar vehículos"
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "Vehículos"
+    ],
+    "summary": "Registrar un vehículo",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/VehiculoCrear"
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Vehículo registrado correctamente"
+     },
+     "400": {
+      "description": "Datos inválidos o la placa no corresponde al tipo de vehículo"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     },
+     "404": {
+      "description": "El cliente indicado no existe"
+     },
+     "409": {
+      "description": "Placa ya registrada"
+     }
+    }
+   }
+  },
+  "/api/vehiculos/{id}": {
+   "get": {
+    "tags": [
+     "Vehículos"
+    ],
+    "summary": "Obtener un vehículo por id",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Vehículo encontrado"
+     },
+     "400": {
+      "description": "Id inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar vehículos"
+     },
+     "404": {
+      "description": "Vehículo no encontrado"
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "Vehículos"
+    ],
+    "summary": "Actualizar un vehículo",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/VehiculoActualizar"
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Vehículo actualizado correctamente"
+     },
+     "400": {
+      "description": "Datos o id inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     },
+     "404": {
+      "description": "Vehículo o cliente no encontrado"
+     },
+     "409": {
+      "description": "Placa ya registrada por otro vehículo"
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "Vehículos"
+    ],
+    "summary": "Eliminar un vehículo",
+    "description": "No se puede eliminar un vehículo que tenga lavados asociados.",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Vehículo eliminado correctamente"
+     },
+     "400": {
+      "description": "Id inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     },
+     "404": {
+      "description": "Vehículo no encontrado"
+     },
+     "409": {
+      "description": "El vehículo tiene lavados asociados"
+     }
+    }
+   }
+  },
+  "/api/usuarios": {
+   "get": {
+    "tags": [
+     "Usuarios"
+    ],
+    "summary": "Listar usuarios, paginado y filtrable",
+    "description": "Disponible para superadmin y administrador. Para ver las cuentas pendientes de aprobación, filtra por `rol=pendiente`.\n",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "rol",
+      "schema": {
+       "type": "string",
+       "enum": [
+        "superadmin",
+        "administrador",
+        "soporte",
+        "pendiente"
+       ]
+      }
+     },
+     {
+      "in": "query",
+      "name": "activo",
+      "schema": {
+       "type": "boolean"
+      }
+     },
+     {
+      "in": "query",
+      "name": "busqueda",
+      "description": "Busca coincidencias parciales en nombre o email.",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "pagina",
+      "schema": {
+       "type": "integer",
+       "default": 1
+      }
+     },
+     {
+      "in": "query",
+      "name": "porPagina",
+      "schema": {
+       "type": "integer",
+       "default": 20
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Página de usuarios"
+     },
+     "400": {
+      "description": "Filtros inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar usuarios"
+     }
+    }
+   }
+  },
+  "/api/usuarios/{id}": {
+   "get": {
+    "tags": [
+     "Usuarios"
+    ],
+    "summary": "Obtener un usuario por id",
+    "description": "Disponible para superadmin y administrador.",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Usuario encontrado"
+     },
+     "400": {
+      "description": "Id inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar usuarios"
+     },
+     "404": {
+      "description": "Usuario no encontrado"
+     }
+    }
+   }
+  },
+  "/api/usuarios/{id}/estado": {
+   "patch": {
+    "tags": [
+     "Usuarios"
+    ],
+    "summary": "Activar o desactivar una cuenta",
+    "description": "Operación permitida únicamente a superadmin. No puede desactivarse a sí mismo, ni desactivar al último superadmin activo del sistema.\n",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "activo"
+        ],
+        "properties": {
+         "activo": {
+          "type": "boolean",
+          "example": false
+         }
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Estado del usuario actualizado correctamente"
+     },
+     "400": {
+      "description": "Datos o id inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin"
+     },
+     "404": {
+      "description": "Usuario no encontrado"
+     },
+     "409": {
+      "description": "Intenta desactivarse a sí mismo, o dejaría el sistema sin ningún superadmin activo\n"
+     }
+    }
+   }
+  },
+  "/api/servicios": {
+   "get": {
+    "tags": [
+     "Servicios"
+    ],
+    "summary": "Listar servicios",
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Lista de servicios"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar servicios"
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "Servicios"
+    ],
+    "summary": "Registrar un servicio",
+    "description": "El servicio nace siempre con activo=true; el cliente no puede fijarlo en la creación.\n",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ServicioCrear"
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Servicio registrado correctamente"
+     },
+     "400": {
+      "description": "Datos inválidos (incluida una tarifa repetida para el mismo tipo de vehículo)"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     },
+     "409": {
+      "description": "Ya existe un servicio con ese número"
+     }
+    }
+   }
+  },
+  "/api/servicios/{id}": {
+   "get": {
+    "tags": [
+     "Servicios"
+    ],
+    "summary": "Obtener un servicio por id",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Servicio encontrado"
+     },
+     "400": {
+      "description": "Id inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar servicios"
+     },
+     "404": {
+      "description": "Servicio no encontrado"
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "Servicios"
+    ],
+    "summary": "Actualizar un servicio",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ServicioActualizar"
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Servicio actualizado correctamente"
+     },
+     "400": {
+      "description": "Datos o id inválidos (incluida una tarifa repetida para el mismo tipo de vehículo)"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     },
+     "404": {
+      "description": "Servicio no encontrado"
+     },
+     "409": {
+      "description": "El número ya pertenece a otro servicio"
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "Servicios"
+    ],
+    "summary": "Eliminar un servicio",
+    "description": "No se puede eliminar un servicio que tenga órdenes de lavado asociadas.",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Servicio eliminado correctamente"
+     },
+     "400": {
+      "description": "Id inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     },
+     "404": {
+      "description": "Servicio no encontrado"
+     },
+     "409": {
+      "description": "El servicio tiene órdenes de lavado asociadas"
+     }
+    }
+   }
+  },
+  "/api/seguridad/cliente": {
+   "get": {
+    "tags": [
+     "Seguridad"
+    ],
+    "summary": "Obtener información del cliente autenticado",
+    "description": "Retorna la identidad asociada a la API Key utilizada.",
+    "responses": {
+     "200": {
+      "description": "Cliente autenticado correctamente"
+     },
+     "401": {
+      "description": "API Key ausente o inválida"
+     },
+     "403": {
+      "description": "API Key deshabilitada"
+     }
+    }
+   }
+  },
+  "/api/salud": {
+   "get": {
+    "tags": [
+     "Salud"
+    ],
+    "summary": "Comprueba que la API está viva",
+    "security": [],
+    "responses": {
+     "200": {
+      "description": "Servicio operativo",
+      "content": {
+       "application/json": {
+        "example": {
+         "estado": "ok",
+         "entorno": "pruebas"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/reportes/resumen": {
+   "get": {
+    "tags": [
+     "Reportes"
+    ],
+    "summary": "Reporte de un periodo",
+    "description": "Ingresos y servicios por día, mix de servicios y colaboradores (con su comisión), más los totales del periodo anterior de la misma duración. Sin órdenes canceladas. Máximo 366 días.\n",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "desde",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "date"
+      }
+     },
+     {
+      "in": "query",
+      "name": "hasta",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "date"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Reporte del periodo"
+     },
+     "400": {
+      "description": "Fechas inválidas"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Solo superadmin o administrador"
+     }
+    }
+   }
+  },
+  "/api/reportes/ingresos-por-hora": {
+   "get": {
+    "tags": [
+     "Reportes"
+    ],
+    "summary": "Ingresos por hora de un día y de la jornada anterior",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "fecha",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "format": "date"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Curva de ingresos por hora"
+     },
+     "400": {
+      "description": "Fecha inválida"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso"
+     }
+    }
+   }
+  },
+  "/api/parametros": {
+   "get": {
+    "tags": [
+     "Parámetros de negocio"
+    ],
+    "summary": "Obtener los parámetros de negocio",
+    "description": "Fila única (comisión vigente, costos fijos y variables, tope de préstamo a colaboradores, etc.), creada por su propia migración: este endpoint nunca debería dar 404.\n",
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Parámetros de negocio"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar los parámetros de negocio"
+     }
+    }
+   },
+   "patch": {
+    "tags": [
+     "Parámetros de negocio"
+    ],
+    "summary": "Actualizar los parámetros de negocio",
+    "description": "Restringido a superadmin.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ParametrosActualizar"
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Parámetros de negocio actualizados correctamente"
+     },
+     "400": {
+      "description": "Datos inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para actualizar los parámetros de negocio (solo superadmin)"
+     }
+    }
+   }
+  },
+  "/api/ordenes-lavado": {
+   "get": {
+    "tags": [
+     "Órdenes de lavado"
+    ],
+    "summary": "Listar órdenes de lavado",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "fecha",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "format": "date"
+      },
+      "description": "Filtra las órdenes por fecha exacta (ISO 8601)."
+     },
+     {
+      "in": "query",
+      "name": "colaboradorId",
+      "required": false,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "Filtra las órdenes de ese colaborador."
+     },
+     {
+      "in": "query",
+      "name": "servicioId",
+      "required": false,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "Filtra las órdenes de ese servicio."
+     },
+     {
+      "in": "query",
+      "name": "medioPago",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "enum": [
+        "efectivo",
+        "nequi",
+        "daviplata",
+        "bancolombia",
+        "datafono",
+        "credito"
+       ]
+      },
+      "description": "Filtra las órdenes con ese medio de pago."
+     },
+     {
+      "in": "query",
+      "name": "jornadaId",
+      "required": false,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "Filtra las órdenes de esa jornada."
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Lista de órdenes de lavado (todos los filtros son combinables con AND), junto con sus totales. Los totales se calculan siempre sobre el mismo conjunto ya filtrado que se devuelve en \"ordenes\", y las órdenes canceladas nunca suman.\n",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "ordenes": {
+           "type": "array",
+           "items": {
+            "type": "object"
+           }
+          },
+          "totales": {
+           "type": "object",
+           "properties": {
+            "cantidadServicios": {
+             "type": "integer",
+             "example": 3
+            },
+            "totalGeneral": {
+             "type": "integer",
+             "example": 45000
+            },
+            "totalesPorMedioPago": {
+             "type": "object",
+             "description": "Una clave por cada medio de pago del dominio, en 0 si no se usó.",
+             "example": {
+              "efectivo": 15000,
+              "nequi": 0,
+              "daviplata": 0,
+              "bancolombia": 0,
+              "datafono": 0,
+              "credito": 30000
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Algún filtro tiene formato inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar órdenes de lavado"
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "Órdenes de lavado"
+    ],
+    "summary": "Registrar una orden de lavado",
+    "description": "Una orden es un registro auditable. Siempre queda amarrada a la jornada que está abierta en el momento de crearla, y su fecha es la de esa jornada. El valor nace siempre de la tarifa del servicio para el tipo de vehículo, nunca del cliente de la API.\n",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/OrdenCrear"
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Orden de lavado registrada correctamente"
+     },
+     "400": {
+      "description": "Datos inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para registrar órdenes de lavado"
+     },
+     "404": {
+      "description": "El vehículo, servicio, colaborador o cliente indicado no existe"
+     },
+     "409": {
+      "description": "Viola alguna regla de negocio (no hay jornada abierta, colaborador inactivo, servicio inactivo o sin tarifa para el tipo de vehículo, lavado de motor sin autorización, cliente sin crédito habilitado, turno ya ocupado para esa fecha, o el vehículo ya tiene una orden abierta)\n"
+     }
+    }
+   }
+  },
+  "/api/ordenes-lavado/{id}": {
+   "get": {
+    "tags": [
+     "Órdenes de lavado"
+    ],
+    "summary": "Obtener una orden de lavado por id",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Orden de lavado encontrada"
+     },
+     "400": {
+      "description": "Id inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar órdenes de lavado"
+     },
+     "404": {
+      "description": "Orden de lavado no encontrada"
+     }
+    }
+   },
+   "patch": {
+    "tags": [
+     "Órdenes de lavado"
+    ],
+    "summary": "Editar los campos no financieros de una orden abierta",
+    "description": "Solo mientras la orden no esté cerrada (entregada/cancelada) y su jornada siga abierta. Revalida colaborador activo, vehículo sin otra orden abierta y crédito habilitado solo sobre los campos que cambien. \"valor\" es inmutable desde la creación: nunca se recalcula aquí, así que editar no puede rechazar por \"servicio inactivo\" (esa regla solo aplica al crear).\n",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/OrdenEditar"
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Orden de lavado actualizada correctamente"
+     },
+     "400": {
+      "description": "Datos o id inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para editar órdenes de lavado"
+     },
+     "404": {
+      "description": "Orden, vehículo, colaborador o cliente no encontrado"
+     },
+     "409": {
+      "description": "La orden está cerrada, su jornada ya no está abierta, el colaborador nuevo está inactivo, el vehículo nuevo ya tiene otra orden abierta, o el cliente no tiene crédito habilitado\n"
+     }
+    }
+   }
+  },
+  "/api/ordenes-lavado/{id}/estado": {
+   "patch": {
+    "tags": [
+     "Órdenes de lavado"
+    ],
+    "summary": "Cambiar el estado de una orden de lavado",
+    "description": "Sigue la máquina de estados del dominio: una orden entregada o cancelada no puede volver a cambiar de estado, y no se pueden saltar ni retroceder estados. Cancelar (anular) exige un \"motivo\" y está reservado a superadmin/administrador; el resto de transiciones también están disponibles para soporte.\n",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "estado"
+        ],
+        "properties": {
+         "estado": {
+          "type": "string",
+          "enum": [
+           "registrada",
+           "en_proceso",
+           "terminada",
+           "entregada",
+           "cancelada"
+          ],
+          "example": "en_proceso"
+         },
+         "motivo": {
+          "type": "string",
+          "description": "Obligatorio cuando estado es \"cancelada\"; se ignora en cualquier otro caso.",
+          "example": "El cliente no llegó"
+         }
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Estado de la orden actualizado correctamente"
+     },
+     "400": {
+      "description": "Estado o id inválidos, o falta el motivo al cancelar"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para esta operación (anular exige superadmin o administrador)"
+     },
+     "404": {
+      "description": "Orden de lavado no encontrada"
+     },
+     "409": {
+      "description": "La orden ya está cerrada, o la transición de estado no es válida"
+     }
+    }
+   }
+  },
+  "/api/nomina/quincenas/resumen": {
+   "get": {
+    "tags": [
+     "Nómina"
+    ],
+    "summary": "Resumen proyectado de una quincena (comisión, descuentos por tipo, neto, saldo pendiente)",
+    "description": "Por cada colaborador con alguna orden o descuento en el periodo (sin importar si sigue activo): comisión, descuentos por tipo, neto y saldo pendiente PROYECTADOS — lo que liquidar_quincena calcularía si se liquidara ahora. inicio/fin deben ser exactamente los límites de una quincena real (1–15 o 16–fin de mes).\n",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "inicio",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "date"
+      }
+     },
+     {
+      "in": "query",
+      "name": "fin",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "date"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Resumen de la quincena"
+     },
+     "400": {
+      "description": "inicio/fin inválidos, o el periodo no es una quincena real"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     }
+    }
+   }
+  },
+  "/api/nomina/colaboradores/{colaboradorId}/descuentos": {
+   "get": {
+    "tags": [
+     "Nómina"
+    ],
+    "summary": "Listar los descuentos de un colaborador en un periodo",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "colaboradorId",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "inicio",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "date"
+      }
+     },
+     {
+      "in": "query",
+      "name": "fin",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "date"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Descuentos del colaborador en el periodo"
+     },
+     "400": {
+      "description": "colaboradorId, inicio o fin inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     },
+     "404": {
+      "description": "Colaborador no encontrado"
+     }
+    }
+   }
+  },
+  "/api/nomina/descuentos": {
+   "post": {
+    "tags": [
+     "Nómina"
+    ],
+    "summary": "Registrar un descuento contra la quincena en curso de un colaborador",
+    "description": "Solo tipo='prestamo' tiene límite (no puede superar la comisión acumulada menos los descuentos ya registrados en la quincena, ni el tope configurado); jabón/multa/cxc se registran sin ese límite, por diseño pueden superar la comisión.\n",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DescuentoColaboradorRegistrar"
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Descuento registrado correctamente"
+     },
+     "400": {
+      "description": "Datos inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     },
+     "404": {
+      "description": "El colaborador indicado no existe"
+     },
+     "409": {
+      "description": "El colaborador no está activo, la quincena ya fue liquidada, o (solo préstamo) supera el disponible"
+     }
+    }
+   }
+  },
+  "/api/nomina/quincenas/liquidar": {
+   "post": {
+    "tags": [
+     "Nómina"
+    ],
+    "summary": "Liquidar una quincena completa",
+    "description": "Todo o nada: congela comisión/descuentos/neto/saldo pendiente por colaborador, marca las órdenes y descuentos del periodo, y crea el cxc de la quincena siguiente si algún colaborador queda con saldo pendiente (ver ADR 0006). La fecha de referencia para validar que la quincena ya terminó la fija el servidor (zona horaria America/Bogota); nunca se envía desde el cliente.\n",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/QuincenaLiquidar"
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Quincena liquidada correctamente"
+     },
+     "400": {
+      "description": "El periodo no es una quincena real"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     },
+     "409": {
+      "description": "La quincena aún no ha terminado, ya fue liquidada, existe una liquidación de un periodo posterior, hay órdenes abiertas, o algún colaborador tiene préstamos por encima de su comisión"
+     }
+    }
+   }
+  },
+  "/api/nomina/liquidaciones": {
+   "get": {
+    "tags": [
+     "Nómina"
+    ],
+    "summary": "Listar el historial de liquidaciones de nómina, paginado",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "pagina",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 1
+      }
+     },
+     {
+      "in": "query",
+      "name": "porPagina",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 20,
+       "maximum": 100
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Página de liquidaciones, con total y totalPaginas"
+     },
+     "400": {
+      "description": "pagina o porPagina inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     }
+    }
+   }
+  },
+  "/api/nomina/liquidaciones/{id}": {
+   "get": {
+    "tags": [
+     "Nómina"
+    ],
+    "summary": "Obtener una liquidación por id, con el detalle por colaborador",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Liquidación encontrada"
+     },
+     "400": {
+      "description": "Id inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     },
+     "404": {
+      "description": "Liquidación no encontrada"
+     }
+    }
+   }
+  },
+  "/api/jornadas": {
+   "get": {
+    "tags": [
+     "Jornadas"
+    ],
+    "summary": "Listar jornadas",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "desde",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "format": "date"
+      },
+      "description": "Filtra jornadas con fecha mayor o igual a esta."
+     },
+     {
+      "in": "query",
+      "name": "hasta",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "format": "date"
+      },
+      "description": "Filtra jornadas con fecha menor o igual a esta."
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Lista de jornadas"
+     },
+     "400": {
+      "description": "desde/hasta con formato inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar jornadas"
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "Jornadas"
+    ],
+    "summary": "Abrir la jornada del día",
+    "description": "El verbo va en el método HTTP, no en la URL (no existe POST /api/jornadas/abrir). La fecha la fija siempre el servidor (la de hoy); el cliente no la envía y este endpoint no recibe body. Solo puede existir una jornada abierta a la vez en todo el sistema, y solo puede existir una jornada por fecha calendario. Queda registrado el email del usuario autenticado en \"abiertaPor\".\n",
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Jornada abierta correctamente"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para abrir una jornada"
+     },
+     "409": {
+      "description": "Ya existe una jornada abierta, o ya existe una jornada registrada para hoy"
+     }
+    }
+   }
+  },
+  "/api/jornadas/{id}": {
+   "get": {
+    "tags": [
+     "Jornadas"
+    ],
+    "summary": "Obtener una jornada por id",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Jornada encontrada"
+     },
+     "400": {
+      "description": "Id inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar jornadas"
+     },
+     "404": {
+      "description": "Jornada no encontrada"
+     }
+    }
+   }
+  },
+  "/api/jornadas/{id}/estado": {
+   "patch": {
+    "tags": [
+     "Jornadas"
+    ],
+    "summary": "Cerrar o reabrir una jornada",
+    "description": "Único endpoint de cambio de estado (reemplaza los antiguos PATCH /:id/cerrar y PATCH /:id/reabrir: el verbo va en el método HTTP, no en la URL). estado=\"cerrada\" cierra una jornada abierta (disponible para superadmin/administrador/soporte); estado=\"abierta\" reabre una jornada cerrada y está reservado únicamente a superadmin (SCRUM-139). Queda registrado el email del usuario autenticado en \"cerradaPor\". Cada reapertura además queda registrada en el arreglo \"reaperturas\" de la jornada como auditoría mínima.\n",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "estado"
+        ],
+        "properties": {
+         "estado": {
+          "type": "string",
+          "enum": [
+           "cerrada",
+           "abierta"
+          ],
+          "example": "cerrada"
+         }
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Jornada cerrada o reabierta correctamente, según el estado enviado"
+     },
+     "400": {
+      "description": "Estado o id inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para esta operación (reabrir exige superadmin)"
+     },
+     "404": {
+      "description": "Jornada no encontrada"
+     },
+     "409": {
+      "description": "Solo se puede cerrar una jornada abierta; no se cierra con su caja abierta; solo se puede reabrir una jornada cerrada; o ya hay otra jornada abierta (al reabrir)\n"
+     }
+    }
+   }
+  },
+  "/api/jornadas/qr": {
+   "post": {
+    "tags": [
+     "Jornadas"
+    ],
+    "summary": "Generar el QR para abrir la jornada desde la app móvil",
+    "description": "Devuelve el contenido del QR (corefaze-jornada:<token>), de un solo uso y con vigencia de 30 segundos. Solo se guarda el SHA-256 del token.\n",
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "QR generado"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso"
+     }
+    }
+   }
+  },
+  "/api/jornadas/qr/canje": {
+   "post": {
+    "tags": [
+     "Jornadas"
+    ],
+    "summary": "Abrir la jornada con el QR leído desde la app móvil",
+    "description": "Lo llama la app móvil con la sesión de quien lee el QR. Marca el token como usado y abre la jornada del día a nombre de ese usuario.\n",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "contenido"
+        ],
+        "properties": {
+         "contenido": {
+          "type": "string",
+          "example": "corefaze-jornada:..."
+         }
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Jornada abierta"
+     },
+     "400": {
+      "description": "Contenido inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso"
+     },
+     "409": {
+      "description": "El QR venció o ya se usó",
+      "o ya hay una jornada abierta o registrada hoy": null
+     }
+    }
+   }
+  },
+  "/api/inventario": {
+   "get": {
+    "tags": [
+     "Inventario"
+    ],
+    "summary": "Listar insumos con su stock y el aviso de stock bajo",
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Insumos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso"
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "Inventario"
+    ],
+    "summary": "Crear un insumo",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/InsumoDatos"
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Insumo creado"
+     },
+     "400": {
+      "description": "Datos inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Solo superadmin o administrador"
+     },
+     "409": {
+      "description": "Ya existe un insumo con ese nombre"
+     }
+    }
+   }
+  },
+  "/api/inventario/{id}": {
+   "put": {
+    "tags": [
+     "Inventario"
+    ],
+    "summary": "Editar un insumo (el stock cambia solo con movimientos)",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/InsumoDatos"
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Insumo actualizado"
+     },
+     "400": {
+      "description": "Datos inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Solo superadmin o administrador"
+     },
+     "404": {
+      "description": "Insumo no encontrado"
+     },
+     "409": {
+      "description": "Ya existe un insumo con ese nombre"
+     }
+    }
+   }
+  },
+  "/api/inventario/{id}/estado": {
+   "patch": {
+    "tags": [
+     "Inventario"
+    ],
+    "summary": "Activar o desactivar un insumo",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "estado"
+        ],
+        "properties": {
+         "estado": {
+          "type": "string",
+          "enum": [
+           "activo",
+           "inactivo"
+          ]
+         }
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Estado actualizado"
+     },
+     "400": {
+      "description": "Datos inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Solo superadmin o administrador"
+     },
+     "404": {
+      "description": "Insumo no encontrado"
+     }
+    }
+   }
+  },
+  "/api/inventario/{id}/movimientos": {
+   "get": {
+    "tags": [
+     "Inventario"
+    ],
+    "summary": "Últimos movimientos de un insumo",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Movimientos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso"
+     },
+     "404": {
+      "description": "Insumo no encontrado"
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "Inventario"
+    ],
+    "summary": "Sumar o restar unidades a un insumo",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "cantidad"
+        ],
+        "properties": {
+         "cantidad": {
+          "type": "integer",
+          "example": -1
+         },
+         "observacion": {
+          "type": "string",
+          "nullable": true
+         }
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Movimiento registrado",
+      "con el insumo actualizado": null
+     },
+     "400": {
+      "description": "Datos inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso"
+     },
+     "404": {
+      "description": "Insumo no encontrado"
+     },
+     "409": {
+      "description": "El stock quedaría en negativo o el insumo está inactivo"
+     }
+    }
+   }
+  },
+  "/api/credito/clientes": {
+   "get": {
+    "tags": [
+     "Crédito"
+    ],
+    "summary": "Listar clientes con crédito habilitado o con deuda pendiente",
+    "description": "Incluye clientes con creditoHabilitado=true, y también los que ya no lo tienen habilitado pero siguen con deuda sin pagar (la deuda no se borra al deshabilitar el crédito). Por cliente: saldoPendiente (todas las órdenes a crédito no canceladas y sin pago, sin importar su estado operativo) y saldoPagable/cantidadOrdenesPagables (el subconjunto ya 'entregada', lo que se puede pagar ahora).\n",
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Lista de clientes con crédito habilitado"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar crédito"
+     }
+    }
+   }
+  },
+  "/api/credito/clientes/{id}/ordenes-pendientes": {
+   "get": {
+    "tags": [
+     "Crédito"
+    ],
+    "summary": "Listar las órdenes de un cliente que se pueden pagar ahora",
+    "description": "Solo órdenes a crédito, en estado \"entregada\" y sin pago previo (R11): el conjunto exacto de ids válido para ordenIds al registrar un pago.\n",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Órdenes pendientes de pago del cliente"
+     },
+     "400": {
+      "description": "Id inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar crédito"
+     },
+     "404": {
+      "description": "Cliente no encontrado"
+     }
+    }
+   }
+  },
+  "/api/credito/pagos": {
+   "get": {
+    "tags": [
+     "Crédito"
+    ],
+    "summary": "Listar el historial de pagos de crédito, paginado",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "clienteId",
+      "required": false,
+      "schema": {
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "pagina",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 1
+      }
+     },
+     {
+      "in": "query",
+      "name": "porPagina",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 20,
+       "maximum": 100
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Página de pagos de crédito, con total y totalPaginas"
+     },
+     "400": {
+      "description": "clienteId, pagina o porPagina inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar crédito"
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "Crédito"
+    ],
+    "summary": "Registrar el pago completo de un conjunto de órdenes a crédito",
+    "description": "Todo o nada: exige que TODAS las órdenes indicadas tengan su vale verificado (ver POST /api/credito/vales/verificacion); si cualquiera no lo tiene, o no existe, no es del cliente, no es a crédito, no está entregada o ya tiene un pago, no se paga nada (ver registrar_pago_credito_con_medio en la base de datos). El medio de pago es obligatorio y queda registrado. No se admiten abonos parciales, cupo ni fecha de corte.\n",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PagoCreditoRegistrar"
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Pago de crédito registrado correctamente"
+     },
+     "400": {
+      "description": "Datos inválidos (clienteId, ordenIds vacío o con ids repetidos, medio faltante o inválido)"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     },
+     "404": {
+      "description": "El cliente, o alguna de las órdenes indicadas, no existe"
+     },
+     "409": {
+      "description": "Alguna orden no es del cliente, no es a crédito, no está entregada, ya tiene un pago registrado, o no tiene su vale verificado\n"
+     }
+    }
+   }
+  },
+  "/api/credito/pagos/{id}": {
+   "get": {
+    "tags": [
+     "Crédito"
+    ],
+    "summary": "Obtener un pago de crédito por id, con sus órdenes",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Pago encontrado"
+     },
+     "400": {
+      "description": "Id inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar crédito"
+     },
+     "404": {
+      "description": "Pago no encontrado"
+     }
+    }
+   }
+  },
+  "/api/credito/clientes/{id}/ordenes": {
+   "get": {
+    "tags": [
+     "Crédito"
+    ],
+    "summary": "Órdenes a crédito de una empresa, pendientes o pagadas",
+    "description": "pendientes = sin pago y no canceladas (cualquier estado), con su vale; pagadas = con su pago (fecha y medio).\n",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "tipo",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "enum": [
+        "pendientes",
+        "pagadas"
+       ]
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Órdenes de la empresa"
+     },
+     "400": {
+      "description": "Parámetros inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso"
+     },
+     "404": {
+      "description": "Cliente no encontrado"
+     }
+    }
+   }
+  },
+  "/api/credito/clientes/{id}/condiciones": {
+   "patch": {
+    "tags": [
+     "Crédito"
+    ],
+    "summary": "Cupo, día de corte y contacto de una empresa",
+    "description": "El cupo es un tope de referencia; superarlo avisa, no bloquea.",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "cupoCredito": {
+          "type": "integer",
+          "nullable": true,
+          "example": 3000000
+         },
+         "diaCorte": {
+          "type": "integer",
+          "nullable": true,
+          "example": 30
+         },
+         "contacto": {
+          "type": "string",
+          "nullable": true
+         }
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Condiciones actualizadas"
+     },
+     "400": {
+      "description": "Datos inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Solo superadmin o administrador"
+     },
+     "404": {
+      "description": "Cliente no encontrado"
+     },
+     "409": {
+      "description": "El cliente no es una empresa"
+     }
+    }
+   }
+  },
+  "/api/credito/vales": {
+   "post": {
+    "tags": [
+     "Crédito"
+    ],
+    "summary": "Registrar el vale de una orden a crédito que no lo tiene",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "ordenId",
+         "numero"
+        ],
+        "properties": {
+         "ordenId": {
+          "type": "integer"
+         },
+         "numero": {
+          "type": "string",
+          "example": "TA-1234"
+         }
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Vale registrado"
+     },
+     "400": {
+      "description": "Datos inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso"
+     },
+     "404": {
+      "description": "Orden no encontrada"
+     },
+     "409": {
+      "description": "La orden no es a crédito",
+      "ya tiene vale o el número ya existe": null
+     }
+    }
+   }
+  },
+  "/api/credito/vales/verificacion": {
+   "post": {
+    "tags": [
+     "Crédito"
+    ],
+    "summary": "Verificar un vale por su número",
+    "description": "Si el vale es de la empresa y está pendiente, lo marca como recibido. resultado: coincide, pagado, otra_empresa o no_existe.\n",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "clienteId",
+         "numero"
+        ],
+        "properties": {
+         "clienteId": {
+          "type": "integer"
+         },
+         "numero": {
+          "type": "string"
+         }
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Resultado de la verificación"
+     },
+     "400": {
+      "description": "Datos inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso"
+     }
+    }
+   }
+  },
+  "/api/credito/vales/{ordenId}": {
+   "patch": {
+    "tags": [
+     "Crédito"
+    ],
+    "summary": "Marcar o desmarcar el vale de una orden como recibido",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ordenId",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "verificado"
+        ],
+        "properties": {
+         "verificado": {
+          "type": "boolean"
+         }
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Vale actualizado"
+     },
+     "400": {
+      "description": "Datos inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso"
+     },
+     "404": {
+      "description": "La orden no tiene vale"
+     },
+     "409": {
+      "description": "La orden ya está pagada"
+     }
+    }
+   }
+  },
+  "/api/colaboradores": {
+   "get": {
+    "tags": [
+     "Colaboradores"
+    ],
+    "summary": "Listar colaboradores",
+    "description": "Disponible para superadmin, administrador y soporte.",
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Lista de colaboradores"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar colaboradores"
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "Colaboradores"
+    ],
+    "summary": "Registrar un colaborador",
+    "description": "El colaborador nace siempre con estado \"activo\"; el cliente no puede fijarlo en la creación.\n",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ColaboradorCrear"
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Colaborador registrado correctamente"
+     },
+     "400": {
+      "description": "Datos inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     },
+     "409": {
+      "description": "El código o el documento ya pertenecen a otro colaborador"
+     }
+    }
+   }
+  },
+  "/api/colaboradores/{id}": {
+   "get": {
+    "tags": [
+     "Colaboradores"
+    ],
+    "summary": "Obtener un colaborador por id",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Colaborador encontrado"
+     },
+     "400": {
+      "description": "Id inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar colaboradores"
+     },
+     "404": {
+      "description": "Colaborador no encontrado"
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "Colaboradores"
+    ],
+    "summary": "Actualizar un colaborador",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ColaboradorActualizar"
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Colaborador actualizado correctamente"
+     },
+     "400": {
+      "description": "Datos o id inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     },
+     "404": {
+      "description": "Colaborador no encontrado"
+     },
+     "409": {
+      "description": "El código o el documento ya pertenecen a otro colaborador"
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "Colaboradores"
+    ],
+    "summary": "Eliminar un colaborador",
+    "description": "No se puede eliminar un colaborador que tenga órdenes de lavado asociadas.",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Colaborador eliminado correctamente"
+     },
+     "400": {
+      "description": "Id inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     },
+     "404": {
+      "description": "Colaborador no encontrado"
+     },
+     "409": {
+      "description": "El colaborador tiene órdenes de lavado asociadas"
+     }
+    }
+   }
+  },
+  "/api/colaboradores/{id}/estado": {
+   "patch": {
+    "tags": [
+     "Colaboradores"
+    ],
+    "summary": "Cambiar el estado de un colaborador (activo/inactivo)",
+    "description": "Al pasar a \"inactivo\" arranca el período de gracia de DIAS_GRACIA_CODIGO_COLABORADOR días durante el cual su código sigue reservado.\n",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "estado"
+        ],
+        "properties": {
+         "estado": {
+          "type": "string",
+          "enum": [
+           "activo",
+           "inactivo"
+          ],
+          "example": "inactivo"
+         }
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Estado del colaborador actualizado correctamente"
+     },
+     "400": {
+      "description": "Estado o id inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     },
+     "404": {
+      "description": "Colaborador no encontrado"
+     }
+    }
+   }
+  },
+  "/api/clientes": {
+   "get": {
+    "tags": [
+     "Clientes"
+    ],
+    "summary": "Listar clientes",
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Lista de clientes"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar clientes"
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "Clientes"
+    ],
+    "summary": "Registrar un cliente",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ClienteCrear"
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Cliente registrado correctamente"
+     },
+     "400": {
+      "description": "Datos inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     },
+     "409": {
+      "description": "Documento ya registrado"
+     }
+    }
+   }
+  },
+  "/api/clientes/{id}": {
+   "get": {
+    "tags": [
+     "Clientes"
+    ],
+    "summary": "Obtener un cliente por id",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Cliente encontrado"
+     },
+     "400": {
+      "description": "Id inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso para consultar clientes"
+     },
+     "404": {
+      "description": "Cliente no encontrado"
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "Clientes"
+    ],
+    "summary": "Actualizar un cliente",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ClienteActualizar"
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Cliente actualizado correctamente"
+     },
+     "400": {
+      "description": "Datos o id inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     },
+     "404": {
+      "description": "Cliente no encontrado"
+     },
+     "409": {
+      "description": "Documento ya registrado por otro cliente"
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "Clientes"
+    ],
+    "summary": "Eliminar un cliente",
+    "description": "No se puede eliminar un cliente que tenga vehículos asociados.",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Cliente eliminado correctamente"
+     },
+     "400": {
+      "description": "Id inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente a superadmin o administrador"
+     },
+     "404": {
+      "description": "Cliente no encontrado"
+     },
+     "409": {
+      "description": "El cliente tiene vehículos asociados"
+     }
+    }
+   }
+  },
+  "/api/caja": {
+   "get": {
+    "tags": [
+     "Caja"
+    ],
+    "summary": "Estado de la caja de una jornada",
+    "description": "Por defecto la de la jornada abierta (o la última). Trae la caja, sus totales calculados en el servidor (cobrado, por medio, efectivo esperado, por cobrar), sus cobros y egresos, las órdenes terminadas por cobrar y las que siguen en el patio. Si quedó abierta una caja de otra jornada, la trae en `cajaAnterior` (su fecha y sus totales, con el efectivo esperado) para cerrarla con POST /api/caja/cierre antes de abrir la de la jornada actual; si no, `cajaAnterior` es null.\n",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "jornadaId",
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Estado de la caja"
+     },
+     "400": {
+      "description": "jornadaId inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso"
+     },
+     "404": {
+      "description": "Jornada no encontrada"
+     }
+    }
+   }
+  },
+  "/api/caja/apertura": {
+   "post": {
+    "tags": [
+     "Caja"
+    ],
+    "summary": "Abrir la caja de la jornada abierta",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "baseInicial"
+        ],
+        "properties": {
+         "baseInicial": {
+          "type": "integer",
+          "example": 100000
+         }
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Caja abierta"
+     },
+     "400": {
+      "description": "Base inválida"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso"
+     },
+     "409": {
+      "description": "No hay jornada abierta o la caja de la jornada ya se abrió"
+     }
+    }
+   }
+  },
+  "/api/caja/egresos": {
+   "post": {
+    "tags": [
+     "Caja"
+    ],
+    "summary": "Registrar un egreso de efectivo",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "categoria",
+         "valor"
+        ],
+        "properties": {
+         "categoria": {
+          "type": "string",
+          "enum": [
+           "insumos",
+           "almuerzos",
+           "servicios_publicos",
+           "otros"
+          ]
+         },
+         "concepto": {
+          "type": "string",
+          "nullable": true
+         },
+         "valor": {
+          "type": "integer",
+          "example": 36000
+         }
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Egreso registrado"
+     },
+     "400": {
+      "description": "Datos inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso"
+     },
+     "409": {
+      "description": "La caja está cerrada"
+     }
+    }
+   }
+  },
+  "/api/caja/cobros": {
+   "post": {
+    "tags": [
+     "Caja"
+    ],
+    "summary": "Cobrar y entregar una orden terminada",
+    "description": "La orden pasa de terminada a entregada (la misma transición de transicionesOrden). El valor es el de la orden (R4). A crédito exige la empresa (R8) y el número de vale; en efectivo admite lo recibido y devuelve el cambio.\n",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "ordenId",
+         "medioPago"
+        ],
+        "properties": {
+         "ordenId": {
+          "type": "integer"
+         },
+         "medioPago": {
+          "type": "string",
+          "enum": [
+           "efectivo",
+           "nequi",
+           "daviplata",
+           "bancolombia",
+           "datafono",
+           "credito"
+          ]
+         },
+         "recibido": {
+          "type": "integer",
+          "nullable": true
+         },
+         "clienteId": {
+          "type": "integer",
+          "nullable": true
+         },
+         "numeroVale": {
+          "type": "string",
+          "nullable": true
+         }
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Cobro registrado",
+      "con la orden para el comprobante": null
+     },
+     "400": {
+      "description": "Datos inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso"
+     },
+     "404": {
+      "description": "La orden no existe"
+     },
+     "409": {
+      "description": "La orden no está terminada",
+      "la caja está cerrada": null,
+      "la empresa no tiene crédito o el vale ya existe": null
+     }
+    }
+   }
+  },
+  "/api/caja/cierre": {
+   "post": {
+    "tags": [
+     "Caja"
+    ],
+    "summary": "Cerrar la caja abierta con el arqueo",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "efectivoContado"
+        ],
+        "properties": {
+         "efectivoContado": {
+          "type": "integer"
+         }
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Caja cerrada",
+      "con el esperado": null,
+      "lo contado y la diferencia": null
+     },
+     "400": {
+      "description": "Datos inválidos"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Rol sin permiso"
+     },
+     "409": {
+      "description": "No hay una caja abierta"
+     }
+    }
+   }
+  },
+  "/api/caja/{id}/reapertura": {
+   "post": {
+    "tags": [
+     "Caja"
+    ],
+    "summary": "Reabrir una caja cerrada (solo superadmin)",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Caja reabierta"
+     },
+     "400": {
+      "description": "Id inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Solo superadmin"
+     },
+     "404": {
+      "description": "Caja no encontrada"
+     },
+     "409": {
+      "description": "La caja no está cerrada o ya hay otra abierta"
+     }
+    }
+   }
+  },
+  "/api/auth/registro": {
+   "post": {
+    "tags": [
+     "Autenticación"
+    ],
+    "summary": "Registrar un nuevo usuario",
+    "description": "Registra un nuevo usuario utilizando bcrypt para proteger la contraseña. El rol es asignado por el servidor (siempre nace como \"pendiente\") y no puede ser definido por el cliente. Solo un superadmin puede asignar un rol operativo a una cuenta, a través de una operación administrativa aparte.\n",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RegistroUsuario"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Usuario registrado correctamente"
+     },
+     "400": {
+      "description": "Datos inválidos"
+     },
+     "409": {
+      "description": "Correo electrónico ya registrado"
+     }
+    }
+   }
+  },
+  "/api/auth/login": {
+   "post": {
+    "tags": [
+     "Autenticación"
+    ],
+    "summary": "Iniciar sesión",
+    "description": "Verifica email y contraseña. Todavía no genera JWT (llega en el Bloque 5).",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LoginUsuario"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Credenciales correctas"
+     },
+     "400": {
+      "description": "Datos inválidos"
+     },
+     "401": {
+      "description": "Credenciales inválidas"
+     },
+     "403": {
+      "description": "Usuario deshabilitado"
+     }
+    }
+   }
+  },
+  "/api/auth/perfil": {
+   "get": {
+    "tags": [
+     "Autenticación"
+    ],
+    "summary": "Obtener perfil del usuario autenticado",
+    "description": "Requiere API Key y un JWT válido.",
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Usuario autenticado correctamente"
+     },
+     "401": {
+      "description": "Credenciales de autenticación ausentes o inválidas"
+     }
+    }
+   }
+  },
+  "/api/auth/usuarios/{id}/rol": {
+   "patch": {
+    "tags": [
+     "Autenticación"
+    ],
+    "summary": "Asignar rol a un usuario (RBAC)",
+    "description": "Única forma de que un usuario deje de ser \"pendiente\". Operación disponible únicamente para superadmin.\n",
+    "security": [
+     {
+      "ApiKeyAuth": [],
+      "BearerAuth": []
+     }
+    ],
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "minimum": 1
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AsignacionRol"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Rol asignado correctamente"
+     },
+     "400": {
+      "description": "Rol o id inválido"
+     },
+     "401": {
+      "description": "Usuario no autenticado"
+     },
+     "403": {
+      "description": "Operación permitida únicamente al superadmin"
+     },
+     "404": {
+      "description": "Usuario no encontrado"
+     }
+    }
+   }
+  }
+ },
+ "servers": [
+  {
+   "url": "http://host.docker.internal:3100"
+  }
+ ]
+}

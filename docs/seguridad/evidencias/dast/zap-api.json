@@ -1,0 +1,2513 @@
+{
+	"@programName": "ZAP",
+	"@version": "2.17.0",
+	"@generated": "Mon, 23 Nov 2026 22:06:05",
+	"created": "2026-11-23T22:06:05.648043831Z",
+	"insights":[
+		{
+			"level": "Medium",
+			"reason": "Exceeded High",
+			"site": "http://host.docker.internal:3100",
+			"key": "insight.code.4xx",
+			"description": "Percentage of responses with status code 4xx",
+			"statistic": "99"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://host.docker.internal:3100",
+			"key": "insight.code.2xx",
+			"description": "Percentage of responses with status code 2xx",
+			"statistic": "2"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://host.docker.internal:3100",
+			"key": "insight.endpoint.ctype.application/json",
+			"description": "Percentage of endpoints with content type application/json",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://host.docker.internal:3100",
+			"key": "insight.endpoint.method.DELETE",
+			"description": "Percentage of endpoints with method DELETE",
+			"statistic": "3"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://host.docker.internal:3100",
+			"key": "insight.endpoint.method.GET",
+			"description": "Percentage of endpoints with method GET",
+			"statistic": "60"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://host.docker.internal:3100",
+			"key": "insight.endpoint.method.PATCH",
+			"description": "Percentage of endpoints with method PATCH",
+			"statistic": "8"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://host.docker.internal:3100",
+			"key": "insight.endpoint.method.POST",
+			"description": "Percentage of endpoints with method POST",
+			"statistic": "23"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://host.docker.internal:3100",
+			"key": "insight.endpoint.method.PUT",
+			"description": "Percentage of endpoints with method PUT",
+			"statistic": "4"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://host.docker.internal:3100",
+			"key": "insight.endpoint.total",
+			"description": "Count of total endpoints",
+			"statistic": "226"
+		}
+	],
+	"site":[ 
+		{
+			"@name": "http://host.docker.internal:3100",
+			"@host": "host.docker.internal",
+			"@port": "3100",
+			"@ssl": "false",
+			"alerts": [ 
+				{
+					"pluginid": "100000",
+					"alertRef": "100000-1",
+					"alert": "A Client Error response code was returned by the server",
+					"name": "A Client Error response code was returned by the server",
+					"riskcode": "0",
+					"confidence": "3",
+					"riskdesc": "Informational (High)",
+					"desc": "<p>A response code of 401 was returned by the server.</p><p>This may indicate that the application is failing to handle unexpected input correctly.</p><p>Raised by the 'Alert on HTTP Response Code Error' script</p>",
+					"instances":[ 
+						{
+							"id": "61",
+							"uri": "http://host.docker.internal:3100/api/clientes/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/clientes\/10",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15753",
+							"uri": "http://host.docker.internal:3100/api/clientes/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/clientes\/10\/",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "55",
+							"uri": "http://host.docker.internal:3100/api/colaboradores/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/colaboradores\/10",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15751",
+							"uri": "http://host.docker.internal:3100/api/colaboradores/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/colaboradores\/10\/",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "12",
+							"uri": "http://host.docker.internal:3100/api/servicios/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/servicios\/10",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15785",
+							"uri": "http://host.docker.internal:3100/api/servicios/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/servicios\/10\/",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4",
+							"uri": "http://host.docker.internal:3100/api/vehiculos/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/vehiculos\/10",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15788",
+							"uri": "http://host.docker.internal:3100/api/vehiculos/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/vehiculos\/10\/",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "140",
+							"uri": "http://host.docker.internal:3100",
+							"nodeName": "http:\/\/host.docker.internal:3100",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "15790",
+							"uri": "http://host.docker.internal:3100/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "72",
+							"uri": "http://host.docker.internal:3100/6753425377069761855",
+							"nodeName": "http:\/\/host.docker.internal:3100\/6753425377069761855",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "389",
+							"uri": "http://host.docker.internal:3100/api",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15793",
+							"uri": "http://host.docker.internal:3100/api/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "73",
+							"uri": "http://host.docker.internal:3100/api/4040033117497887077",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/4040033117497887077",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "411",
+							"uri": "http://host.docker.internal:3100/api/auth",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15795",
+							"uri": "http://host.docker.internal:3100/api/auth/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "74",
+							"uri": "http://host.docker.internal:3100/api/auth/3143538214624632976",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/3143538214624632976",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "17758",
+							"uri": "http://host.docker.internal:3100/api/auth/actuator/health",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/actuator\/health",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "70",
+							"uri": "http://host.docker.internal:3100/api/auth/perfil",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/perfil",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15796",
+							"uri": "http://host.docker.internal:3100/api/auth/perfil/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/perfil\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "435",
+							"uri": "http://host.docker.internal:3100/api/auth/usuarios",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/usuarios",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15798",
+							"uri": "http://host.docker.internal:3100/api/auth/usuarios/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/usuarios\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "458",
+							"uri": "http://host.docker.internal:3100/api/auth/usuarios/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/usuarios\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15799",
+							"uri": "http://host.docker.internal:3100/api/auth/usuarios/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/usuarios\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "76",
+							"uri": "http://host.docker.internal:3100/api/auth/usuarios/10/6355194241217389624",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/usuarios\/10\/6355194241217389624",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "75",
+							"uri": "http://host.docker.internal:3100/api/auth/usuarios/4769690099141429827",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/usuarios\/4769690099141429827",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "467",
+							"uri": "http://host.docker.internal:3100/api/caja",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/caja",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "62",
+							"uri": "http://host.docker.internal:3100/api/caja?jornadaId=10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/caja (jornadaId)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15801",
+							"uri": "http://host.docker.internal:3100/api/caja/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/caja\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "494",
+							"uri": "http://host.docker.internal:3100/api/caja/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/caja\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15803",
+							"uri": "http://host.docker.internal:3100/api/caja/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/caja\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "78",
+							"uri": "http://host.docker.internal:3100/api/caja/10/7195598533882102428",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/caja\/10\/7195598533882102428",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "77",
+							"uri": "http://host.docker.internal:3100/api/caja/1020215859798119903",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/caja\/1020215859798119903",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "57",
+							"uri": "http://host.docker.internal:3100/api/clientes",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/clientes",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15804",
+							"uri": "http://host.docker.internal:3100/api/clientes/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/clientes\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "59",
+							"uri": "http://host.docker.internal:3100/api/clientes/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/clientes\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15807",
+							"uri": "http://host.docker.internal:3100/api/clientes/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/clientes\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "79",
+							"uri": "http://host.docker.internal:3100/api/clientes/8550659198869029976",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/clientes\/8550659198869029976",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "51",
+							"uri": "http://host.docker.internal:3100/api/colaboradores",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/colaboradores",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15805",
+							"uri": "http://host.docker.internal:3100/api/colaboradores/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/colaboradores\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "53",
+							"uri": "http://host.docker.internal:3100/api/colaboradores/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/colaboradores\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15809",
+							"uri": "http://host.docker.internal:3100/api/colaboradores/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/colaboradores\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "81",
+							"uri": "http://host.docker.internal:3100/api/colaboradores/10/8638202823680040654",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/colaboradores\/10\/8638202823680040654",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "80",
+							"uri": "http://host.docker.internal:3100/api/colaboradores/7179284666770229683",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/colaboradores\/7179284666770229683",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "523",
+							"uri": "http://host.docker.internal:3100/api/credito",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15811",
+							"uri": "http://host.docker.internal:3100/api/credito/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "82",
+							"uri": "http://host.docker.internal:3100/api/credito/7590695808258921474",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/7590695808258921474",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "41",
+							"uri": "http://host.docker.internal:3100/api/credito/clientes",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/clientes",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15812",
+							"uri": "http://host.docker.internal:3100/api/credito/clientes/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/clientes\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "550",
+							"uri": "http://host.docker.internal:3100/api/credito/clientes/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/clientes\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15813",
+							"uri": "http://host.docker.internal:3100/api/credito/clientes/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/clientes\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "84",
+							"uri": "http://host.docker.internal:3100/api/credito/clientes/10/9136417477864410651",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/clientes\/10\/9136417477864410651",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "46",
+							"uri": "http://host.docker.internal:3100/api/credito/clientes/10/ordenes?tipo=pendientes",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/clientes\/10\/ordenes (tipo)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "42",
+							"uri": "http://host.docker.internal:3100/api/credito/clientes/10/ordenes-pendientes",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/clientes\/10\/ordenes-pendientes",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15815",
+							"uri": "http://host.docker.internal:3100/api/credito/clientes/10/ordenes-pendientes/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/clientes\/10\/ordenes-pendientes\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15816",
+							"uri": "http://host.docker.internal:3100/api/credito/clientes/10/ordenes/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/clientes\/10\/ordenes\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "83",
+							"uri": "http://host.docker.internal:3100/api/credito/clientes/2785055428732722007",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/clientes\/2785055428732722007",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "591",
+							"uri": "http://host.docker.internal:3100/api/credito/pagos",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/pagos",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "43",
+							"uri": "http://host.docker.internal:3100/api/credito/pagos?clienteId=10&pagina=1&porPagina=20",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/pagos (clienteId,pagina,porPagina)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15818",
+							"uri": "http://host.docker.internal:3100/api/credito/pagos/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/pagos\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "45",
+							"uri": "http://host.docker.internal:3100/api/credito/pagos/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/pagos\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15817",
+							"uri": "http://host.docker.internal:3100/api/credito/pagos/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/pagos\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "85",
+							"uri": "http://host.docker.internal:3100/api/credito/pagos/8631769730419367330",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/pagos\/8631769730419367330",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "599",
+							"uri": "http://host.docker.internal:3100/api/credito/vales",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/vales",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15822",
+							"uri": "http://host.docker.internal:3100/api/credito/vales/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/vales\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "86",
+							"uri": "http://host.docker.internal:3100/api/credito/vales/7094641228517832194",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/vales\/7094641228517832194",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "35",
+							"uri": "http://host.docker.internal:3100/api/inventario",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/inventario",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15821",
+							"uri": "http://host.docker.internal:3100/api/inventario/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/inventario\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "629",
+							"uri": "http://host.docker.internal:3100/api/inventario/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/inventario\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15824",
+							"uri": "http://host.docker.internal:3100/api/inventario/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/inventario\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "88",
+							"uri": "http://host.docker.internal:3100/api/inventario/10/3643400672226261982",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/inventario\/10\/3643400672226261982",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "39",
+							"uri": "http://host.docker.internal:3100/api/inventario/10/movimientos",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/inventario\/10\/movimientos",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15825",
+							"uri": "http://host.docker.internal:3100/api/inventario/10/movimientos/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/inventario\/10\/movimientos\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "87",
+							"uri": "http://host.docker.internal:3100/api/inventario/279894065552617855",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/inventario\/279894065552617855",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "656",
+							"uri": "http://host.docker.internal:3100/api/jornadas",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/jornadas",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "29",
+							"uri": "http://host.docker.internal:3100/api/jornadas?desde=desde&hasta=hasta",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/jornadas (desde,hasta)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15829",
+							"uri": "http://host.docker.internal:3100/api/jornadas/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/jornadas\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "31",
+							"uri": "http://host.docker.internal:3100/api/jornadas/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/jornadas\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15828",
+							"uri": "http://host.docker.internal:3100/api/jornadas/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/jornadas\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "90",
+							"uri": "http://host.docker.internal:3100/api/jornadas/10/812347097466520516",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/jornadas\/10\/812347097466520516",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "89",
+							"uri": "http://host.docker.internal:3100/api/jornadas/7342104129806985008",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/jornadas\/7342104129806985008",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "682",
+							"uri": "http://host.docker.internal:3100/api/jornadas/qr",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/jornadas\/qr",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15830",
+							"uri": "http://host.docker.internal:3100/api/jornadas/qr/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/jornadas\/qr\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "91",
+							"uri": "http://host.docker.internal:3100/api/jornadas/qr/1425494564729617744",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/jornadas\/qr\/1425494564729617744",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "706",
+							"uri": "http://host.docker.internal:3100/api/nomina",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15834",
+							"uri": "http://host.docker.internal:3100/api/nomina/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "92",
+							"uri": "http://host.docker.internal:3100/api/nomina/867094868120210233",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/867094868120210233",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "733",
+							"uri": "http://host.docker.internal:3100/api/nomina/colaboradores",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/colaboradores",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15835",
+							"uri": "http://host.docker.internal:3100/api/nomina/colaboradores/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/colaboradores\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "774",
+							"uri": "http://host.docker.internal:3100/api/nomina/colaboradores/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/colaboradores\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15838",
+							"uri": "http://host.docker.internal:3100/api/nomina/colaboradores/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/colaboradores\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "94",
+							"uri": "http://host.docker.internal:3100/api/nomina/colaboradores/10/1631792185817766953",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/colaboradores\/10\/1631792185817766953",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "24",
+							"uri": "http://host.docker.internal:3100/api/nomina/colaboradores/10/descuentos?inicio=inicio&fin=fin",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/colaboradores\/10\/descuentos (fin,inicio)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15839",
+							"uri": "http://host.docker.internal:3100/api/nomina/colaboradores/10/descuentos/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/colaboradores\/10\/descuentos\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "93",
+							"uri": "http://host.docker.internal:3100/api/nomina/colaboradores/7500524612653154823",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/colaboradores\/7500524612653154823",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "806",
+							"uri": "http://host.docker.internal:3100/api/nomina/liquidaciones",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/liquidaciones",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "27",
+							"uri": "http://host.docker.internal:3100/api/nomina/liquidaciones?pagina=1&porPagina=20",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/liquidaciones (pagina,porPagina)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15841",
+							"uri": "http://host.docker.internal:3100/api/nomina/liquidaciones/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/liquidaciones\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "28",
+							"uri": "http://host.docker.internal:3100/api/nomina/liquidaciones/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/liquidaciones\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15840",
+							"uri": "http://host.docker.internal:3100/api/nomina/liquidaciones/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/liquidaciones\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "95",
+							"uri": "http://host.docker.internal:3100/api/nomina/liquidaciones/5235155235600977783",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/liquidaciones\/5235155235600977783",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "830",
+							"uri": "http://host.docker.internal:3100/api/nomina/quincenas",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/quincenas",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15844",
+							"uri": "http://host.docker.internal:3100/api/nomina/quincenas/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/quincenas\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "96",
+							"uri": "http://host.docker.internal:3100/api/nomina/quincenas/206522240206657745",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/quincenas\/206522240206657745",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "23",
+							"uri": "http://host.docker.internal:3100/api/nomina/quincenas/resumen?inicio=inicio&fin=fin",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/quincenas\/resumen (fin,inicio)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15845",
+							"uri": "http://host.docker.internal:3100/api/nomina/quincenas/resumen/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/quincenas\/resumen\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "853",
+							"uri": "http://host.docker.internal:3100/api/ordenes-lavado",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/ordenes-lavado",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "18",
+							"uri": "http://host.docker.internal:3100/api/ordenes-lavado?fecha=fecha&colaboradorId=10&servicioId=10&medioPago=efectivo&jornadaId=10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/ordenes-lavado (colaboradorId,fecha,jornadaId,medioPago,servicioId)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15847",
+							"uri": "http://host.docker.internal:3100/api/ordenes-lavado/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/ordenes-lavado\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "20",
+							"uri": "http://host.docker.internal:3100/api/ordenes-lavado/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/ordenes-lavado\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15849",
+							"uri": "http://host.docker.internal:3100/api/ordenes-lavado/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/ordenes-lavado\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "98",
+							"uri": "http://host.docker.internal:3100/api/ordenes-lavado/10/7572002530546561890",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/ordenes-lavado\/10\/7572002530546561890",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "97",
+							"uri": "http://host.docker.internal:3100/api/ordenes-lavado/4805287441340464626",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/ordenes-lavado\/4805287441340464626",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "16",
+							"uri": "http://host.docker.internal:3100/api/parametros",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/parametros",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15850",
+							"uri": "http://host.docker.internal:3100/api/parametros/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/parametros\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "891",
+							"uri": "http://host.docker.internal:3100/api/reportes",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/reportes",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15852",
+							"uri": "http://host.docker.internal:3100/api/reportes/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/reportes\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "99",
+							"uri": "http://host.docker.internal:3100/api/reportes/8257839611624514465",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/reportes\/8257839611624514465",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15",
+							"uri": "http://host.docker.internal:3100/api/reportes/ingresos-por-hora?fecha=fecha",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/reportes\/ingresos-por-hora (fecha)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15854",
+							"uri": "http://host.docker.internal:3100/api/reportes/ingresos-por-hora/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/reportes\/ingresos-por-hora\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "14",
+							"uri": "http://host.docker.internal:3100/api/reportes/resumen?desde=desde&hasta=hasta",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/reportes\/resumen (desde,hasta)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15853",
+							"uri": "http://host.docker.internal:3100/api/reportes/resumen/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/reportes\/resumen\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "908",
+							"uri": "http://host.docker.internal:3100/api/seguridad",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/seguridad",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15856",
+							"uri": "http://host.docker.internal:3100/api/seguridad/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/seguridad\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "100",
+							"uri": "http://host.docker.internal:3100/api/seguridad/343952647919473170",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/seguridad\/343952647919473170",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "13",
+							"uri": "http://host.docker.internal:3100/api/seguridad/cliente",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/seguridad\/cliente",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15859",
+							"uri": "http://host.docker.internal:3100/api/seguridad/cliente/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/seguridad\/cliente\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8",
+							"uri": "http://host.docker.internal:3100/api/servicios",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/servicios",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15857",
+							"uri": "http://host.docker.internal:3100/api/servicios/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/servicios\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "10",
+							"uri": "http://host.docker.internal:3100/api/servicios/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/servicios\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15860",
+							"uri": "http://host.docker.internal:3100/api/servicios/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/servicios\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "101",
+							"uri": "http://host.docker.internal:3100/api/servicios/8984333385718184009",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/servicios\/8984333385718184009",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "946",
+							"uri": "http://host.docker.internal:3100/api/usuarios",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/usuarios",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "5",
+							"uri": "http://host.docker.internal:3100/api/usuarios?rol=superadmin&activo=true&busqueda=busqueda&pagina=1&porPagina=20",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/usuarios (activo,busqueda,pagina,porPagina,rol)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15861",
+							"uri": "http://host.docker.internal:3100/api/usuarios/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/usuarios\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6",
+							"uri": "http://host.docker.internal:3100/api/usuarios/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/usuarios\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15865",
+							"uri": "http://host.docker.internal:3100/api/usuarios/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/usuarios\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "103",
+							"uri": "http://host.docker.internal:3100/api/usuarios/10/3184031424897085774",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/usuarios\/10\/3184031424897085774",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "102",
+							"uri": "http://host.docker.internal:3100/api/usuarios/1070665042648427186",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/usuarios\/1070665042648427186",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "0",
+							"uri": "http://host.docker.internal:3100/api/vehiculos",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/vehiculos",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15862",
+							"uri": "http://host.docker.internal:3100/api/vehiculos/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/vehiculos\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2",
+							"uri": "http://host.docker.internal:3100/api/vehiculos/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/vehiculos\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15864",
+							"uri": "http://host.docker.internal:3100/api/vehiculos/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/vehiculos\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "104",
+							"uri": "http://host.docker.internal:3100/api/vehiculos/1998555420151705388",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/vehiculos\/1998555420151705388",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "71",
+							"uri": "http://host.docker.internal:3100/api/auth/usuarios/10/rol",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/usuarios\/10\/rol ()({rol})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15750",
+							"uri": "http://host.docker.internal:3100/api/auth/usuarios/10/rol/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/usuarios\/10\/rol\/ ()({rol})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "56",
+							"uri": "http://host.docker.internal:3100/api/colaboradores/10/estado",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/colaboradores\/10\/estado ()({estado})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15754",
+							"uri": "http://host.docker.internal:3100/api/colaboradores/10/estado/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/colaboradores\/10\/estado\/ ()({estado})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "47",
+							"uri": "http://host.docker.internal:3100/api/credito/clientes/10/condiciones",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/clientes\/10\/condiciones ()({cupoCredito,diaCorte,contacto})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15782",
+							"uri": "http://host.docker.internal:3100/api/credito/clientes/10/condiciones/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/clientes\/10\/condiciones\/ ()({cupoCredito,diaCorte,contacto})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "50",
+							"uri": "http://host.docker.internal:3100/api/credito/vales/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/vales\/10 ()({verificado})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15764",
+							"uri": "http://host.docker.internal:3100/api/credito/vales/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/vales\/10\/ ()({verificado})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "38",
+							"uri": "http://host.docker.internal:3100/api/inventario/10/estado",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/inventario\/10\/estado ()({estado})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15765",
+							"uri": "http://host.docker.internal:3100/api/inventario/10/estado/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/inventario\/10\/estado\/ ()({estado})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "32",
+							"uri": "http://host.docker.internal:3100/api/jornadas/10/estado",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/jornadas\/10\/estado ()({estado})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15757",
+							"uri": "http://host.docker.internal:3100/api/jornadas/10/estado/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/jornadas\/10\/estado\/ ()({estado})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "21",
+							"uri": "http://host.docker.internal:3100/api/ordenes-lavado/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/ordenes-lavado\/10 ()({vehiculoId,colaboradorId,medioPago,clienteId,observaciones})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15778",
+							"uri": "http://host.docker.internal:3100/api/ordenes-lavado/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/ordenes-lavado\/10\/ ()({vehiculoId,colaboradorId,medioPago,clienteId,observaciones})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "22",
+							"uri": "http://host.docker.internal:3100/api/ordenes-lavado/10/estado",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/ordenes-lavado\/10\/estado ()({estado,motivo})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15784",
+							"uri": "http://host.docker.internal:3100/api/ordenes-lavado/10/estado/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/ordenes-lavado\/10\/estado\/ ()({estado,motivo})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "17",
+							"uri": "http://host.docker.internal:3100/api/parametros",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/parametros ()({nombreNegocio,nit,direccion,telefono,porcentajeComision,comisionVigenteDesde,descontarComisionDiaria,costoArriendo,costoLuz,costoAgua,costoNominaFija,costoDepreciacion,costoInsumos,costoVariableLavado,precioPromedioReferencia,topePrestamoColaborador,diasOperacionMes})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15777",
+							"uri": "http://host.docker.internal:3100/api/parametros/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/parametros\/ ()({nombreNegocio,nit,direccion,telefono,porcentajeComision,comisionVigenteDesde,descontarComisionDiaria,costoArriendo,costoLuz,costoAgua,costoNominaFija,costoDepreciacion,costoInsumos,costoVariableLavado,precioPromedioReferencia,topePrestamoColaborador,diasOperacionMes})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "7",
+							"uri": "http://host.docker.internal:3100/api/usuarios/10/estado",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/usuarios\/10\/estado ()({activo})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15770",
+							"uri": "http://host.docker.internal:3100/api/usuarios/10/estado/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/usuarios\/10\/estado\/ ()({activo})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "69",
+							"uri": "http://host.docker.internal:3100/api/auth/login",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/login ()({email,password})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15748",
+							"uri": "http://host.docker.internal:3100/api/auth/login/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/login\/ ()({email,password})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "68",
+							"uri": "http://host.docker.internal:3100/api/auth/registro",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/registro ()({nombre,email,password})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15752",
+							"uri": "http://host.docker.internal:3100/api/auth/registro/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/registro\/ ()({nombre,email,password})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "67",
+							"uri": "http://host.docker.internal:3100/api/caja/10/reapertura",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/caja\/10\/reapertura",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15749",
+							"uri": "http://host.docker.internal:3100/api/caja/10/reapertura/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/caja\/10\/reapertura\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "63",
+							"uri": "http://host.docker.internal:3100/api/caja/apertura",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/caja\/apertura ()({baseInicial})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15759",
+							"uri": "http://host.docker.internal:3100/api/caja/apertura/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/caja\/apertura\/ ()({baseInicial})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "66",
+							"uri": "http://host.docker.internal:3100/api/caja/cierre",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/caja\/cierre ()({efectivoContado})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15760",
+							"uri": "http://host.docker.internal:3100/api/caja/cierre/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/caja\/cierre\/ ()({efectivoContado})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "65",
+							"uri": "http://host.docker.internal:3100/api/caja/cobros",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/caja\/cobros ()({ordenId,medioPago,recibido,clienteId,numeroVale})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15758",
+							"uri": "http://host.docker.internal:3100/api/caja/cobros/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/caja\/cobros\/ ()({ordenId,medioPago,recibido,clienteId,numeroVale})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "64",
+							"uri": "http://host.docker.internal:3100/api/caja/egresos",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/caja\/egresos ()({categoria,concepto,valor})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15756",
+							"uri": "http://host.docker.internal:3100/api/caja/egresos/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/caja\/egresos\/ ()({categoria,concepto,valor})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "58",
+							"uri": "http://host.docker.internal:3100/api/clientes",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/clientes ()({nombre,documento,tipo,telefono,email,creditoHabilitado})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15755",
+							"uri": "http://host.docker.internal:3100/api/clientes/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/clientes\/ ()({nombre,documento,tipo,telefono,email,creditoHabilitado})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "52",
+							"uri": "http://host.docker.internal:3100/api/colaboradores",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/colaboradores ()({codigo,nombre,documento,telefono,porcentajeComision,tipoVinculacion})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15762",
+							"uri": "http://host.docker.internal:3100/api/colaboradores/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/colaboradores\/ ()({codigo,nombre,documento,telefono,porcentajeComision,tipoVinculacion})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "427",
+							"uri": "http://host.docker.internal:3100/api/credito/pagos",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/pagos ()({clienteId,ordenIds:[],medio})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "44",
+							"uri": "http://host.docker.internal:3100/api/credito/pagos",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/pagos ()({clienteId,ordenIds:[{}],medio})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15761",
+							"uri": "http://host.docker.internal:3100/api/credito/pagos/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/pagos\/ ()({clienteId,ordenIds:[{}],medio})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "48",
+							"uri": "http://host.docker.internal:3100/api/credito/vales",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/vales ()({ordenId,numero})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15767",
+							"uri": "http://host.docker.internal:3100/api/credito/vales/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/vales\/ ()({ordenId,numero})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "49",
+							"uri": "http://host.docker.internal:3100/api/credito/vales/verificacion",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/vales\/verificacion ()({clienteId,numero})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15763",
+							"uri": "http://host.docker.internal:3100/api/credito/vales/verificacion/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/credito\/vales\/verificacion\/ ()({clienteId,numero})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "36",
+							"uri": "http://host.docker.internal:3100/api/inventario",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/inventario ()({nombre,categoria,unidad,stockMinimo,stockInicial})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15775",
+							"uri": "http://host.docker.internal:3100/api/inventario/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/inventario\/ ()({nombre,categoria,unidad,stockMinimo,stockInicial})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "40",
+							"uri": "http://host.docker.internal:3100/api/inventario/10/movimientos",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/inventario\/10\/movimientos ()({cantidad,observacion})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15769",
+							"uri": "http://host.docker.internal:3100/api/inventario/10/movimientos/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/inventario\/10\/movimientos\/ ()({cantidad,observacion})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "30",
+							"uri": "http://host.docker.internal:3100/api/jornadas",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/jornadas",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15768",
+							"uri": "http://host.docker.internal:3100/api/jornadas/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/jornadas\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "33",
+							"uri": "http://host.docker.internal:3100/api/jornadas/qr",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/jornadas\/qr",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15771",
+							"uri": "http://host.docker.internal:3100/api/jornadas/qr/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/jornadas\/qr\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "34",
+							"uri": "http://host.docker.internal:3100/api/jornadas/qr/canje",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/jornadas\/qr\/canje ()({contenido})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15772",
+							"uri": "http://host.docker.internal:3100/api/jornadas/qr/canje/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/jornadas\/qr\/canje\/ ()({contenido})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "25",
+							"uri": "http://host.docker.internal:3100/api/nomina/descuentos",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/descuentos ()({colaboradorId,tipo,valor,fecha,observacion})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15773",
+							"uri": "http://host.docker.internal:3100/api/nomina/descuentos/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/descuentos\/ ()({colaboradorId,tipo,valor,fecha,observacion})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "26",
+							"uri": "http://host.docker.internal:3100/api/nomina/quincenas/liquidar",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/quincenas\/liquidar ()({inicio,fin})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15783",
+							"uri": "http://host.docker.internal:3100/api/nomina/quincenas/liquidar/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/nomina\/quincenas\/liquidar\/ ()({inicio,fin})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "19",
+							"uri": "http://host.docker.internal:3100/api/ordenes-lavado",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/ordenes-lavado ()({turno,vehiculoId,servicioId,colaboradorId,medioPago,clienteId,autorizaMotor,observaciones})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15776",
+							"uri": "http://host.docker.internal:3100/api/ordenes-lavado/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/ordenes-lavado\/ ()({turno,vehiculoId,servicioId,colaboradorId,medioPago,clienteId,autorizaMotor,observaciones})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "9",
+							"uri": "http://host.docker.internal:3100/api/servicios",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/servicios ()({numero,nombre,descripcion,categoria,tarifas:[{tipoVehiculo,valor}]})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15779",
+							"uri": "http://host.docker.internal:3100/api/servicios/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/servicios\/ ()({numero,nombre,descripcion,categoria,tarifas:[{tipoVehiculo,valor}]})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "1",
+							"uri": "http://host.docker.internal:3100/api/vehiculos",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/vehiculos ()({placa,tipoVehiculo,marca,color,clienteId})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15789",
+							"uri": "http://host.docker.internal:3100/api/vehiculos/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/vehiculos\/ ()({placa,tipoVehiculo,marca,color,clienteId})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "11809",
+							"uri": "http://host.docker.internal:3100/computeMetadata/v1/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/computeMetadata\/v1\/ ()({email,password})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "11789",
+							"uri": "http://host.docker.internal:3100/latest/meta-data/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/latest\/meta-data\/ ()({email,password})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "12058",
+							"uri": "http://host.docker.internal:3100/metadata/instance",
+							"nodeName": "http:\/\/host.docker.internal:3100\/metadata\/instance ()({email,password})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "12080",
+							"uri": "http://host.docker.internal:3100/metadata/v1",
+							"nodeName": "http:\/\/host.docker.internal:3100\/metadata\/v1 ()({email,password})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "11874",
+							"uri": "http://host.docker.internal:3100/opc/v1/instance/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/opc\/v1\/instance\/ ()({email,password})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "11937",
+							"uri": "http://host.docker.internal:3100/opc/v2/instance/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/opc\/v2\/instance\/ ()({email,password})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "12127",
+							"uri": "http://host.docker.internal:3100/openstack/latest/meta_data.json",
+							"nodeName": "http:\/\/host.docker.internal:3100\/openstack\/latest\/meta_data.json ()({email,password})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "60",
+							"uri": "http://host.docker.internal:3100/api/clientes/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/clientes\/10 ()({nombre,documento,tipo,telefono,email,creditoHabilitado,estado})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15774",
+							"uri": "http://host.docker.internal:3100/api/clientes/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/clientes\/10\/ ()({nombre,documento,tipo,telefono,email,creditoHabilitado,estado})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "54",
+							"uri": "http://host.docker.internal:3100/api/colaboradores/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/colaboradores\/10 ()({codigo,nombre,documento,telefono,porcentajeComision,tipoVinculacion})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15781",
+							"uri": "http://host.docker.internal:3100/api/colaboradores/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/colaboradores\/10\/ ()({codigo,nombre,documento,telefono,porcentajeComision,tipoVinculacion})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "37",
+							"uri": "http://host.docker.internal:3100/api/inventario/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/inventario\/10 ()({nombre,categoria,unidad,stockMinimo,stockInicial})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15766",
+							"uri": "http://host.docker.internal:3100/api/inventario/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/inventario\/10\/ ()({nombre,categoria,unidad,stockMinimo,stockInicial})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "11",
+							"uri": "http://host.docker.internal:3100/api/servicios/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/servicios\/10 ()({numero,nombre,descripcion,categoria,tarifas:[{tipoVehiculo,valor}],activo})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15780",
+							"uri": "http://host.docker.internal:3100/api/servicios/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/servicios\/10\/ ()({numero,nombre,descripcion,categoria,tarifas:[{tipoVehiculo,valor}],activo})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "3",
+							"uri": "http://host.docker.internal:3100/api/vehiculos/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/vehiculos\/10 ()({placa,tipoVehiculo,marca,color,clienteId})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15786",
+							"uri": "http://host.docker.internal:3100/api/vehiculos/10/",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/vehiculos\/10\/ ()({placa,tipoVehiculo,marca,color,clienteId})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						}
+					],
+					"count": "226",
+					"systemic": false,
+					"solution": "",
+					"otherinfo": "",
+					"reference": "",
+					"cweid": "388",
+					"wascid": "20",
+					"sourceid": "91"
+				},
+				{
+					"pluginid": "10111",
+					"alertRef": "10111",
+					"alert": "Authentication Request Identified",
+					"name": "Authentication Request Identified",
+					"riskcode": "0",
+					"confidence": "1",
+					"riskdesc": "Informational (Low)",
+					"desc": "<p>The given request has been identified as an authentication request. The 'Other Info' field contains a set of key=value lines which identify any relevant fields. If the request is in a context which has an Authentication Method set to \"Auto-Detect\" then this rule will change the authentication to match the request identified.</p>",
+					"instances":[ 
+						{
+							"id": "723",
+							"uri": "http://host.docker.internal:3100/api/auth/registro",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/registro ()({nombre,email,password})",
+							"method": "POST",
+							"param": "email",
+							"attack": "",
+							"evidence": "password",
+							"otherinfo": "userParam=email\nuserValue=zaproxy@example.com\npasswordParam=password"
+						},
+						{
+							"id": "724",
+							"uri": "http://host.docker.internal:3100/api/auth/login",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/auth\/login ()({email,password})",
+							"method": "POST",
+							"param": "email",
+							"attack": "",
+							"evidence": "password",
+							"otherinfo": "userParam=email\nuserValue=zaproxy@example.com\npasswordParam=password"
+						}
+					],
+					"count": "2",
+					"systemic": false,
+					"solution": "<p>This is an informational alert rather than a vulnerability and so there is nothing to fix.</p>",
+					"otherinfo": "<p>userParam=email</p><p>userValue=zaproxy@example.com</p><p>passwordParam=password</p>",
+					"reference": "<p>https://www.zaproxy.org/docs/desktop/addons/authentication-helper/auth-req-id/</p>",
+					"cweid": "-1",
+					"wascid": "-1",
+					"sourceid": "100"
+				},
+				{
+					"pluginid": "10049",
+					"alertRef": "10049-1",
+					"alert": "Non-Storable Content",
+					"name": "Non-Storable Content",
+					"riskcode": "0",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>The response contents are not storable by caching components such as proxy servers. If the response does not contain sensitive, personal or user-specific information, it may benefit from being stored and cached, to improve performance.</p>",
+					"instances":[ 
+						{
+							"id": "569",
+							"uri": "http://host.docker.internal:3100/api/servicios",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/servicios",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "568",
+							"uri": "http://host.docker.internal:3100/api/vehiculos/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/vehiculos\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "570",
+							"uri": "http://host.docker.internal:3100/api/servicios",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/servicios ()({numero,nombre,descripcion,categoria,tarifas:[{tipoVehiculo,valor}]})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "566",
+							"uri": "http://host.docker.internal:3100/api/servicios/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/servicios\/10 ()({numero,nombre,descripcion,categoria,tarifas:[{tipoVehiculo,valor}],activo})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "PUT ",
+							"otherinfo": ""
+						},
+						{
+							"id": "559",
+							"uri": "http://host.docker.internal:3100/api/vehiculos/10",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/vehiculos\/10 ()({placa,tipoVehiculo,marca,color,clienteId})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "PUT ",
+							"otherinfo": ""
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>The content may be marked as storable by ensuring that the following conditions are satisfied:</p><p>The request method must be understood by the cache and defined as being cacheable (\"GET\", \"HEAD\", and \"POST\" are currently defined as cacheable)</p><p>The response status code must be understood by the cache (one of the 1XX, 2XX, 3XX, 4XX, or 5XX response classes are generally understood)</p><p>The \"no-store\" cache directive must not appear in the request or response header fields</p><p>For caching by \"shared\" caches such as \"proxy\" caches, the \"private\" response directive must not appear in the response</p><p>For caching by \"shared\" caches such as \"proxy\" caches, the \"Authorization\" header field must not appear in the request, unless the response explicitly allows it (using one of the \"must-revalidate\", \"public\", or \"s-maxage\" Cache-Control response directives)</p><p>In addition to the conditions above, at least one of the following conditions must also be satisfied by the response:</p><p>It must contain an \"Expires\" header field</p><p>It must contain a \"max-age\" response directive</p><p>For \"shared\" caches such as \"proxy\" caches, it must contain a \"s-maxage\" response directive</p><p>It must contain a \"Cache Control Extension\" that allows it to be cached</p><p>It must have a status code that is defined as cacheable by default (200, 203, 204, 206, 300, 301, 404, 405, 410, 414, 501).</p>",
+					"otherinfo": "",
+					"reference": "<p>https://datatracker.ietf.org/doc/html/rfc7234</p><p>https://datatracker.ietf.org/doc/html/rfc7231</p><p>https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html</p>",
+					"cweid": "524",
+					"wascid": "13",
+					"sourceid": "14"
+				},
+				{
+					"pluginid": "10049",
+					"alertRef": "10049-3",
+					"alert": "Storable and Cacheable Content",
+					"name": "Storable and Cacheable Content",
+					"riskcode": "0",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>The response contents are storable by caching components such as proxy servers, and may be retrieved directly from the cache, rather than from the origin server by the caching servers, in response to similar requests from other users. If the response data is sensitive, personal or user-specific, this may result in sensitive information being leaked. In some cases, this may even result in a user gaining complete control of the session of another user, depending on the configuration of the caching components in use in their environment. This is primarily an issue where \"shared\" caching servers such as \"proxy\" caches are configured on the local network. This configuration is typically found in corporate or educational environments, for instance.</p>",
+					"instances":[ 
+						{
+							"id": "573",
+							"uri": "http://host.docker.internal:3100/api/salud",
+							"nodeName": "http:\/\/host.docker.internal:3100\/api\/salud",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "In the absence of an explicitly specified caching lifetime directive in the response, a liberal lifetime heuristic of 1 year was assumed. This is permitted by rfc7234."
+						}
+					],
+					"count": "1",
+					"systemic": false,
+					"solution": "<p>Validate that the response does not contain sensitive, personal or user-specific information. If it does, consider the use of the following HTTP response headers, to limit, or prevent the content being stored and retrieved from the cache by another user:</p><p>Cache-Control: no-cache, no-store, must-revalidate, private</p><p>Pragma: no-cache</p><p>Expires: 0</p><p>This configuration directs both HTTP 1.0 and HTTP 1.1 compliant caching servers to not store the response, and to not retrieve the response (without validation) from the cache, in response to a similar request.</p>",
+					"otherinfo": "<p>In the absence of an explicitly specified caching lifetime directive in the response, a liberal lifetime heuristic of 1 year was assumed. This is permitted by rfc7234.</p>",
+					"reference": "<p>https://datatracker.ietf.org/doc/html/rfc7234</p><p>https://datatracker.ietf.org/doc/html/rfc7231</p><p>https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html</p>",
+					"cweid": "524",
+					"wascid": "13",
+					"sourceid": "22"
+				}
+			]
+		}
+	],
+	"sequences":[
+	]
+
+}

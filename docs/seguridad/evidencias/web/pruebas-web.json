@@ -1,0 +1,74 @@
+[
+  {
+    "id": "WEB-01",
+    "prueba": "Entrar a una ruta protegida sin sesión",
+    "esperado": "redirige a /ingreso",
+    "obtenido": "/ingreso",
+    "estado": "APROBADA",
+    "captura": "WEB-01_ruta_protegida_sin_sesion.png"
+  },
+  {
+    "id": "WEB-02",
+    "prueba": "Login correcto tras intentar /ordenes-lavado",
+    "esperado": "entra al panel y vuelve a la ruta pedida",
+    "obtenido": "/ordenes-lavado",
+    "estado": "APROBADA",
+    "captura": "WEB-02_login_correcto.png"
+  },
+  {
+    "id": "WEB-03",
+    "prueba": "El token se guarda solo en sessionStorage",
+    "esperado": "sessionStorage sí; localStorage y cookies vacíos",
+    "obtenido": "sessionStorage: sí; localStorage: 0; cookies: 0",
+    "estado": "APROBADA",
+    "captura": ""
+  },
+  {
+    "id": "WEB-04",
+    "prueba": "XSS almacenado: orden 2872 con <img src=x onerror=alert(1)> en observaciones",
+    "esperado": "se muestra como texto, sin alert ni <img>",
+    "obtenido": "texto literal: sí; <img> inyectadas: 0; diálogos: 0",
+    "estado": "APROBADA",
+    "captura": "WEB-04_xss_como_texto.png"
+  },
+  {
+    "id": "WEB-05",
+    "prueba": "JWT vencido en el respaldo de la pestaña",
+    "esperado": "lo descarta en el navegador y vuelve a /ingreso",
+    "obtenido": "/ingreso; respaldo: borrado",
+    "estado": "APROBADA",
+    "captura": "WEB-05_jwt_vencido.png"
+  },
+  {
+    "id": "WEB-06",
+    "prueba": "JWT rechazado por la API (401) durante la sesión",
+    "esperado": "cierre controlado: /ingreso, aviso \"Tu sesión expiró\" y respaldo borrado",
+    "obtenido": "/ingreso; aviso: sí; respaldo: borrado",
+    "estado": "APROBADA",
+    "captura": "WEB-06_sesion_expirada_401.png"
+  },
+  {
+    "id": "WEB-07",
+    "prueba": "Cerrar sesión y volver atrás",
+    "esperado": "borra el respaldo y no deja volver al panel",
+    "obtenido": "respaldo: borrado; tras volver atrás: /ingreso",
+    "estado": "APROBADA",
+    "captura": ""
+  },
+  {
+    "id": "WEB-08",
+    "prueba": "Cuenta pendiente entra y luego intenta /usuarios",
+    "esperado": "solo ve la pantalla de espera",
+    "obtenido": "pantalla de espera: sí; en /usuarios sigue la espera: sí",
+    "estado": "APROBADA",
+    "captura": "WEB-08_cuenta_pendiente.png"
+  },
+  {
+    "id": "WEB-09",
+    "prueba": "Cabeceras de seguridad de vercel.json",
+    "esperado": "CSP sin unsafe-inline en scripts, frame-ancestors 'none', X-Frame-Options DENY, nosniff",
+    "obtenido": "CSP: sí; X-Frame-Options: DENY; nosniff: nosniff",
+    "estado": "APROBADA",
+    "captura": ""
+  }
+]
