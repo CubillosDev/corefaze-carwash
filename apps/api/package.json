@@ -15,7 +15,8 @@
     "format:check": "prettier --check .",
     "test": "jest --passWithNoTests",
     "test:cobertura": "jest --coverage --passWithNoTests",
-    "seed:superadmin": "node --env-file=.env src/scripts/crearSuperAdmin.js"
+    "seed:superadmin": "node --env-file=.env src/scripts/crearSuperAdmin.js",
+    "trazabilidad": "node scripts/medir-tiempos.js"
   },
   "jest": {
     "testEnvironment": "node",

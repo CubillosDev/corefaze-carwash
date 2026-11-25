@@ -25,6 +25,9 @@ const rutasUsuarios = require('./routes/usuarios.routes');
 const rutasReportes = require('./routes/reportes.routes');
 const rutasNomina = require('./routes/nomina.routes');
 const rutasInventario = require('./routes/inventario.routes');
+const rutasTrazabilidad = require('./routes/trazabilidad.routes');
+const { crearMiddlewareTrazabilidad } = require('./middlewares/trazabilidad.middleware');
+const { registroTrazabilidad } = require('./services/trazabilidad.service');
 const rutasJornadaQr = require('./routes/jornadaQr.routes');
 
 const LIMITE_CUERPO = '10kb';
@@ -57,7 +60,10 @@ const crearApp = ({ apiKeys, origenPermitido, entornoDespliegue = 'desarrollo' }
   // Documentación interactiva.
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(documentoSwagger));
 
-  app.use(cors({ origin: origenPermitido }));
+  // Trazabilidad: X-Request-Id, X-Response-Time y tiempos por ruta de todo /api.
+  app.use('/api', crearMiddlewareTrazabilidad(registroTrazabilidad));
+
+  app.use(cors({ origin: origenPermitido, exposedHeaders: ['X-Request-Id', 'X-Response-Time'] }));
   app.use(express.json({ limit: LIMITE_CUERPO }));
 
   // Rutas públicas
@@ -83,6 +89,7 @@ const crearApp = ({ apiKeys, origenPermitido, entornoDespliegue = 'desarrollo' }
   app.use('/api/reportes', rutasReportes);
   app.use('/api/nomina', rutasNomina);
   app.use('/api/inventario', rutasInventario);
+  app.use('/api/trazabilidad', rutasTrazabilidad);
 
   app.use(rutaNoEncontrada);
   app.use(manejarErrores);
