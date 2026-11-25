@@ -29,9 +29,19 @@ const mockCrearConsulta = (tabla) => {
       if (mockEstado.fallarEn === tabla) {
         return Promise.resolve({ data: null, error: { message: 'caída simulada' } });
       }
-      const filas = mockEstado.filasPorTabla[tabla] ?? [];
+      // Aplica eq/in como lo haría PostgREST: así un .in(jornadaIds) por
+      // trozos solo "ve" las filas de su propio trozo, igual que en real.
+      const filtradas = registro.filtros.reduce((filas, [tipo, columna, valor]) => {
+        if (tipo === 'eq') {
+          return filas.filter((fila) => fila[columna] === valor);
+        }
+        if (tipo === 'in') {
+          return filas.filter((fila) => valor.includes(fila[columna]));
+        }
+        return filas;
+      }, mockEstado.filasPorTabla[tabla] ?? []);
       const ultima = Math.min(hasta, desde + TOPE_POSTGREST - 1);
-      return Promise.resolve({ data: filas.slice(desde, ultima + 1), error: null });
+      return Promise.resolve({ data: filtradas.slice(desde, ultima + 1), error: null });
     },
   };
   return consulta;
@@ -109,6 +119,36 @@ describe('listados sin el tope de 1.000 filas de PostgREST', () => {
     expect(totales.get(1)).toEqual({ unidades: 1000, ventaTotal: 1000000 });
     expect(totales.get(2)).toEqual({ unidades: 1250, ventaTotal: 1250000 });
     expect(rangosDe('ordenes_lavado')).toHaveLength(3);
+  });
+
+  it('obtenerTotalesPorJornada con más de 200 jornadas: trocea el .in() en varias consultas, totales correctos', async () => {
+    const TOTAL_JORNADAS = 250;
+    const jornadaIds = Array.from({ length: TOTAL_JORNADAS }, (_, i) => i + 1);
+    // 2 órdenes por jornada, nunca canceladas: 500 filas en total, muy por
+    // debajo del tope de 1.000 de PostgREST — lo que se prueba aquí es el
+    // trocear(jornadaIds, 200) del .in(), no la paginación por filas (ya
+    // cubierta por la prueba anterior).
+    mockEstado.filasPorTabla.ordenes_lavado = jornadaIds.flatMap((jornadaId) => [
+      { id: jornadaId * 10, jornada_id: jornadaId, valor: 1000, estado: 'entregada' },
+      { id: jornadaId * 10 + 1, jornada_id: jornadaId, valor: 1000, estado: 'entregada' },
+    ]);
+
+    const totales = await ordenesLavadoService.obtenerTotalesPorJornada(jornadaIds);
+
+    expect(totales.get(1)).toEqual({ unidades: 2, ventaTotal: 2000 });
+    expect(totales.get(200)).toEqual({ unidades: 2, ventaTotal: 2000 });
+    expect(totales.get(250)).toEqual({ unidades: 2, ventaTotal: 2000 });
+    expect(totales.size).toBe(TOTAL_JORNADAS);
+
+    // trocear(jornadaIds, 200) con 250 ids: 2 trozos (200 + 50) -> 2 consultas.
+    const consultasDeOrdenes = mockEstado.consultas.filter((consulta) => consulta.tabla === 'ordenes_lavado');
+    expect(consultasDeOrdenes).toHaveLength(2);
+    expect(consultasDeOrdenes[0].filtros).toEqual(
+      expect.arrayContaining([['in', 'jornada_id', jornadaIds.slice(0, 200)]]),
+    );
+    expect(consultasDeOrdenes[1].filtros).toEqual(
+      expect.arrayContaining([['in', 'jornada_id', jornadaIds.slice(200)]]),
+    );
   });
 
   it('listarOrdenes aplica vehiculoId y varias fases en cada página', async () => {

@@ -274,6 +274,16 @@ describe('filtros nuevos en los listados', () => {
       const respuesta = await conToken('get', '/api/vehiculos?placa=XX-1');
       expect(respuesta.status).toBe(400);
     });
+
+    // placa repetida en la query llega como arreglo (?placa=A&placa=B), y
+    // a diferencia de estado en ordenes-lavado, aquí solo se acepta una.
+    it('400 con placa repetida', async () => {
+      const respuesta = await conToken(
+        'get',
+        `/api/vehiculos?placa=${esc.vehiculo.placa}&placa=${esc.vehiculo.placa}`,
+      );
+      expect(respuesta.status).toBe(400);
+    });
   });
 
   describe('GET /api/ordenes-lavado?vehiculoId=&estado=', () => {
