@@ -142,8 +142,11 @@ const obtenerTotalesDeJornada = async (jornadaId) => {
 
 // Tope de jornadaIds por .in() en obtenerTotalesPorJornada: con muchas
 // jornadas (la app móvil puede pedir historiales largos), un solo .in()
-// podría exceder la longitud de la URL. 200 es el mismo criterio que
-// ORDENES_MAXIMO en credito.validator.js.
+// podría exceder la longitud de la URL. 200 es un límite operativo propio
+// de esta función (el mismo número que ORDENES_MAXIMO en
+// credito.validator.js, por la misma preocupación de longitud de URL/.in(),
+// pero son constantes independientes: no representan la misma regla de
+// negocio ni están acopladas — cambiar una no implica cambiar la otra).
 const TAMANO_TROZO_JORNADAS = 200;
 
 /**
@@ -157,9 +160,13 @@ const TAMANO_TROZO_JORNADAS = 200;
  * @returns {Promise<Map<number, { unidades: number, ventaTotal: number }>>} una entrada por cada id, en 0 si la jornada no tiene órdenes
  */
 const obtenerTotalesPorJornada = async (jornadaIds) => {
-  const totalesPorJornada = new Map(jornadaIds.map((id) => [id, { unidades: 0, ventaTotal: 0 }]));
+  // Deduplicado antes de trocear: un id repetido que caiga en dos trozos
+  // distintos consultaría (y sumaría) la misma jornada dos veces. Set
+  // conserva el orden de la primera aparición de cada id.
+  const idsUnicos = [...new Set(jornadaIds)];
+  const totalesPorJornada = new Map(idsUnicos.map((id) => [id, { unidades: 0, ventaTotal: 0 }]));
 
-  if (jornadaIds.length === 0) {
+  if (idsUnicos.length === 0) {
     return totalesPorJornada;
   }
 
@@ -167,7 +174,7 @@ const obtenerTotalesPorJornada = async (jornadaIds) => {
   // largo, y dentro de cada trozo, listarSinTope por las 1.000 filas de
   // max_rows — con muchas jornadas, sus órdenes pasan ese tope y los totales
   // de las últimas quedaban en 0 (ADR 0011).
-  for (const trozo of trocear(jornadaIds, TAMANO_TROZO_JORNADAS)) {
+  for (const trozo of trocear(idsUnicos, TAMANO_TROZO_JORNADAS)) {
     const data = await listarSinTope('ordenes_lavado', (desde, hasta) =>
       supabase
         .from('ordenes_lavado')
