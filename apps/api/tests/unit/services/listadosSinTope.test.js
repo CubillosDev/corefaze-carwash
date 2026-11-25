@@ -29,9 +29,19 @@ const mockCrearConsulta = (tabla) => {
       if (mockEstado.fallarEn === tabla) {
         return Promise.resolve({ data: null, error: { message: 'caída simulada' } });
       }
-      const filas = mockEstado.filasPorTabla[tabla] ?? [];
+      // Aplica eq/in como lo haría PostgREST: así un .in(jornadaIds) por
+      // trozos solo "ve" las filas de su propio trozo, igual que en real.
+      const filtradas = registro.filtros.reduce((filas, [tipo, columna, valor]) => {
+        if (tipo === 'eq') {
+          return filas.filter((fila) => fila[columna] === valor);
+        }
+        if (tipo === 'in') {
+          return filas.filter((fila) => valor.includes(fila[columna]));
+        }
+        return filas;
+      }, mockEstado.filasPorTabla[tabla] ?? []);
       const ultima = Math.min(hasta, desde + TOPE_POSTGREST - 1);
-      return Promise.resolve({ data: filas.slice(desde, ultima + 1), error: null });
+      return Promise.resolve({ data: filtradas.slice(desde, ultima + 1), error: null });
     },
   };
   return consulta;
@@ -109,6 +119,74 @@ describe('listados sin el tope de 1.000 filas de PostgREST', () => {
     expect(totales.get(1)).toEqual({ unidades: 1000, ventaTotal: 1000000 });
     expect(totales.get(2)).toEqual({ unidades: 1250, ventaTotal: 1250000 });
     expect(rangosDe('ordenes_lavado')).toHaveLength(3);
+  });
+
+  it('obtenerTotalesPorJornada con más de 200 jornadas: trocea el .in() en varias consultas, totales correctos', async () => {
+    const TOTAL_JORNADAS = 250;
+    const jornadaIds = Array.from({ length: TOTAL_JORNADAS }, (_, i) => i + 1);
+    // 2 órdenes por jornada, nunca canceladas: 500 filas en total, muy por
+    // debajo del tope de 1.000 de PostgREST — lo que se prueba aquí es el
+    // trocear(jornadaIds, 200) del .in(), no la paginación por filas (ya
+    // cubierta por la prueba anterior).
+    mockEstado.filasPorTabla.ordenes_lavado = jornadaIds.flatMap((jornadaId) => [
+      { id: jornadaId * 10, jornada_id: jornadaId, valor: 1000, estado: 'entregada' },
+      { id: jornadaId * 10 + 1, jornada_id: jornadaId, valor: 1000, estado: 'entregada' },
+    ]);
+
+    const totales = await ordenesLavadoService.obtenerTotalesPorJornada(jornadaIds);
+
+    expect(totales.get(1)).toEqual({ unidades: 2, ventaTotal: 2000 });
+    expect(totales.get(200)).toEqual({ unidades: 2, ventaTotal: 2000 });
+    // Primer id del segundo trozo: un corrimiento de límite que lo
+    // perdiera o lo duplicara no se notaría solo con el tamaño del Map.
+    expect(totales.get(201)).toEqual({ unidades: 2, ventaTotal: 2000 });
+    expect(totales.get(250)).toEqual({ unidades: 2, ventaTotal: 2000 });
+    expect(totales.size).toBe(TOTAL_JORNADAS);
+
+    // trocear(jornadaIds, 200) con 250 ids: 2 trozos (200 + 50) -> 2 consultas.
+    const consultasDeOrdenes = mockEstado.consultas.filter((consulta) => consulta.tabla === 'ordenes_lavado');
+    expect(consultasDeOrdenes).toHaveLength(2);
+    expect(consultasDeOrdenes[0].filtros).toEqual(
+      expect.arrayContaining([['in', 'jornada_id', jornadaIds.slice(0, 200)]]),
+    );
+    expect(consultasDeOrdenes[1].filtros).toEqual(
+      expect.arrayContaining([['in', 'jornada_id', jornadaIds.slice(200)]]),
+    );
+  });
+
+  it('obtenerTotalesPorJornada deduplica: un id repetido en dos trozos distintos no se cuenta dos veces', async () => {
+    // 1..250 en orden, más un "5" repetido al final: sin deduplicar,
+    // trocear(._, 200) pondría la primera aparición de 5 en el trozo 1
+    // (índice 4) y la repetida en el trozo 2 (índice 250) — justo el caso
+    // que debe quedar cubierto.
+    const jornadaIds = [...Array.from({ length: 250 }, (_, i) => i + 1), 5];
+
+    mockEstado.filasPorTabla.ordenes_lavado = Array.from({ length: 250 }, (_, i) => i + 1).flatMap(
+      (jornadaId) => [
+        { id: jornadaId * 10, jornada_id: jornadaId, valor: 1000, estado: 'entregada' },
+        { id: jornadaId * 10 + 1, jornada_id: jornadaId, valor: 1000, estado: 'entregada' },
+      ],
+    );
+
+    const totales = await ordenesLavadoService.obtenerTotalesPorJornada(jornadaIds);
+
+    // Si el id repetido se contara dos veces, esto daría 4/4000 en vez de 2/2000.
+    expect(totales.get(5)).toEqual({ unidades: 2, ventaTotal: 2000 });
+    expect(totales.get(1)).toEqual({ unidades: 2, ventaTotal: 2000 });
+    expect(totales.get(250)).toEqual({ unidades: 2, ventaTotal: 2000 });
+    // Una entrada por id ÚNICO (250), no una por elemento del arreglo (251).
+    expect(totales.size).toBe(250);
+
+    // Deduplicado antes de trocear: siguen siendo solo 2 consultas, no 3.
+    const consultasDeOrdenes = mockEstado.consultas.filter((consulta) => consulta.tabla === 'ordenes_lavado');
+    expect(consultasDeOrdenes).toHaveLength(2);
+  });
+
+  it('obtenerTotalesPorJornada con un arreglo vacío no consulta nada', async () => {
+    const totales = await ordenesLavadoService.obtenerTotalesPorJornada([]);
+
+    expect(totales.size).toBe(0);
+    expect(mockEstado.consultas.filter((consulta) => consulta.tabla === 'ordenes_lavado')).toHaveLength(0);
   });
 
   it('listarOrdenes aplica vehiculoId y varias fases en cada página', async () => {

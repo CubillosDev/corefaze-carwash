@@ -15,7 +15,7 @@ const {
 } = require('../constants/dominio');
 const { Conflicto, NoEncontrado, SolicitudInvalida } = require('../utils/errores');
 const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
-const { listarSinTope } = require('../utils/paginarPostgrest');
+const { listarSinTope, trocear } = require('../utils/paginarPostgrest');
 
 // Nunca *: porcentaje_comision nunca se selecciona mientras el contrato
 // HTTP no la incluya (igual que creado_en/actualizado_en); tampoco se
@@ -140,6 +140,15 @@ const obtenerTotalesDeJornada = async (jornadaId) => {
   return { unidades: cantidadServicios, ventaTotal: totalGeneral };
 };
 
+// Tope de jornadaIds por .in() en obtenerTotalesPorJornada: con muchas
+// jornadas (la app móvil puede pedir historiales largos), un solo .in()
+// podría exceder la longitud de la URL. 200 es un límite operativo propio
+// de esta función (el mismo número que ORDENES_MAXIMO en
+// credito.validator.js, por la misma preocupación de longitud de URL/.in(),
+// pero son constantes independientes: no representan la misma regla de
+// negocio ni están acopladas — cambiar una no implica cambiar la otra).
+const TAMANO_TROZO_JORNADAS = 200;
+
 /**
  * Igual que obtenerTotalesDeJornada, pero para VARIAS jornadas a la vez,
  * en una sola consulta: GET /api/jornadas la usa para no hacer una
@@ -151,31 +160,39 @@ const obtenerTotalesDeJornada = async (jornadaId) => {
  * @returns {Promise<Map<number, { unidades: number, ventaTotal: number }>>} una entrada por cada id, en 0 si la jornada no tiene órdenes
  */
 const obtenerTotalesPorJornada = async (jornadaIds) => {
-  const totalesPorJornada = new Map(jornadaIds.map((id) => [id, { unidades: 0, ventaTotal: 0 }]));
+  // Deduplicado antes de trocear: un id repetido que caiga en dos trozos
+  // distintos consultaría (y sumaría) la misma jornada dos veces. Set
+  // conserva el orden de la primera aparición de cada id.
+  const idsUnicos = [...new Set(jornadaIds)];
+  const totalesPorJornada = new Map(idsUnicos.map((id) => [id, { unidades: 0, ventaTotal: 0 }]));
 
-  if (jornadaIds.length === 0) {
+  if (idsUnicos.length === 0) {
     return totalesPorJornada;
   }
 
-  // Paginado: con muchas jornadas, sus órdenes pasan de las 1.000 filas de
-  // max_rows y los totales de las últimas quedaban en 0 (ADR 0011).
-  const data = await listarSinTope('ordenes_lavado', (desde, hasta) =>
-    supabase
-      .from('ordenes_lavado')
-      .select('jornada_id, valor, estado')
-      .in('jornada_id', jornadaIds)
-      .order('id', { ascending: true })
-      .range(desde, hasta),
-  );
+  // Paginado en dos niveles: trocear() por si el .in() de jornadaIds es muy
+  // largo, y dentro de cada trozo, listarSinTope por las 1.000 filas de
+  // max_rows — con muchas jornadas, sus órdenes pasan ese tope y los totales
+  // de las últimas quedaban en 0 (ADR 0011).
+  for (const trozo of trocear(idsUnicos, TAMANO_TROZO_JORNADAS)) {
+    const data = await listarSinTope('ordenes_lavado', (desde, hasta) =>
+      supabase
+        .from('ordenes_lavado')
+        .select('jornada_id, valor, estado')
+        .in('jornada_id', trozo)
+        .order('id', { ascending: true })
+        .range(desde, hasta),
+    );
 
-  data.forEach((fila) => {
-    if (fila.estado === ESTADOS_ORDEN.CANCELADA) {
-      return;
-    }
-    const totales = totalesPorJornada.get(fila.jornada_id);
-    totales.unidades += 1;
-    totales.ventaTotal += fila.valor;
-  });
+    data.forEach((fila) => {
+      if (fila.estado === ESTADOS_ORDEN.CANCELADA) {
+        return;
+      }
+      const totales = totalesPorJornada.get(fila.jornada_id);
+      totales.unidades += 1;
+      totales.ventaTotal += fila.valor;
+    });
+  }
 
   return totalesPorJornada;
 };

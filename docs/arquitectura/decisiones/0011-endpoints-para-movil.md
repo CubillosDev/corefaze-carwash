@@ -1,6 +1,6 @@
 # 0011 — Endpoints para la recepción en la app móvil
 
-**Estado:** Propuesto (2026-11-23).
+**Estado:** Aceptado (2026-11-23).
 
 ## Contexto
 
