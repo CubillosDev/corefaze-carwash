@@ -1,4 +1,4 @@
-const { body } = require('express-validator');
+const { body, query } = require('express-validator');
 const { TIPOS_CLIENTE, ESTADOS_ACTIVIDAD, LIMITES } = require('../constants/dominio');
 
 const validarNombre = () =>
@@ -80,4 +80,26 @@ const validarActualizar = [
   validarEstado(),
 ];
 
-module.exports = { validarCrear, validarActualizar };
+/** GET /api/clientes: estado, tipo y documento exacto, todos opcionales. */
+const validarFiltroListar = [
+  query('estado')
+    .optional()
+    .isIn(Object.values(ESTADOS_ACTIVIDAD))
+    .withMessage(`estado debe ser uno de: ${Object.values(ESTADOS_ACTIVIDAD).join(', ')}`),
+  query('tipo')
+    .optional()
+    .isIn(Object.values(TIPOS_CLIENTE))
+    .withMessage(`tipo debe ser uno de: ${Object.values(TIPOS_CLIENTE).join(', ')}`),
+  query('documento')
+    .optional()
+    .isString()
+    .withMessage('El documento debe ser texto')
+    .bail()
+    .trim()
+    .isLength({ min: LIMITES.documento.min, max: LIMITES.documento.max })
+    .withMessage(
+      `El documento debe tener entre ${LIMITES.documento.min} y ${LIMITES.documento.max} caracteres`,
+    ),
+];
+
+module.exports = { validarCrear, validarActualizar, validarFiltroListar };

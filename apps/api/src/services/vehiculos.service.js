@@ -4,6 +4,7 @@ const clientesService = require('./clientes.service');
 const { TIPOS_VEHICULO_MOTO, PATRONES_PLACA } = require('../constants/dominio');
 const { Conflicto, NoEncontrado, SolicitudInvalida } = require('../utils/errores');
 const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
+const { listarSinTope } = require('../utils/paginarPostgrest');
 
 // Nunca *: así nunca se filtran creado_en/actualizado_en mientras el
 // contrato HTTP no las incluya (ver supabase/README.md, "Contrato de
@@ -27,17 +28,87 @@ const traducirErrorPostgres = crearTraductorErroresPostgres({
 });
 
 /**
- * Lista todos los vehículos.
+ * Lista los vehículos, todos o solo el de una placa exacta. Pagina por
+ * rangos (listarSinTope): sin filtro ya no se trunca en las 1.000 filas de
+ * max_rows (ADR 0011).
+ * @param {{ placa?: string }} [filtros] placa ya normalizada a mayúsculas
  * @returns {Promise<object[]>}
  */
-const listarVehiculos = async () => {
-  const { data, error } = await supabase.from('vehiculos').select(COLUMNAS);
+const listarVehiculos = async (filtros = {}) => {
+  const filas = await listarSinTope('vehiculos', (desde, hasta) => {
+    let consulta = supabase.from('vehiculos').select(COLUMNAS);
+    if (filtros.placa !== undefined) {
+      consulta = consulta.eq('placa', filtros.placa);
+    }
+    return consulta.order('id', { ascending: true }).range(desde, hasta);
+  });
+
+  return aCamelCase(filas);
+};
+
+const HISTORIAL_VACIO = Object.freeze({
+  visitas: 0,
+  ultimoServicio: null,
+  ultimaFecha: null,
+  servicioHabitualId: null,
+});
+
+/**
+ * Historial de un vehículo calculado en SQL (historial_vehiculo()), sin
+ * traer sus órdenes: visitas no canceladas, último servicio y servicio
+ * habitual (en empate, el más reciente).
+ * @param {number} vehiculoId
+ * @returns {Promise<{ visitas: number, ultimoServicio: { id: number, nombre: string } | null, ultimaFecha: string | null, servicioHabitualId: number | null }>}
+ */
+const obtenerHistorialVehiculo = async (vehiculoId) => {
+  const { data, error } = await supabase
+    .rpc('historial_vehiculo', { p_vehiculo_id: vehiculoId })
+    .single();
 
   if (error) {
-    throw new Error(`No se pudo listar vehiculos: ${error.message}`);
+    throw new Error(`No se pudo calcular el historial del vehículo: ${error.message}`);
   }
 
-  return aCamelCase(data);
+  return {
+    visitas: data.visitas,
+    ultimoServicio:
+      data.ultimo_servicio_id === null
+        ? null
+        : { id: data.ultimo_servicio_id, nombre: data.ultimo_servicio_nombre },
+    ultimaFecha: data.ultima_fecha,
+    servicioHabitualId: data.servicio_habitual_id,
+  };
+};
+
+/**
+ * Todo lo que la recepción necesita de una placa en una sola respuesta:
+ * el vehículo, su dueño y su historial. Una placa no registrada no es un
+ * error: devuelve registrado: false con el historial vacío.
+ * @param {string} placa ya validada y normalizada a mayúsculas
+ * @returns {Promise<{ placa: string, registrado: boolean, vehiculo: object|null, dueno: object|null, historial: object }>}
+ */
+const consultarPlaca = async (placa) => {
+  const { data, error } = await supabase
+    .from('vehiculos')
+    .select(COLUMNAS)
+    .eq('placa', placa)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`No se pudo consultar la placa: ${error.message}`);
+  }
+
+  if (!data) {
+    return { placa, registrado: false, vehiculo: null, dueno: null, historial: HISTORIAL_VACIO };
+  }
+
+  const vehiculo = aCamelCase(data);
+  const [dueno, historial] = await Promise.all([
+    clientesService.obtenerClientePorId(vehiculo.clienteId),
+    obtenerHistorialVehiculo(vehiculo.id),
+  ]);
+
+  return { placa, registrado: true, vehiculo, dueno, historial };
 };
 
 /**
@@ -235,6 +306,8 @@ const eliminarVehiculo = async (id, usuarioId) => {
 
 module.exports = {
   listarVehiculos,
+  obtenerHistorialVehiculo,
+  consultarPlaca,
   obtenerVehiculoPorId,
   obtenerVehiculoOFallar,
   clienteTieneVehiculos,

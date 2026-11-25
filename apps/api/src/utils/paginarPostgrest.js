@@ -35,6 +35,23 @@ const traerTodasLasFilas = async (construirPagina) => {
   }
 };
 
+/**
+ * traerTodasLasFilas para los listados de un recurso: si Postgrest falla,
+ * lanza el mismo Error "No se pudo listar <recurso>: ..." que ya lanzaban
+ * esos listados cuando eran un solo select.
+ *
+ * @param {string} recurso nombre que va en el mensaje de error
+ * @param {(desde: number, hasta: number) => PromiseLike<{ data: object[], error: object|null }>} construirPagina
+ * @returns {Promise<object[]>}
+ */
+const listarSinTope = async (recurso, construirPagina) => {
+  try {
+    return await traerTodasLasFilas(construirPagina);
+  } catch (error) {
+    throw new Error(`No se pudo listar ${recurso}: ${error.message}`, { cause: error });
+  }
+};
+
 /** Parte un arreglo en trozos de tamaño `tamano`, para un .in(...) que podría superar max_rows. */
 const trocear = (arreglo, tamano) => {
   const trozos = [];
@@ -44,4 +61,4 @@ const trocear = (arreglo, tamano) => {
   return trozos;
 };
 
-module.exports = { TAMANO_PAGINA_AGREGADO, traerTodasLasFilas, trocear };
+module.exports = { TAMANO_PAGINA_AGREGADO, traerTodasLasFilas, listarSinTope, trocear };

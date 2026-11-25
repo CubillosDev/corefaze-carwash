@@ -8,10 +8,23 @@ const { Conflicto } = require('../utils/errores');
  * el catch (ver errores.middleware.js).
  */
 
-/** GET /api/vehiculos */
-const listar = async (_req, res) => {
-  const vehiculos = await vehiculosService.listarVehiculos();
+/** GET /api/vehiculos (?placa= opcional, exacta) */
+const listar = async (req, res) => {
+  const { placa } = req.datos.consulta;
+  const vehiculos = await vehiculosService.listarVehiculos({ placa });
   return res.status(200).json({ vehiculos });
+};
+
+/**
+ * GET /api/vehiculos/consulta/:placa
+ * Vehículo, dueño e historial en una sola respuesta, para la recepción en
+ * la app móvil (ADR 0011). Una placa no registrada responde 200 con
+ * registrado: false.
+ */
+const consultarPlaca = async (req, res) => {
+  const { placa } = req.datos.parametros;
+  const consulta = await vehiculosService.consultarPlaca(placa);
+  return res.status(200).json(consulta);
 };
 
 /** GET /api/vehiculos/:id */
@@ -49,4 +62,4 @@ const eliminar = async (req, res) => {
   return res.status(200).json({ mensaje: 'Vehículo eliminado correctamente' });
 };
 
-module.exports = { listar, obtenerPorId, crear, actualizar, eliminar };
+module.exports = { listar, consultarPlaca, obtenerPorId, crear, actualizar, eliminar };

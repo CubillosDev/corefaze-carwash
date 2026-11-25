@@ -92,6 +92,26 @@ const obtenerJornadaOFallar = async (id) => {
 };
 
 /**
+ * La jornada de una fecha calendario, si existe (solo puede haber una por
+ * fecha: jornadas_fecha_key).
+ * @param {string} fecha YYYY-MM-DD
+ * @returns {Promise<object | null>}
+ */
+const obtenerJornadaPorFecha = async (fecha) => {
+  const { data, error } = await supabase
+    .from('jornadas')
+    .select(COLUMNAS)
+    .eq('fecha', fecha)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`No se pudo obtener la jornada de la fecha: ${error.message}`);
+  }
+
+  return data ? aCamelCase(data) : null;
+};
+
+/**
  * Lista jornadas, opcionalmente acotadas por rango de fecha.
  * @param {{ desde?: string, hasta?: string }} [filtros]
  * @returns {Promise<object[]>}
@@ -256,6 +276,7 @@ const jornadaEstaAbierta = async (id) => {
 module.exports = {
   obtenerJornadaAbierta,
   obtenerJornadaPorId,
+  obtenerJornadaPorFecha,
   obtenerJornadaOFallar,
   listarJornadas,
   abrirJornada,

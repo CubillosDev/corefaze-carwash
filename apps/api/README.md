@@ -154,6 +154,22 @@ Cambios de contrato recientes que todo el equipo debe tener en cuenta (sección 
 
   Un usuario `pendiente` recibe 403 en cualquier recurso de negocio hasta que un `superadmin` le asigne rol.
 
+### Endpoints para la app móvil (recepción)
+
+Ver el [ADR 0011](../../docs/arquitectura/decisiones/0011-endpoints-para-movil.md). Todo es aditivo: sin parámetros, los listados responden igual que antes. Ahora vienen completos (paginados por dentro, sin el tope de 1.000 filas de PostgREST) y ordenados por `id`. Roles: superadmin, administrador y soporte.
+
+| Endpoint                                      | Respuesta / uso                                                                                                                                                                                               |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/vehiculos/consulta/:placa`          | `{ placa, registrado, vehiculo, dueno, historial: { visitas, ultimoServicio: { id, nombre }, ultimaFecha, servicioHabitualId } }`. Placa no registrada → 200 con `registrado: false`; formato inválido → 400. |
+| `GET /api/jornadas/actual`                    | `{ fecha, jornada }`: la jornada de hoy en Bogotá, o `null`, con `ordenesPorEstado: { registrada, enProceso, terminada, entregada, cancelada }`.                                                              |
+| `GET /api/vehiculos?placa=`                   | Solo el vehículo de esa placa exacta (se normaliza a mayúsculas).                                                                                                                                             |
+| `GET /api/ordenes-lavado?vehiculoId=&estado=` | `estado` acepta una o varias fases: `estado=registrada,en_proceso` o `estado=registrada&estado=en_proceso`. Se combina con los filtros que ya existían.                                                       |
+| `GET /api/clientes?estado=&tipo=&documento=`  | Documento exacto, tipo (`particular`/`empresa`) y estado (`activo`/`inactivo`).                                                                                                                               |
+| `GET /api/colaboradores?estado=`              | `estado=activo`: los que pueden recibir órdenes (R2).                                                                                                                                                         |
+| `GET /api/servicios?activo=`                  | `activo=true`: los que se ofrecen en la recepción, con sus tarifas por tipo de vehículo (R3).                                                                                                                 |
+
+El historial y el conteo por fase se calculan en SQL (`historial_vehiculo()`, `conteo_ordenes_por_estado()`, migración `20261123120000_agregar_consultas_movil.sql`). No se traen las órdenes.
+
 ## Pendiente
 
 - Persistencia con Supabase/PostgreSQL (SCRUM-152): `clientes` ya migró (Etapa A); vehículos, colaboradores, servicios, órdenes de lavado, jornadas y usuarios/auth siguen en memoria (Etapa B).

@@ -1,6 +1,7 @@
 const jornadasService = require('../services/jornadas.service');
 const ordenesLavadoService = require('../services/ordenesLavado.service');
 const { ESTADOS_JORNADA } = require('../constants/dominio');
+const fechaNegocio = require('../utils/fechaNegocio');
 
 /**
  * Con Express 5, un error lanzado en un handler async llega al middleware
@@ -44,6 +45,24 @@ const listar = async (req, res) => {
   });
 };
 
+/**
+ * GET /api/jornadas/actual
+ * La jornada de hoy en Bogotá (null si no se ha abierto), con el conteo de
+ * sus órdenes por fase calculado en SQL (ADR 0011). Para la app móvil, que
+ * antes listaba todas las jornadas y buscaba la de hoy.
+ */
+const actual = async (_req, res) => {
+  const fecha = fechaNegocio.fechaDeHoyEnBogota();
+  const jornada = await jornadasService.obtenerJornadaPorFecha(fecha);
+
+  if (!jornada) {
+    return res.status(200).json({ fecha, jornada: null });
+  }
+
+  const ordenesPorEstado = await ordenesLavadoService.contarOrdenesPorEstado(jornada.id);
+  return res.status(200).json({ fecha, jornada: { ...jornada, ordenesPorEstado } });
+};
+
 /** GET /api/jornadas/:id: una sola jornada, así que un solo obtenerTotalesDeJornada basta. */
 const obtenerPorId = async (req, res) => {
   const { id } = req.datos.parametros;
@@ -79,4 +98,4 @@ const cambiarEstado = async (req, res) => {
   return res.status(200).json({ mensaje: 'Jornada reabierta correctamente', jornada });
 };
 
-module.exports = { listar, obtenerPorId, abrir, cambiarEstado };
+module.exports = { listar, actual, obtenerPorId, abrir, cambiarEstado };

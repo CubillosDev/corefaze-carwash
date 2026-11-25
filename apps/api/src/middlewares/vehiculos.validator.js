@@ -1,4 +1,4 @@
-const { body } = require('express-validator');
+const { body, param, query } = require('express-validator');
 const { TIPOS_VEHICULO, PATRONES_PLACA, LIMITES } = require('../constants/dominio');
 
 const normalizarPlaca = (valor) => valor.trim().toUpperCase();
@@ -7,14 +7,19 @@ const normalizarPlaca = (valor) => valor.trim().toUpperCase();
 const esFormatoDePlacaValido = (placa) =>
   PATRONES_PLACA.CARRO.test(placa) || PATRONES_PLACA.MOTO.test(placa);
 
-const validarPlaca = () =>
-  body('placa')
+const MENSAJE_FORMATO_PLACA = 'La placa debe tener el formato ABC123 (carro) o ABC12D (moto)';
+
+/** La misma regla de formato para la placa del body, de la URL o de la consulta. */
+const reglaDePlaca = (cadena) =>
+  cadena
     .isString()
     .withMessage('La placa debe ser texto')
     .bail()
     .customSanitizer(normalizarPlaca)
     .custom(esFormatoDePlacaValido)
-    .withMessage('La placa debe tener el formato ABC123 (carro) o ABC12D (moto)');
+    .withMessage(MENSAJE_FORMATO_PLACA);
+
+const validarPlaca = () => reglaDePlaca(body('placa'));
 
 const validarTipoVehiculo = () =>
   body('tipoVehiculo')
@@ -54,4 +59,10 @@ const validarActualizar = [
   validarClienteId().optional(),
 ];
 
-module.exports = { validarCrear, validarActualizar };
+/** GET /api/vehiculos/consulta/:placa: la placa se normaliza a mayúsculas. */
+const validarPlacaDeUrl = [reglaDePlaca(param('placa'))];
+
+/** GET /api/vehiculos: placa exacta, opcional. */
+const validarFiltroListar = [reglaDePlaca(query('placa').optional())];
+
+module.exports = { validarCrear, validarActualizar, validarPlacaDeUrl, validarFiltroListar };

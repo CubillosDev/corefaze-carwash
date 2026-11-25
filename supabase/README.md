@@ -55,6 +55,7 @@ npx supabase db reset && npx supabase test db && npx supabase db lint
 | 21 | `agregar_inventario` | `insumos`, `movimientos_inventario`, `registrar_movimiento_inventario()` | 0–1 | Módulos del panel (ADR 0007) |
 | 22 | `agregar_tokens_jornada` | `tokens_jornada` | 2 | Módulos del panel (ADR 0007) |
 | 23 | `agregar_reportes` | `reporte_*()`, `resumen_nomina_periodo()` (solo lectura) | — | Módulos del panel (ADR 0007) |
+| 24 | `agregar_consultas_movil` | `historial_vehiculo()`, `conteo_ordenes_por_estado()` (solo lectura) | — | Endpoints para la app móvil (ADR 0011) |
 
 Detalle de qué depende de qué, y por qué `usuarios` se adelantó a la Fase 1: ver la tabla de niveles en `docs/arquitectura/diagramas/modelo-datos.md`.
 

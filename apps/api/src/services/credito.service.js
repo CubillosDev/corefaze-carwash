@@ -382,7 +382,9 @@ const listarOrdenesCreditoDeCliente = async (clienteId, { tipo = 'pendientes' } 
       .eq('cliente_id', clienteId)
       .eq('medio_pago', MEDIOS_PAGO.CREDITO)
       .neq('estado', ESTADOS_ORDEN.CANCELADA);
-    return (pagadas ? consulta.not('pago_credito_id', 'is', null) : consulta.is('pago_credito_id', null))
+    return (
+      pagadas ? consulta.not('pago_credito_id', 'is', null) : consulta.is('pago_credito_id', null)
+    )
       .order('fecha', { ascending: false })
       .order('turno', { ascending: false })
       .range(desde, hasta);
@@ -400,7 +402,11 @@ const listarOrdenesCreditoDeCliente = async (clienteId, { tipo = 'pendientes' } 
  * Cupo, día de corte y contacto de una empresa. Solo una empresa los tiene
  * (clientes_condiciones_credito_check).
  */
-const actualizarCondiciones = async (clienteId, { cupoCredito = null, diaCorte = null, contacto = null }, usuarioId) => {
+const actualizarCondiciones = async (
+  clienteId,
+  { cupoCredito = null, diaCorte = null, contacto = null },
+  usuarioId,
+) => {
   const cliente = await clientesService.obtenerClienteOFallar(clienteId);
   if (cliente.tipo !== 'empresa') {
     throw new Conflicto('Solo una empresa tiene condiciones de crédito');
@@ -431,7 +437,11 @@ const COLUMNAS_VALE =
   'vehiculo:vehiculos(placa), servicio:servicios(nombre))';
 
 const leerVale = async (filtro, valor) => {
-  const { data, error } = await supabase.from('vales_credito').select(COLUMNAS_VALE).eq(filtro, valor).maybeSingle();
+  const { data, error } = await supabase
+    .from('vales_credito')
+    .select(COLUMNAS_VALE)
+    .eq(filtro, valor)
+    .maybeSingle();
   if (error) {
     throw new Error(`No se pudo consultar el vale: ${error.message}`);
   }

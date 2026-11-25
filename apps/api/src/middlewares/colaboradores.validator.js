@@ -1,4 +1,4 @@
-const { body } = require('express-validator');
+const { body, query } = require('express-validator');
 const { LIMITES, ESTADOS_ACTIVIDAD, TIPOS_VINCULACION } = require('../constants/dominio');
 
 /** PATCH /api/colaboradores/:id/estado: único campo del body. */
@@ -96,4 +96,12 @@ const validarActualizar = [
   validarEstado(),
 ];
 
-module.exports = { validarCrear, validarActualizar, validarCambioDeEstado };
+/** GET /api/colaboradores: estado opcional. */
+const validarFiltroListar = [
+  query('estado')
+    .optional()
+    .isIn(Object.values(ESTADOS_ACTIVIDAD))
+    .withMessage(`estado debe ser uno de: ${Object.values(ESTADOS_ACTIVIDAD).join(', ')}`),
+];
+
+module.exports = { validarCrear, validarActualizar, validarCambioDeEstado, validarFiltroListar };

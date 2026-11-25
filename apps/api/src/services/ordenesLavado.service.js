@@ -15,6 +15,7 @@ const {
 } = require('../constants/dominio');
 const { Conflicto, NoEncontrado, SolicitudInvalida } = require('../utils/errores');
 const { crearTraductorErroresPostgres } = require('../utils/traducirErrorPostgres');
+const { listarSinTope } = require('../utils/paginarPostgrest');
 
 // Nunca *: porcentaje_comision nunca se selecciona mientras el contrato
 // HTTP no la incluya (igual que creado_en/actualizado_en); tampoco se
@@ -55,36 +56,42 @@ const traducirErrorPostgres = crearTraductorErroresPostgres({
 
 /**
  * Lista las órdenes de lavado. Cada filtro es opcional y se aplica solo
- * si viene definido; los que vengan se combinan con AND.
- * @param {{ fecha?: string, colaboradorId?: number, servicioId?: number, medioPago?: string, jornadaId?: number }} [filtros]
+ * si viene definido; los que vengan se combinan con AND. `estados` acepta
+ * una o varias fases (IN). Pagina por rangos (listarSinTope): sin filtros
+ * ya no se trunca en las 1.000 filas de max_rows (ADR 0011).
+ * @param {{ fecha?: string, colaboradorId?: number, servicioId?: number, medioPago?: string, jornadaId?: number, vehiculoId?: number, estados?: string[] }} [filtros]
  * @returns {Promise<object[]>}
  */
 const listarOrdenes = async (filtros = {}) => {
-  let consulta = supabase.from('ordenes_lavado').select(COLUMNAS);
+  const filas = await listarSinTope('ordenes_lavado', (desde, hasta) => {
+    let consulta = supabase.from('ordenes_lavado').select(COLUMNAS);
 
-  if (filtros.fecha !== undefined) {
-    consulta = consulta.eq('fecha', filtros.fecha);
-  }
-  if (filtros.colaboradorId !== undefined) {
-    consulta = consulta.eq('colaborador_id', filtros.colaboradorId);
-  }
-  if (filtros.servicioId !== undefined) {
-    consulta = consulta.eq('servicio_id', filtros.servicioId);
-  }
-  if (filtros.medioPago !== undefined) {
-    consulta = consulta.eq('medio_pago', filtros.medioPago);
-  }
-  if (filtros.jornadaId !== undefined) {
-    consulta = consulta.eq('jornada_id', filtros.jornadaId);
-  }
+    if (filtros.fecha !== undefined) {
+      consulta = consulta.eq('fecha', filtros.fecha);
+    }
+    if (filtros.colaboradorId !== undefined) {
+      consulta = consulta.eq('colaborador_id', filtros.colaboradorId);
+    }
+    if (filtros.servicioId !== undefined) {
+      consulta = consulta.eq('servicio_id', filtros.servicioId);
+    }
+    if (filtros.medioPago !== undefined) {
+      consulta = consulta.eq('medio_pago', filtros.medioPago);
+    }
+    if (filtros.jornadaId !== undefined) {
+      consulta = consulta.eq('jornada_id', filtros.jornadaId);
+    }
+    if (filtros.vehiculoId !== undefined) {
+      consulta = consulta.eq('vehiculo_id', filtros.vehiculoId);
+    }
+    if (filtros.estados !== undefined) {
+      consulta = consulta.in('estado', filtros.estados);
+    }
 
-  const { data, error } = await consulta;
+    return consulta.order('id', { ascending: true }).range(desde, hasta);
+  });
 
-  if (error) {
-    throw new Error(`No se pudo listar ordenes_lavado: ${error.message}`);
-  }
-
-  return aCamelCase(data);
+  return aCamelCase(filas);
 };
 
 /**
@@ -150,14 +157,16 @@ const obtenerTotalesPorJornada = async (jornadaIds) => {
     return totalesPorJornada;
   }
 
-  const { data, error } = await supabase
-    .from('ordenes_lavado')
-    .select('jornada_id, valor, estado')
-    .in('jornada_id', jornadaIds);
-
-  if (error) {
-    throw new Error(`No se pudo listar ordenes_lavado: ${error.message}`);
-  }
+  // Paginado: con muchas jornadas, sus órdenes pasan de las 1.000 filas de
+  // max_rows y los totales de las últimas quedaban en 0 (ADR 0011).
+  const data = await listarSinTope('ordenes_lavado', (desde, hasta) =>
+    supabase
+      .from('ordenes_lavado')
+      .select('jornada_id, valor, estado')
+      .in('jornada_id', jornadaIds)
+      .order('id', { ascending: true })
+      .range(desde, hasta),
+  );
 
   data.forEach((fila) => {
     if (fila.estado === ESTADOS_ORDEN.CANCELADA) {
@@ -169,6 +178,24 @@ const obtenerTotalesPorJornada = async (jornadaIds) => {
   });
 
   return totalesPorJornada;
+};
+
+/**
+ * Cuántas órdenes tiene una jornada en cada fase, calculado en SQL
+ * (conteo_ordenes_por_estado()), sin traer las órdenes (ADR 0011).
+ * @param {number} jornadaId
+ * @returns {Promise<{ registrada: number, enProceso: number, terminada: number, entregada: number, cancelada: number }>}
+ */
+const contarOrdenesPorEstado = async (jornadaId) => {
+  const { data, error } = await supabase
+    .rpc('conteo_ordenes_por_estado', { p_jornada_id: jornadaId })
+    .single();
+
+  if (error) {
+    throw new Error(`No se pudo contar las órdenes de la jornada: ${error.message}`);
+  }
+
+  return aCamelCase(data);
 };
 
 /**
@@ -559,6 +586,7 @@ const cambiarEstadoOrden = async (id, nuevoEstado, motivo, usuarioId) => {
 
 module.exports = {
   listarOrdenes,
+  contarOrdenesPorEstado,
   obtenerOrdenPorId,
   obtenerOrdenOFallar,
   colaboradorTieneOrdenes,

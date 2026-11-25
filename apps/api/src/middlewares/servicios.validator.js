@@ -1,4 +1,4 @@
-const { body } = require('express-validator');
+const { body, query } = require('express-validator');
 const { LIMITES, TIPOS_VEHICULO } = require('../constants/dominio');
 
 /** Mismo criterio que tieneTipoVehiculoDuplicado en servicios.service.js. */
@@ -94,4 +94,13 @@ const validarActualizar = [
   validarActivo(),
 ];
 
-module.exports = { validarCrear, validarActualizar };
+/** GET /api/servicios: activo opcional, solo "true" o "false". */
+const validarFiltroListar = [
+  query('activo')
+    .optional()
+    .isIn(['true', 'false'])
+    .withMessage('activo debe ser true o false')
+    .toBoolean(true),
+];
+
+module.exports = { validarCrear, validarActualizar, validarFiltroListar };

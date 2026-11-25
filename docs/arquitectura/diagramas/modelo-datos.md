@@ -266,3 +266,4 @@ Caja, crédito con vales, inventario, QR de la jornada y reportes. 8 tablas nuev
 - `insumos` y `movimientos_inventario`: el stock solo cambia con `registrar_movimiento_inventario()` y nunca queda en negativo.
 - `tokens_jornada`: hash SHA-256 de los tokens de un solo uso del QR; ningún rol de la aplicación los lee.
 - Reportes en SQL (`reporte_ventas_por_dia`, `reporte_mix_servicios`, `reporte_colaboradores`, `reporte_ingresos_por_hora`) y `resumen_nomina_periodo()`, la vista previa exacta de `liquidar_quincena()`. Agregan en la base para no depender del límite de 1.000 filas de PostgREST.
+- Para la recepción en la app móvil (ADR 0011): `historial_vehiculo()` (visitas sin canceladas, último servicio y servicio habitual de un vehículo) y `conteo_ordenes_por_estado()` (órdenes de una jornada por fase). Cada una devuelve una sola fila y solo la ejecuta `service_role`.
