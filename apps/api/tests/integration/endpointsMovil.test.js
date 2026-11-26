@@ -16,15 +16,27 @@ const {
   obtenerColaborador,
 } = require('../utils/escenarioPanel');
 const fechaNegocio = require('../../src/utils/fechaNegocio');
+const { crearGeneradorDeValorUnico, baseAleatoriaDeServicio } = require('../utils/valorUnico');
 
 const ROLES_QUE_CONSULTAN = ['superadmin', 'administrador', 'soporte'];
 
 const esc = {};
 let turno = 0;
 
+// Bloque fijo reservado para este archivo (ARCHIVOS_CON_BLOQUE_DE_SERVICIO
+// en valorUnico.js), con un desplazamiento aleatorio que no se sale de él
+// (baseAleatoriaDeServicio): el bloque disjunto evita chocar con otro
+// archivo aunque corran en secuencia sin `db reset` de por medio
+// (.github/workflows/api.yml, causa del PR #42); el desplazamiento evita
+// que repetir este archivo sin reset choque con lo que dejó la corrida anterior.
+const numeroUnicoServicio = crearGeneradorDeValorUnico(
+  baseAleatoriaDeServicio(__filename),
+  (sello, contador) => sello + contador,
+);
+
 const crearServicio = async (nombre) => {
   const respuesta = await conToken('post', '/api/servicios').send({
-    numero: 1000 + Math.floor(Math.random() * 30000),
+    numero: numeroUnicoServicio(),
     nombre,
     descripcion: 'Servicio de prueba de recepción',
     categoria: 'basico',

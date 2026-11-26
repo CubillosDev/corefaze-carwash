@@ -7,7 +7,10 @@ const {
   abrirJornada,
   crearOrden,
   obtenerColaborador,
+  fijarArchivoDelServicio,
 } = require('../utils/escenarioPanel');
+
+fijarArchivoDelServicio(__filename);
 
 beforeEach(async () => {
   await cerrarJornadaYCajaAbiertas();

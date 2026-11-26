@@ -1,7 +1,7 @@
 const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const { generarToken } = require('../../src/utils/jwt.util');
-const { crearGeneradorDeValorUnico } = require('../utils/valorUnico');
+const { crearGeneradorDeValorUnico, baseAleatoriaDeServicio } = require('../utils/valorUnico');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -30,11 +30,15 @@ const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
   conApiKey(metodo, ruta).set('Authorization', `Bearer ${token}`);
 
 // servicios.service.js ya escribe en el Supabase local (SCRUM-152, Etapa
-// B), no en un array que el beforeEach pudiera vaciar: el número es único
-// (salto aleatorio + contador) para no chocar ni dentro de esta corrida ni
-// con otro archivo que Jest ejecute en paralelo. `numero` no tiene un
-// rango acotado (solo exige >= 1), así que un sorteo amplio basta.
-const selloNumero = 1000 + Math.floor(Math.random() * 20000);
+// B), no en un array que el beforeEach pudiera vaciar: el número usa el
+// bloque fijo que este archivo tiene reservado
+// (ARCHIVOS_CON_BLOQUE_DE_SERVICIO en valorUnico.js), con un
+// desplazamiento aleatorio que no se sale de él (baseAleatoriaDeServicio).
+// El bloque disjunto evita chocar con otro archivo aunque corran en
+// secuencia sin `db reset` de por medio (.github/workflows/api.yml, causa
+// del PR #42); el desplazamiento evita que repetir este archivo sin
+// reset choque con lo que dejó la corrida anterior.
+const selloNumero = baseAleatoriaDeServicio(__filename);
 const numeroUnico = crearGeneradorDeValorUnico(selloNumero, (sello, contador) => sello + contador);
 
 const servicioValido = (overrides = {}) => ({

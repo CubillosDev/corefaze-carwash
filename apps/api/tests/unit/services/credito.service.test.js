@@ -17,15 +17,23 @@ const {
   marcarVerificacion,
 } = require('../../../src/services/credito.service');
 const { NoEncontrado, Conflicto, SolicitudInvalida } = require('../../../src/utils/errores');
-const { generarSello, crearGeneradorDeValorUnico } = require('../../utils/valorUnico');
+const {
+  generarSello,
+  crearGeneradorDeValorUnico,
+  baseAleatoriaDeServicio,
+} = require('../../utils/valorUnico');
 
 const USUARIO_ID_PRUEBA = 1;
 
 // Mismo patrón de fixtures que ordenesLavado.service.test.js: cada
 // recurso ya escribe en el Supabase local (SCRUM-152), así que cada valor
-// único (documento, placa, código, número, turno) usa un sello aleatorio
-// + contador para no chocar ni dentro de esta corrida ni con otro archivo
-// que Jest ejecute en paralelo contra el mismo Supabase.
+// único (documento, placa, código, turno) usa un sello aleatorio +
+// contador para no chocar ni dentro de esta corrida ni con otro archivo
+// que corra después contra el mismo Supabase local (maxWorkers=1: en
+// secuencia, no en paralelo, y sin `db reset` entre archivos). El número
+// de servicio es la excepción: usa el bloque fijo reservado para este
+// archivo (ver más abajo y ARCHIVOS_CON_BLOQUE_DE_SERVICIO en
+// valorUnico.js), porque un sorteo ahí sí llegó a chocar (PR #42).
 const selloDocumento = generarSello();
 
 const siguienteDocumentoCliente = crearGeneradorDeValorUnico(
@@ -109,7 +117,7 @@ const obtenerColaboradorCompartido = async () => {
   return colaboradorCompartido;
 };
 
-const selloNumeroServicio = 1000 + Math.floor(Math.random() * 20000);
+const selloNumeroServicio = baseAleatoriaDeServicio(__filename);
 const numeroUnicoServicio = crearGeneradorDeValorUnico(
   selloNumeroServicio,
   (sello, contador) => sello + contador,

@@ -16,7 +16,8 @@ const USUARIO_ID_PRUEBA = 1;
 // colaboradores.service.js ya escribe en el Supabase local (SCRUM-152), no
 // en un array que un beforeEach pudiera vaciar: documento y código son
 // únicos (salto aleatorio por archivo + contador) para no chocar ni dentro
-// de esta corrida ni con otro archivo que Jest ejecute en paralelo.
+// de esta corrida ni con otro archivo que corra después en la misma
+// secuencia (maxWorkers=1: no en paralelo).
 //
 // El código solo tiene 900 valores posibles (100-999, ver la migración de
 // `colaboradores`): a diferencia del documento o la placa, este espacio es

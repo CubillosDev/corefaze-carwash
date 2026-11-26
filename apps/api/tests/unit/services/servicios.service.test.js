@@ -9,17 +9,21 @@ const {
   eliminarServicio,
 } = require('../../../src/services/servicios.service');
 const { NoEncontrado, Conflicto, SolicitudInvalida } = require('../../../src/utils/errores');
-const { crearGeneradorDeValorUnico } = require('../../utils/valorUnico');
+const { crearGeneradorDeValorUnico, baseAleatoriaDeServicio } = require('../../utils/valorUnico');
 
 const USUARIO_ID_PRUEBA = 1;
 
 // servicios.service.js ya escribe en el Supabase local (SCRUM-152), no en
-// un array que un beforeEach pudiera vaciar: el número es único (salto
-// aleatorio por archivo + contador) para no chocar ni dentro de esta
-// corrida ni con otro archivo que Jest ejecute en paralelo. A diferencia
-// del código de colaboradores, `numero` no tiene un rango acotado (solo
-// exige >= 1), así que un sorteo amplio basta sin consultar la BD antes.
-const selloNumero = 1000 + Math.floor(Math.random() * 20000);
+// un array que un beforeEach pudiera vaciar: el número usa el bloque fijo
+// que este archivo tiene reservado (ARCHIVOS_CON_BLOQUE_DE_SERVICIO en
+// valorUnico.js), con un desplazamiento aleatorio que no se sale de él
+// (baseAleatoriaDeServicio). El bloque disjunto evita chocar con otro
+// archivo aunque corran en secuencia sin `db reset` de por medio (ver
+// .github/workflows/api.yml): pasó en el PR #42 (16 fallos 23505 "Ya
+// existe un servicio con ese número" en este archivo). El desplazamiento
+// evita que repetir este archivo sin reset choque con lo que dejó la
+// corrida anterior.
+const selloNumero = baseAleatoriaDeServicio(__filename);
 const numeroUnico = crearGeneradorDeValorUnico(selloNumero, (sello, contador) => sello + contador);
 
 const servicioValido = (overrides = {}) => ({

@@ -5,7 +5,11 @@ const serviciosService = require('../../src/services/servicios.service');
 const colaboradoresService = require('../../src/services/colaboradores.service');
 const ordenesLavadoService = require('../../src/services/ordenesLavado.service');
 const { generarToken } = require('../../src/utils/jwt.util');
-const { generarSello, crearGeneradorDeValorUnico } = require('../utils/valorUnico');
+const {
+  generarSello,
+  crearGeneradorDeValorUnico,
+  baseAleatoriaDeServicio,
+} = require('../utils/valorUnico');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -75,9 +79,9 @@ const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
 // clientes.service.js y vehiculos.service.js ya escriben en el Supabase
 // local (SCRUM-152), no en arrays que el beforeEach pudiera vaciar: el
 // documento y la placa son únicos (salto aleatorio por archivo + contador)
-// para no chocar ni dentro de esta corrida, ni con otro archivo que Jest
-// ejecute en paralelo, ni con filas de corridas anteriores sin un
-// `db reset` de por medio.
+// para no chocar ni dentro de esta corrida, ni con otro archivo que corra
+// después en la misma secuencia (maxWorkers=1: no en paralelo), ni con
+// filas de corridas anteriores sin un `db reset` de por medio.
 const documentoUnicoCliente = crearGeneradorDeValorUnico(
   generarSello(),
   (sello, contador) => `${sello}${String(contador).padStart(3, '0')}`,
@@ -366,11 +370,14 @@ describe('Integridad referencial: DELETE /api/vehiculos/:id con órdenes de lava
 
     // La orden de prueba se crea directamente contra los services (en vez
     // de vía HTTP), que ya escriben en el mismo Supabase local que usa la
-    // app; evita repetir aquí todo el setup de los otros recursos.
+    // app; evita repetir aquí todo el setup de los otros recursos. El
+    // número usa el bloque fijo que este archivo tiene reservado
+    // (ARCHIVOS_CON_BLOQUE_DE_SERVICIO en valorUnico.js): un sorteo aquí
+    // sí llegó a chocar con otro archivo (PR #42).
     await abrirJornadaDePrueba();
     const servicio = await serviciosService.crearServicio(
       {
-        numero: 1000 + Math.floor(Math.random() * 20000),
+        numero: baseAleatoriaDeServicio(__filename),
         nombre: 'Lavado básico',
         descripcion: 'Lavado exterior con shampoo',
         categoria: 'basico',
