@@ -1,0 +1,207 @@
+/*
+ * Puerto exacto del panel "Monolito" de export/monolito.html: la C del logo
+ * en 3D hecha solo con CSS, sobre una retícula de puntos con halo. Variables
+ * y valores (transform, clip-path, tamaños, tiempos) copiados tal cual del
+ * diseño de referencia; solo el contenedor (.cf-panel) se adapta para llenar
+ * la columna del login en vez del tile cuadrado de la demo.
+ */
+
+/* .cf-copy no es descendiente de .cf-panel (son hermanos en MarcoAcceso):
+   los tokens y la fuente se definen en los dos para que le lleguen a ambos. */
+.cf-panel,
+.cf-copy {
+  --cf-bg: #12172b;
+  --cf-blue: #2f6be0;
+  --cf-blue-light: #7ea2f0;
+  --cf-amber: #e0a23a;
+  --cf-green: #46a35e;
+  --cf-text: #e8ecf6;
+  --cf-text-muted: #aab3cc;
+  --cf-eyebrow: #c9d2ea;
+  font-family: 'Manrope Variable', Manrope, system-ui, sans-serif;
+}
+
+.cf-panel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--cf-bg);
+  overflow: hidden;
+  /* El ancla vertical de la escena (abajo) se da en cqw, no en %, para que
+     dependa del ANCHO del panel y no de su alto: en el demo el panel es un
+     tile cuadrado (ancho = alto), así que un % de alto ya daba el resultado
+     correcto; aquí el panel llena la columna (mucho más alto que ancho) y un
+     % de alto dejaba un hueco enorme arriba, creciendo con el alto del
+     viewport, mientras el texto de abajo queda fijo en 64px. */
+  container-type: inline-size;
+}
+
+/* Halo azul detrás del logo */
+.cf-glow {
+  position: absolute;
+  left: 50%;
+  top: 40cqw;
+  width: 72%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(47, 107, 224, 0.28), rgba(47, 107, 224, 0) 62%);
+  animation: cf-glow 5s ease-in-out infinite;
+}
+
+/* Escena 3D: punto de anclaje centrado */
+.cf-scene {
+  position: absolute;
+  left: 50%;
+  top: 39cqw;
+  width: 0;
+  height: 0;
+  perspective: 2400px;
+}
+
+/* Plano isométrico de 360x360 donde vive la C */
+.cf-plane {
+  position: absolute;
+  left: -180px;
+  top: -180px;
+  width: 360px;
+  height: 360px;
+  transform-style: preserve-3d;
+  transform: rotateX(58deg) rotateZ(-45deg);
+}
+
+/* Retícula de puntos del suelo */
+.cf-floor {
+  position: absolute;
+  inset: -120px;
+  background-image: radial-gradient(circle, rgba(126, 162, 240, 0.35) 1.4px, transparent 1.6px);
+  background-size: 30px 30px;
+  -webkit-mask-image: radial-gradient(circle, #000 30%, transparent 70%);
+  mask-image: radial-gradient(circle, #000 30%, transparent 70%);
+}
+
+/* La C: 14 capas apiladas cada 4px en Z -> extrusión de 52px.
+   Cada capa = 3 piezas (barra superior, barra izquierda con chaflanes, barra inferior). */
+.cf-layer {
+  position: absolute;
+  inset: 0;
+  transform: translateZ(var(--z));
+}
+.cf-layer i {
+  position: absolute;
+  background: var(--c);
+}
+.cf-top {
+  left: 0;
+  top: 0;
+  width: 360px;
+  height: 96px;
+  clip-path: polygon(96px 0, 100% 0, 100% 100%, 96px 100%);
+}
+.cf-left {
+  left: 0;
+  top: 0;
+  width: 96px;
+  height: 360px;
+  clip-path: polygon(0 96px, 96px 0, 96px 100%, 0 264px);
+}
+.cf-bottom {
+  left: 96px;
+  top: 264px;
+  width: 264px;
+  height: 96px;
+}
+
+/* Vehículos flotando dentro de la C */
+.cf-cars {
+  position: absolute;
+  left: 150px;
+  top: 150px;
+  width: 150px;
+  height: 60px;
+  transform-style: preserve-3d;
+  animation: cf-float 4s ease-in-out infinite;
+}
+.cf-car {
+  position: absolute;
+  top: 0;
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+}
+.cf-car--amber {
+  left: 0;
+  background: var(--cf-amber);
+  box-shadow: 0 0 30px rgba(224, 162, 58, 0.5);
+}
+.cf-car--green {
+  left: 90px;
+  background: var(--cf-green);
+  box-shadow: 0 0 30px rgba(70, 163, 94, 0.45);
+}
+
+/* Copy: en escritorio se ancla abajo a la izquierda sobre el panel; en
+   móvil no se usa (MarcoAcceso muestra el texto en flujo normal, sin el
+   panel detrás). */
+.cf-copy {
+  display: none;
+}
+@media (min-width: 47.5rem) {
+  .cf-copy {
+    display: flex;
+    position: absolute;
+    left: 70px;
+    right: 70px;
+    bottom: 64px;
+    flex-direction: column;
+    gap: 14px;
+    color: var(--cf-text);
+  }
+}
+.cf-eyebrow {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--cf-eyebrow);
+}
+.cf-title {
+  margin: 0;
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  text-wrap: pretty;
+}
+.cf-title span {
+  color: var(--cf-blue-light);
+}
+.cf-sub {
+  margin: 0;
+  font-size: 17px;
+  color: var(--cf-text-muted);
+}
+
+@keyframes cf-float {
+  0%,
+  100% {
+    transform: translateZ(70px);
+  }
+  50% {
+    transform: translateZ(86px);
+  }
+}
+@keyframes cf-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-glow,
+  .cf-cars {
+    animation: none;
+  }
+}

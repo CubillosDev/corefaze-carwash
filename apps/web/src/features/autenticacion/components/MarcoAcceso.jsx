@@ -1,6 +1,9 @@
+import '@fontsource-variable/manrope';
+
 import logoCorefazeOscuro from '@/assets/images/logo-corefaze-oscuro.webp';
 import logoCorefaze from '@/assets/images/logo-corefaze.webp';
 import { EscenaIngreso } from '@/features/autenticacion/components/EscenaIngreso';
+import './EscenaIngreso.css';
 
 /**
  * Marco de las pantallas de acceso (ingreso, solicitud de acceso y cuenta en
@@ -25,14 +28,16 @@ export function MarcoAcceso({ titulo, descripcion, children }) {
       </header>
 
       <div className="flex flex-1 flex-col escritorio:mx-2 escritorio:mb-2 escritorio:grid escritorio:grid-cols-2 escritorio:gap-2 amplio:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        <section className="flex flex-col justify-end px-5 pt-4 pb-7 escritorio:px-12 escritorio:pt-6 escritorio:pb-12">
-          <div className="relative hidden min-h-0 flex-1 escritorio:block">
-            <EscenaIngreso className="pointer-events-none absolute inset-0 size-full" />
+        <section className="relative flex flex-col justify-end px-5 pt-4 pb-7 escritorio:block escritorio:p-0">
+          {/* Panel "Monolito" (export/monolito.html): oculto en móvil, donde
+              el texto sigue en flujo normal sin la ilustración detrás. */}
+          <div className="cf-panel pointer-events-none hidden escritorio:block" aria-hidden="true">
+            <EscenaIngreso />
           </div>
 
-          <div className="flex max-w-md flex-col">
+          <div className="flex max-w-md flex-col escritorio:hidden">
             <p className="text-etiqueta text-primario-200 uppercase">Panel del lavadero</p>
-            <p className="mt-2.5 text-portada-movil text-balance text-white escritorio:text-portada">
+            <p className="mt-2.5 text-portada-movil text-balance text-white">
               Cada vehículo, de la recepción{' '}
               <span className="bg-linear-to-r from-primario-200 to-primario-400 bg-clip-text text-transparent">
                 a la entrega.
@@ -42,9 +47,17 @@ export function MarcoAcceso({ titulo, descripcion, children }) {
               Órdenes, caja, crédito y nómina del lavadero en un solo panel.
             </p>
           </div>
+
+          <div className="cf-copy">
+            <p className="cf-eyebrow">Panel del lavadero</p>
+            <p className="cf-title">
+              Cada vehículo, de la recepción <span>a la entrega.</span>
+            </p>
+            <p className="cf-sub">Órdenes, caja, crédito y nómina del lavadero en un solo panel.</p>
+          </div>
         </section>
 
-        <section className="flex flex-1 flex-col rounded-t-panel bg-neutro-50 px-5 pt-8 pb-5 escritorio:rounded-panel escritorio:px-10 escritorio:pt-10">
+        <section className="relative flex flex-1 flex-col rounded-t-panel bg-neutro-50 px-5 pt-8 pb-5 escritorio:rounded-panel escritorio:px-10 escritorio:pt-10">
           <div className="m-auto flex w-full max-w-sm animate-entrar-modal flex-col gap-6">
             <div className="flex flex-col gap-7">
               <div className="hidden items-center gap-3 escritorio:flex">
@@ -60,7 +73,12 @@ export function MarcoAcceso({ titulo, descripcion, children }) {
             {children}
           </div>
 
-          <p className="mt-8 text-center text-nota text-neutro-450">Corefaze · CarWash</p>
+          {/* Fuera del flujo: si no, su alto se resta del lado de abajo antes
+              de centrar lo de arriba, y el espacio libre queda repartido de
+              forma desigual (mucho arriba, casi nada abajo). */}
+          <p className="absolute inset-x-5 bottom-5 text-center text-nota text-neutro-450 escritorio:inset-x-10">
+            Corefaze · CarWash
+          </p>
         </section>
       </div>
     </main>
