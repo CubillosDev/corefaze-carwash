@@ -90,6 +90,7 @@ export function IngresoPage() {
           type={verClave ? 'text' : 'password'}
           name="password"
           autoComplete="current-password"
+          placeholder="••••••••"
           tamano="grande"
           value={valores.password}
           onChange={cambiar('password')}
