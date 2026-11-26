@@ -16,7 +16,11 @@ const {
   obtenerLiquidacionOFallar,
 } = require('../../../src/services/nomina.service');
 const { NoEncontrado, Conflicto, SolicitudInvalida } = require('../../../src/utils/errores');
-const { generarSello, crearGeneradorDeValorUnico } = require('../../utils/valorUnico');
+const {
+  generarSello,
+  crearGeneradorDeValorUnico,
+  baseAleatoriaDeServicio,
+} = require('../../utils/valorUnico');
 
 const USUARIO_ID_PRUEBA = 1;
 
@@ -103,7 +107,13 @@ const crearVehiculoDePrueba = async () => {
   );
 };
 
-const selloNumeroServicio = 1000 + Math.floor(Math.random() * 20000);
+// Bloque fijo reservado para este archivo (ARCHIVOS_CON_BLOQUE_DE_SERVICIO
+// en valorUnico.js), con un desplazamiento aleatorio que no se sale de él
+// (baseAleatoriaDeServicio): el bloque disjunto evita chocar con otro
+// archivo aunque corran en secuencia sin `db reset` de por medio
+// (.github/workflows/api.yml, causa del PR #42); el desplazamiento evita
+// que repetir este archivo sin reset choque con lo que dejó la corrida anterior.
+const selloNumeroServicio = baseAleatoriaDeServicio(__filename);
 const numeroUnicoServicio = crearGeneradorDeValorUnico(
   selloNumeroServicio,
   (sello, contador) => sello + contador,

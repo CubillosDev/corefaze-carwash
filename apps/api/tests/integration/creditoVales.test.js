@@ -4,8 +4,11 @@ const {
   cerrarJornadaYCajaAbiertas,
   abrirJornada,
   registrarCliente,
+  fijarArchivoDelServicio,
   crearOrden,
 } = require('../utils/escenarioPanel');
+
+fijarArchivoDelServicio(__filename);
 
 beforeEach(async () => {
   await cerrarJornadaYCajaAbiertas();

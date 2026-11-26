@@ -34,9 +34,10 @@ const conToken = (metodo, ruta, token = TOKEN_ADMINISTRADOR) =>
 // documento de cada cliente de prueba es único (salto aleatorio +
 // contador) para no chocar ni dentro de esta corrida ni con filas de
 // corridas anteriores sin un `db reset` de por medio. El salto es
-// aleatorio, no Date.now(): Jest corre archivos en paralelo en workers
-// distintos y dos pueden arrancar en el mismo milisegundo (causó una
-// colisión real entre este archivo y otro al migrar clientes).
+// aleatorio, no Date.now(): aunque apps/api corre con maxWorkers=1 (en
+// secuencia, no en paralelo), Jest no comparte módulos entre archivos y
+// coincidir en el mismo Date.now() causó una colisión real entre este
+// archivo y otro al migrar clientes.
 const selloDocumento = generarSello();
 const documentoUnico = crearGeneradorDeValorUnico(
   selloDocumento,

@@ -2,7 +2,11 @@ const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const { supabase } = require('../../src/db/supabaseCliente');
 const { generarToken } = require('../../src/utils/jwt.util');
-const { generarSello, crearGeneradorDeValorUnico } = require('../utils/valorUnico');
+const {
+  generarSello,
+  crearGeneradorDeValorUnico,
+  baseAleatoriaDeServicio,
+} = require('../utils/valorUnico');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -125,7 +129,8 @@ const registrarClienteEmpresaConCredito = async (overrides = {}) => {
 // un array que el beforeEach pudiera vaciar: la placa es única (letras
 // fijas por archivo + contador, con el formato que exige cada
 // tipoVehiculo) para no chocar ni dentro de esta corrida ni con otro
-// archivo que Jest ejecute en paralelo.
+// archivo que corra después en la misma secuencia (maxWorkers=1: no en
+// paralelo).
 const LETRAS_PLACA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const letraAleatoriaPlaca = () => LETRAS_PLACA[Math.floor(Math.random() * LETRAS_PLACA.length)];
 const prefijoPlaca = `${letraAleatoriaPlaca()}${letraAleatoriaPlaca()}${letraAleatoriaPlaca()}`;
@@ -205,11 +210,14 @@ const registrarColaborador = async (overrides = {}) => {
 };
 
 // servicios.service.js ya escribe en el Supabase local (SCRUM-152), no en
-// un array que el beforeEach pudiera vaciar: el número es único (salto
-// aleatorio + contador) para no chocar ni dentro de esta corrida ni con
-// otro archivo que Jest ejecute en paralelo. `numero` no tiene un rango
-// acotado (solo exige >= 1), así que un sorteo amplio basta.
-const selloNumeroServicio = 1000 + Math.floor(Math.random() * 20000);
+// un array que el beforeEach pudiera vaciar: el número usa el bloque fijo
+// que este archivo tiene reservado (ARCHIVOS_CON_BLOQUE_DE_SERVICIO en
+// valorUnico.js), con un desplazamiento aleatorio que no se sale de él
+// (baseAleatoriaDeServicio). El bloque disjunto evita chocar con otro
+// archivo aunque corran en secuencia sin `db reset` de por medio
+// (.github/workflows/api.yml, causa del PR #42); el desplazamiento evita
+// que repetir este archivo sin reset choque con lo que dejó la corrida anterior.
+const selloNumeroServicio = baseAleatoriaDeServicio(__filename);
 const numeroUnicoServicio = crearGeneradorDeValorUnico(
   selloNumeroServicio,
   (sello, contador) => sello + contador,

@@ -21,7 +21,11 @@ const {
   obtenerTotalesPorJornada,
 } = require('../../../src/services/ordenesLavado.service');
 const { NoEncontrado, Conflicto, SolicitudInvalida } = require('../../../src/utils/errores');
-const { generarSello, crearGeneradorDeValorUnico } = require('../../utils/valorUnico');
+const {
+  generarSello,
+  crearGeneradorDeValorUnico,
+  baseAleatoriaDeServicio,
+} = require('../../utils/valorUnico');
 
 const USUARIO_ID_PRUEBA = 1;
 
@@ -80,7 +84,8 @@ const crearClienteDePrueba = (datos = {}) =>
 // (SCRUM-152), no en un array que beforeEach pudiera vaciar: la placa es
 // única (letras fijas por archivo + contador, con el formato que exige
 // cada tipoVehiculo) para no chocar ni dentro de esta corrida ni con otro
-// archivo que Jest ejecute en paralelo.
+// archivo que corra después en la misma secuencia (maxWorkers=1: no en
+// paralelo).
 const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const letraAleatoria = () => LETRAS[Math.floor(Math.random() * LETRAS.length)];
 const prefijoPlaca = `${letraAleatoria()}${letraAleatoria()}${letraAleatoria()}`;
@@ -163,10 +168,14 @@ const crearColaboradorDePrueba = (datos = {}) => {
 
 // serviciosService.crearServicio ya escribe en el Supabase local
 // (SCRUM-152), no en un array que beforeEach pudiera vaciar: el número es
-// único (salto aleatorio + contador) para no chocar ni dentro de esta
-// corrida ni con otro archivo que Jest ejecute en paralelo. `numero` no
-// tiene un rango acotado (solo exige >= 1), así que un sorteo amplio basta.
-const selloNumeroServicio = 1000 + Math.floor(Math.random() * 20000);
+// único: usa el bloque fijo que este archivo tiene reservado
+// (ARCHIVOS_CON_BLOQUE_DE_SERVICIO en valorUnico.js), con un
+// desplazamiento aleatorio que no se sale de él (baseAleatoriaDeServicio).
+// El bloque disjunto evita chocar con otro archivo aunque corran en
+// secuencia sin `db reset` de por medio (.github/workflows/api.yml, causa
+// del PR #42); el desplazamiento evita que repetir este archivo sin
+// reset choque con lo que dejó la corrida anterior.
+const selloNumeroServicio = baseAleatoriaDeServicio(__filename);
 const numeroUnicoServicio = crearGeneradorDeValorUnico(
   selloNumeroServicio,
   (sello, contador) => sello + contador,
@@ -206,9 +215,10 @@ const obtenerServicioConLavadoMotor = async () => {
 // Un solo colaborador real, compartido por casi todos los escenarios: la
 // mayoría de las pruebas de este archivo solo necesitan "un colaborador
 // activo válido", no uno distinto cada vez. Reutilizarlo evita agotar el
-// rango de 900 códigos posibles (y las colisiones por carrera entre
-// archivos de prueba que corren en paralelo contra el mismo Supabase
-// local). Las pruebas que sí necesitan desactivar un colaborador (R2) o
+// rango de 900 códigos posibles (y las colisiones entre archivos de
+// prueba que corren uno tras otro contra el mismo Supabase local, sin
+// `db reset` de por medio). Las pruebas que sí necesitan desactivar un
+// colaborador (R2) o
 // uno claramente distinto (otroColaborador) crean el suyo aparte.
 let colaboradorCompartido = null;
 const obtenerColaboradorCompartido = async () => {

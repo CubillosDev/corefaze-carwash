@@ -8,7 +8,11 @@ const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const { supabase } = require('../../src/db/supabaseCliente');
 const { generarToken } = require('../../src/utils/jwt.util');
-const { generarSello, crearGeneradorDeValorUnico } = require('./valorUnico');
+const {
+  generarSello,
+  crearGeneradorDeValorUnico,
+  baseAleatoriaDeServicio,
+} = require('./valorUnico');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -122,11 +126,27 @@ const obtenerColaborador = async () => {
   return colaborador;
 };
 
+// Este módulo lo cargan varios archivos de prueba (uno por cada require,
+// porque Jest no comparte módulos entre archivos), y cada uno necesita su
+// propio número de servicio para no chocar con los demás. Como
+// obtenerServicio() no sabe quién lo llamó, el archivo que vaya a usar
+// crearOrden() debe llamar fijarArchivoDelServicio(__filename) una vez,
+// antes de su primer crearOrden().
+let baseServicio = null;
+const fijarArchivoDelServicio = (archivo) => {
+  baseServicio = baseAleatoriaDeServicio(archivo);
+};
+
 let servicio = null;
 const obtenerServicio = async () => {
   if (!servicio) {
+    if (baseServicio === null) {
+      throw new Error(
+        'Antes de crearOrden(), llama fijarArchivoDelServicio(__filename) (ver escenarioPanel.js).',
+      );
+    }
     const respuesta = await conToken('post', '/api/servicios').send({
-      numero: 1000 + Math.floor(Math.random() * 20000),
+      numero: baseServicio,
       nombre: 'Lavado de prueba',
       descripcion: 'Lavado exterior',
       categoria: 'basico',
@@ -183,5 +203,6 @@ module.exports = {
   registrarCliente,
   registrarVehiculo,
   obtenerColaborador,
+  fijarArchivoDelServicio,
   crearOrden,
 };

@@ -13,8 +13,10 @@ const { generarSello, crearGeneradorDeValorUnico } = require('../../utils/valorU
 
 // vehiculos.service.js y clientes.service.js ya escriben en el Supabase
 // local (SCRUM-152), no en arrays que un beforeEach pudiera vaciar: el
-// salto es aleatorio, no Date.now() — Jest corre archivos en paralelo en
-// workers distintos y dos pueden arrancar en el mismo milisegundo.
+// salto es aleatorio, no Date.now() — aunque apps/api corre con
+// maxWorkers=1 (en secuencia, no en paralelo), Jest no comparte módulos
+// entre archivos y coincidir en el mismo Date.now() ya causó una colisión
+// real (ver clientes.test.js).
 const USUARIO_ID_PRUEBA = 1;
 const documentoUnico = crearGeneradorDeValorUnico(
   generarSello(),
@@ -34,7 +36,7 @@ const crearClienteDePrueba = () =>
 
 // Prefijo de 3 letras aleatorio por archivo (no por contador: con solo 3
 // dígitos de sufijo, un prefijo fijo como 'ABC' se agotaría rápido entre
-// archivos que corren en paralelo) + contador para el sufijo, siempre con
+// los archivos de la corrida) + contador para el sufijo, siempre con
 // formato de carro.
 const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const letraAleatoria = () => LETRAS[Math.floor(Math.random() * LETRAS.length)];

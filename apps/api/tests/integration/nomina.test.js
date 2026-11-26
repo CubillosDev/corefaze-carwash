@@ -2,7 +2,11 @@ const request = require('supertest');
 const { crearApp } = require('../../src/app');
 const { supabase } = require('../../src/db/supabaseCliente');
 const { generarToken } = require('../../src/utils/jwt.util');
-const { generarSello, crearGeneradorDeValorUnico } = require('../utils/valorUnico');
+const {
+  generarSello,
+  crearGeneradorDeValorUnico,
+  baseAleatoriaDeServicio,
+} = require('../utils/valorUnico');
 
 const LLAVE = 'k'.repeat(40);
 
@@ -141,7 +145,13 @@ const registrarColaboradorActivo = async () => {
   return respuesta.body.colaborador;
 };
 
-const selloNumeroServicio = 1000 + Math.floor(Math.random() * 20000);
+// Bloque fijo reservado para este archivo (ARCHIVOS_CON_BLOQUE_DE_SERVICIO
+// en valorUnico.js), con un desplazamiento aleatorio que no se sale de él
+// (baseAleatoriaDeServicio): el bloque disjunto evita chocar con otro
+// archivo aunque corran en secuencia sin `db reset` de por medio
+// (.github/workflows/api.yml, causa del PR #42); el desplazamiento evita
+// que repetir este archivo sin reset choque con lo que dejó la corrida anterior.
+const selloNumeroServicio = baseAleatoriaDeServicio(__filename);
 const numeroUnicoServicio = crearGeneradorDeValorUnico(
   selloNumeroServicio,
   (sello, contador) => sello + contador,
@@ -207,8 +217,9 @@ const crearOrdenEfectivo = async (colaboradorId, { estado = 'entregada' } = {}) 
 // Años muy anteriores al real: cualquier quincena en este rango ya
 // "terminó" para liquidar_quincena (p_hoy real siempre >= p_fin), sin
 // fingir p_hoy. Base aleatoria para no chocar con otros archivos que
-// corran en paralelo contra el mismo Supabase (mismo criterio que
-// anioBaseJornada en credito/ordenesLavado).
+// corran después en la misma secuencia contra el mismo Supabase local
+// (maxWorkers=1: no en paralelo) (mismo criterio que anioBaseJornada en
+// credito/ordenesLavado).
 const anioBaseQuincena = 1800 + Math.floor(Math.random() * 90);
 let contadorQuincena = 0;
 
